@@ -1,0 +1,8 @@
+<Solution>
+  <Project Path="PericoOnFire-2026.BD/PericoOnFire-2026.BD.csproj" />
+  <Project Path="PericoOnFire-2026.Repositorio/PericoOnFire-2026.Repositorio.csproj" />
+  <Project Path="PericoOnFire-2026.Server/PericoOnFire-2026.Server.Client/PericoOnFire-2026.Server.Client.csproj" />
+  <Project Path="PericoOnFire-2026.Server/PericoOnFire-2026.Server/PericoOnFire-2026.Server.csproj" />
+  <Project Path="PericoOnFire-2026.Servicio/PericoOnFire-2026.Servicio.csproj" />
+  <Project Path="PericoOnFire-2026.Shared/PericoOnFire-2026.Shared.csproj" />
+</Solution>

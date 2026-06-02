@@ -1,0 +1,140 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+using System.Text.Json;
+
+namespace PericoOnFire_2026.Servicio.ServicioHttp
+{
+    public class HttpServicio : IHttpServicio
+    {
+        private readonly HttpClient http;
+
+        public HttpServicio(HttpClient http)
+        {
+            this.http = http;
+        }
+
+        public async Task<HttpRespuesta<T>> Get<T>(string url)
+        {
+            var response = await http.GetAsync(url);
+            if (response.IsSuccessStatusCode)
+            {
+                var respuesta = await DesSerializar<T>(response);
+                return new HttpRespuesta<T>(respuesta, false, response);
+            }
+            else
+            {
+                return new HttpRespuesta<T>(default, true, response);
+            }
+        }
+
+        public async Task<HttpRespuesta<TResp>> Post<T, TResp>(string url, T entidad)
+        {
+            var JsonAEnviar = JsonSerializer.Serialize(entidad);
+            var contenido = new StringContent(JsonAEnviar,
+                                              System.Text.Encoding.UTF8,
+                                              "application/json");
+
+            var response = await http.PostAsync(url, contenido);
+            if (response.IsSuccessStatusCode)
+            {
+                var respuesta = await DesSerializar<TResp>(response);
+                return new HttpRespuesta<TResp>(respuesta, false, response);
+            }
+            else
+            {
+                return new HttpRespuesta<TResp>(default, true, response);
+            }
+
+        }
+
+        //En este metodo el Put no devuelve ningun objeto, solo un status
+        // por eso el HttpRespuesta tiene un object como tipo generico
+        public async Task<HttpRespuesta<object>> Put<T>(string url, T entidad)
+        {
+            var enviarJson = JsonSerializer.Serialize(entidad);
+
+            var enviarContent = new StringContent(enviarJson,
+                                Encoding.UTF8,
+                                "application/json");
+
+            var response = await http.PutAsync(url, enviarContent);
+            if (response.IsSuccessStatusCode)
+            {
+                //var respuesta = await DesSerializar<object>(response);
+                return new HttpRespuesta<object>(null, false, response);
+            }
+            else
+            {
+                return new HttpRespuesta<object>(default, true, response);
+            }
+        }
+
+        //Este metodo es para cuando el Put devuelve un objeto, no solo un status
+        public async Task<HttpRespuesta<TResp>> Put<T, TResp>(string url, T entidad)
+        {
+            var enviarJson = JsonSerializer.Serialize(entidad);
+            var enviarContent = new StringContent(enviarJson,
+                                Encoding.UTF8,
+                                "application/json");
+
+            var response = await http.PutAsync(url, enviarContent);
+            if (response.IsSuccessStatusCode)
+            {
+                var respuesta = await DesSerializar<TResp>(response);
+                return new HttpRespuesta<TResp>(respuesta, false, response);
+            }
+            else
+            {
+                return new HttpRespuesta<TResp>(default, true, response);
+            }
+        }
+
+        public async Task<HttpRespuesta<object>> Delete(string url)
+        {
+            var respuesta = await http.DeleteAsync(url);
+            return new HttpRespuesta<object>(null,
+                                             !respuesta.IsSuccessStatusCode,
+                                             respuesta);
+        }
+
+        private async Task<T?> DesSerializar<T>(HttpResponseMessage response)
+        {
+            var respStr = await response.Content.ReadAsStringAsync();
+            return JsonSerializer.Deserialize<T>(respStr,
+                new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+        }
+
+        public async Task<string> ObtenerMensajeError(HttpResponseMessage response)
+        {
+            var contenido = await response.Content.ReadAsStringAsync();
+            try
+            {
+                // var contenido = await response.Content.ReadAsStringAsync();
+
+                // Intentar parsear como JSON
+                var errorObj = JsonSerializer.Deserialize<Dictionary<string, object>>(contenido,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                if (errorObj != null && errorObj.ContainsKey("error"))
+                {
+                    return errorObj["error"].ToString() ?? "Error desconocido";
+                }
+
+                return contenido; // Si no es JSON, devolver el texto plano
+            }
+            catch
+            {
+
+                // return "Error desconocido al procesar la respuesta del servidor";
+
+                var codigo = (int)response.StatusCode;
+                var detallePlano = string.IsNullOrWhiteSpace(contenido) ? "sin cuerpo" : contenido;
+                return $"[{codigo}] No se pudo leer la respuesta del servidor: {detallePlano}";
+            }
+        }
+    }
+}
