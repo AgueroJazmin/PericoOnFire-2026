@@ -9,7 +9,7 @@ namespace  PericoOnFire_2026.BD.Datos.Entity
 {
     public class Cliente : EntityBase
     {
-        [Required(ErrorMessage = "El Nombre del cliente es oblgatorio")]
+        [Required(ErrorMessage = "El Nombre del cliente es obligatorio")]
         [MaxLength(100, ErrorMessage = "El Nombre excede la cant")]
         public required string Nombre { get; set; }
 
@@ -17,7 +17,7 @@ namespace  PericoOnFire_2026.BD.Datos.Entity
         [MaxLength(100, ErrorMessage = "La dirección excede la cantidad máxima de caracteres")]
         public required string Direccion { get; set; }
 
-        [Required(ErrorMessage = "El numero de telefono del cliente es oblgatorio")]
+        [Required(ErrorMessage = "El numero de telefono del cliente es obligatorio")]
         public required string Telefono { get; set; }
     }
 }
