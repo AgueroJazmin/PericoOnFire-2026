@@ -17,7 +17,7 @@ builder.Services.AddScoped(sp =>
 builder.Services.AddScoped<IHttpServicio, HttpServicio>();
 
 builder.Services.AddControllers();
-
+builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // Add services to the container.
@@ -43,7 +43,7 @@ builder.Services.AddDbContext<MiDbContext>(options =>
 
 //Registrar los repositorios
 
-// ejemplo de lo que teniamos que poner   builder.Services.AddScoped<IRepositorioCliente, RepositorioCliente>(); 
+
 builder.Services.AddScoped<ICategoriaRepositorio, CategoriaRepositorio>();
 builder.Services.AddScoped<ISubcategoriaRepositorio, SubcategoriaRepositorio>();
 builder.Services.AddScoped<IProductoRepositorio, ProductoRepositorio>();
