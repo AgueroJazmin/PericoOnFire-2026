@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PericoOnFire_2026.BD.Datos;
 using PericoOnFire_2026.BD.Datos.Entity;
+using PericoOnFire_2026.Repositorio.Repositorios;
 using PericoOnFire_2026.Server.Client.Pages;
 using PericoOnFire_2026.Server.Components;
 using PericoOnFire_2026.Server.Components.Account;
@@ -43,7 +44,9 @@ builder.Services.AddDbContext<MiDbContext>(options =>
 //Registrar los repositorios
 
 // ejemplo de lo que teniamos que poner   builder.Services.AddScoped<IRepositorioCliente, RepositorioCliente>(); 
-
+builder.Services.AddScoped<ICategoriaRepositorio, CategoriaRepositorio>();
+builder.Services.AddScoped<ISubcategoriaRepositorio, SubcategoriaRepositorio>();
+builder.Services.AddScoped<IProductoRepositorio, ProductoRepositorio>();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {

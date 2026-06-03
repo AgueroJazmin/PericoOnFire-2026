@@ -17,7 +17,7 @@ namespace  PericoOnFire_2026.BD.Datos
     {
 
         public DbSet<Usuario> Usuarios { get; set; }
-        public DbSet<Cliente> Clientes { get; set; }
+        public DbSet<Cliente> Clientes { get; set; } 
         public DbSet<Mesa> Mesas { get; set; }
         public DbSet<Categoria> Categorias { get; set; }
         public DbSet<Subcategoria> Subcategorias { get; set; }
