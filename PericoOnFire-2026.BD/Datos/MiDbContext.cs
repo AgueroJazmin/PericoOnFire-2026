@@ -44,6 +44,46 @@ namespace  PericoOnFire_2026.BD.Datos
             {
                 fk.DeleteBehavior = DeleteBehavior.Restr­ict;
             }
+
+            modelBuilder.Entity<Subcategoria>()
+        .HasOne(s => s.Categoria)
+        .WithMany(c => c.Subcategorias)
+        .HasForeignKey(s => s.IdCategoria)
+        .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Producto>()
+                .Property(p => p.Precio)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Comanda>()
+                .Property(c => c.Total)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Pago>()
+                .Property(p => p.MontoTotal)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Pago>()
+                .Property(p => p.MontoPagado)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Pago>()
+                .Property(p => p.Vuelto)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<DetallePedido>()
+                .Property(d => d.PrecioUnitario)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<MovimientoCaja>()
+                .Property(m => m.Monto)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Producto>()
+    .HasOne(p => p.Subcategoria)
+    .WithMany()
+    .HasForeignKey(p => p.IdSubcategoria)
+    .OnDelete(DeleteBehavior.Restrict);
         }
 
         public MiDbContext(DbContextOptions options) : base(options)

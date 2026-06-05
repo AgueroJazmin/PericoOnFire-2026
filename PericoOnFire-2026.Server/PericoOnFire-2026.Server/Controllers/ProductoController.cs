@@ -1,9 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using PericoOnFire_2026.BD.Datos;
 using PericoOnFire_2026.BD.Datos.Entity;
 using PericoOnFire_2026.Repositorio.Repositorios;
 using PericoOnFire_2026.Shared.DTOs;
-using Microsoft.EntityFrameworkCore;
+using PericoOnFire_2026.Shared.ENUM;
 
 namespace PericoOnFire_2026.Server.Controllers
 {
@@ -67,7 +68,8 @@ namespace PericoOnFire_2026.Server.Controllers
                 Precio = dto.Precio,
                 IdSubcategoria = dto.IdSubcategoria,
                 SectorDestino = dto.SectorDestino,
-                Activo = dto.Activo
+                Activo = dto.Activo,
+                EstadoRegistro = EnumEstadoRegistro.activo
             };
 
             var id = await repositorio.Insert(producto);
