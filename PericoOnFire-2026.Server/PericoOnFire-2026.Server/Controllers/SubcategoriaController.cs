@@ -1,6 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using PericoOnFire_2026.BD.Datos.Entity;
 using PericoOnFire_2026.Repositorio.Repositorios;
+using PericoOnFire_2026.Shared.DTOs;
+using PericoOnFire_2026.Shared.ENUM;
+using PericoOnFire_2026.BD.Datos;
+
 
 namespace PericoOnFire_2026.Server.Controllers
 {
@@ -9,10 +14,11 @@ namespace PericoOnFire_2026.Server.Controllers
     public class SubcategoriasController : ControllerBase
     {
         private readonly ISubcategoriaRepositorio repositorio;
-
-        public SubcategoriasController(ISubcategoriaRepositorio repositorio)
+        private readonly MiDbContext context;
+        public SubcategoriasController(ISubcategoriaRepositorio repositorio, MiDbContext context)
         {
             this.repositorio = repositorio;
+            this.context = context;
         }
 
         [HttpGet]
@@ -39,9 +45,24 @@ namespace PericoOnFire_2026.Server.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<int>> Post(Subcategoria entidad)
+        public async Task<ActionResult<int>> Post(SubcategoriaCrearDTO dto)
         {
-            var id = await repositorio.Insert(entidad);
+            var existeCategoria = await context.Categorias
+                .AnyAsync(c => c.Id == dto.IdCategoria);
+
+            if (!existeCategoria)
+            {
+                return BadRequest($"No existe la categoría con Id {dto.IdCategoria}.");
+            }
+
+            var subcategoria = new Subcategoria
+            {
+                IdCategoria = dto.IdCategoria,
+                NombreSubcategoria = dto.NombreSubcategoria,
+                EstadoRegistro = EnumEstadoRegistro.activo
+            };
+
+            var id = await repositorio.Insert(subcategoria);
 
             return Ok(id);
         }

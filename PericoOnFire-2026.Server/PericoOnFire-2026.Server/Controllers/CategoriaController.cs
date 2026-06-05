@@ -1,6 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using PericoOnFire_2026.BD.Datos;
 using PericoOnFire_2026.BD.Datos.Entity;
 using PericoOnFire_2026.Repositorio.Repositorios;
+using PericoOnFire_2026.Shared.DTOs;
+using PericoOnFire_2026.Shared.ENUM;
+using Microsoft.EntityFrameworkCore;
 
 namespace PericoOnFire_2026.Server.Controllers
 {
@@ -9,10 +13,12 @@ namespace PericoOnFire_2026.Server.Controllers
     public class CategoriasController : ControllerBase
     {
         private readonly ICategoriaRepositorio repositorio;
+        private readonly MiDbContext context;
 
-        public CategoriasController(ICategoriaRepositorio repositorio)
+        public CategoriasController(ICategoriaRepositorio repositorio, MiDbContext context)
         {
             this.repositorio = repositorio;
+            this.context = context;
         }
 
         [HttpGet]
@@ -33,9 +39,16 @@ namespace PericoOnFire_2026.Server.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<int>> Post(Categoria categoria)
+        public async Task<ActionResult<int>> Post(CategoriaCrearDTO dto)
         {
+            var categoria = new Categoria
+            {
+                NombreCategoria = dto.NombreCategoria,
+                EstadoRegistro = EnumEstadoRegistro.activo
+            };
+
             var id = await repositorio.Insert(categoria);
+
             return Ok(id);
         }
 
