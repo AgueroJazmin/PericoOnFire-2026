@@ -22,9 +22,23 @@ namespace PericoOnFire_2026.Server.Controllers
         }
 
         [HttpGet]
-        public async Task<ActionResult<List<Producto>>> Get()
+        public async Task<ActionResult<List<ProductoListadoDTO>>> Get()
         {
-            return await repositorio.Select();
+            var lista = await context.Productos
+                .Include(p => p.Subcategoria)
+                .Select(p => new ProductoListadoDTO
+                {
+                    Id = p.Id,
+                    Nombre = p.Nombre,
+                    Precio = p.Precio,
+                    IdSubcategoria = p.IdSubcategoria,
+                    NombreSubcategoria = p.Subcategoria.NombreSubcategoria,
+                    SectorDestino = p.SectorDestino,
+                    Activo = p.Activo
+                })
+                .ToListAsync();
+
+            return Ok(lista);
         }
 
         [HttpGet("{id:int}")]
