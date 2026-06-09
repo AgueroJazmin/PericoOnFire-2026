@@ -12,28 +12,56 @@ namespace PericoOnFire_2026.Server.Controllers
     [Route("api/DetallePedido")]
     public class DetallePedidoController : ControllerBase
     {
+        private readonly MiDbContext context;
         private readonly IRepositorio<DetallePedido> repositorio;
 
-        public DetallePedidoController(IRepositorio<DetallePedido> repositorio)
+        public DetallePedidoController(IRepositorio<DetallePedido> repositorio, MiDbContext context)
         {
             this.repositorio = repositorio;
+            this.context = context;
         }
 
         [HttpGet]
         public async Task<ActionResult<List<DetallePedido>>> Get()
         {
-            return await repositorio.Select();
+            var detalles = await context.DetallesPedido
+                .Include(d => d.Producto)
+                .Select(d => new 
+                {  
+                   d.Id,
+                   d.Cantidad,
+                   Producto = new
+                   {
+                       d.Producto.Id,
+                       d.Producto.Nombre
+                   }
+
+                }).ToListAsync();
+
+            return Ok(detalles);
         }
 
         [HttpGet("{id:int}")]
         public async Task<ActionResult<DetallePedido>> Get(int id)
         {
-            var detalle = await repositorio.SelectById(id);
+            var detalle = await context.DetallesPedido
+                .Include(d => d.Producto)
+                .Where(d => d.Id == id)
+                .Select(d => new
+                {
+                    d.Id,
+                    d.Cantidad,
+                    Producto = new
+                    {
+                        d.Producto.Id,
+                        d.Producto.Nombre
+                    }
+                }).FirstOrDefaultAsync();
 
             if (detalle == null)
                 return NotFound();
 
-            return detalle;
+            return Ok(detalle);
         }
 
         [HttpPost]
