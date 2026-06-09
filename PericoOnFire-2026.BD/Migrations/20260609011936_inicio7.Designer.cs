@@ -12,8 +12,8 @@ using PericoOnFire_2026.BD.Datos;
 namespace PericoOnFire_2026.BD.Migrations
 {
     [DbContext(typeof(MiDbContext))]
-    [Migration("20260605115258_relacionproductosubcategoria")]
-    partial class relacionproductosubcategoria
+    [Migration("20260609011936_inicio7")]
+    partial class inicio7
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -304,9 +304,6 @@ namespace PericoOnFire_2026.BD.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("ClienteId")
-                        .HasColumnType("int");
-
                     b.Property<int>("Estado")
                         .HasColumnType("int");
 
@@ -328,9 +325,6 @@ namespace PericoOnFire_2026.BD.Migrations
                     b.Property<int?>("IdUsuario")
                         .HasColumnType("int");
 
-                    b.Property<int?>("MesaId")
-                        .HasColumnType("int");
-
                     b.Property<string>("Observaciones")
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
@@ -342,16 +336,13 @@ namespace PericoOnFire_2026.BD.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<int?>("UsuarioId")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("ClienteId");
+                    b.HasIndex("IdCliente");
 
-                    b.HasIndex("MesaId");
+                    b.HasIndex("IdMesa");
 
-                    b.HasIndex("UsuarioId");
+                    b.HasIndex("IdUsuario");
 
                     b.ToTable("Comandas");
                 });
@@ -380,21 +371,15 @@ namespace PericoOnFire_2026.BD.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
 
-                    b.Property<int>("PedidoId")
-                        .HasColumnType("int");
-
                     b.Property<decimal>("PrecioUnitario")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<int>("ProductoId")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
 
-                    b.HasIndex("PedidoId");
+                    b.HasIndex("IdPedido");
 
-                    b.HasIndex("ProductoId");
+                    b.HasIndex("IdProducto");
 
                     b.ToTable("DetallesPedido");
                 });
@@ -522,12 +507,6 @@ namespace PericoOnFire_2026.BD.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("ComandaId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("DeliveryId")
-                        .HasColumnType("int");
-
                     b.Property<int>("Estado")
                         .HasColumnType("int");
 
@@ -561,9 +540,9 @@ namespace PericoOnFire_2026.BD.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ComandaId");
+                    b.HasIndex("IdComanda");
 
-                    b.HasIndex("DeliveryId");
+                    b.HasIndex("IdDelivery");
 
                     b.ToTable("Pedidos");
                 });
@@ -772,15 +751,18 @@ namespace PericoOnFire_2026.BD.Migrations
                 {
                     b.HasOne("PericoOnFire_2026.BD.Datos.Entity.Cliente", "Cliente")
                         .WithMany()
-                        .HasForeignKey("ClienteId");
+                        .HasForeignKey("IdCliente")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("PericoOnFire_2026.BD.Datos.Entity.Mesa", "Mesa")
                         .WithMany()
-                        .HasForeignKey("MesaId");
+                        .HasForeignKey("IdMesa")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("PericoOnFire_2026.BD.Datos.Entity.Usuario", "Usuario")
                         .WithMany()
-                        .HasForeignKey("UsuarioId");
+                        .HasForeignKey("IdUsuario")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Cliente");
 
@@ -793,13 +775,13 @@ namespace PericoOnFire_2026.BD.Migrations
                 {
                     b.HasOne("PericoOnFire_2026.BD.Datos.Entity.Pedido", "Pedido")
                         .WithMany("DetallesPedido")
-                        .HasForeignKey("PedidoId")
+                        .HasForeignKey("IdPedido")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("PericoOnFire_2026.BD.Datos.Entity.Producto", "Producto")
                         .WithMany("DetallesPedido")
-                        .HasForeignKey("ProductoId")
+                        .HasForeignKey("IdProducto")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -842,13 +824,14 @@ namespace PericoOnFire_2026.BD.Migrations
                 {
                     b.HasOne("PericoOnFire_2026.BD.Datos.Entity.Comanda", "Comanda")
                         .WithMany("Pedidos")
-                        .HasForeignKey("ComandaId")
+                        .HasForeignKey("IdComanda")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("PericoOnFire_2026.BD.Datos.Entity.Usuario", "Delivery")
                         .WithMany()
-                        .HasForeignKey("DeliveryId");
+                        .HasForeignKey("IdDelivery")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.Navigation("Comanda");
 

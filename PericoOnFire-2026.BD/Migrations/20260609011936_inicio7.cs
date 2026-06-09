@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace PericoOnFire_2026.BD.Migrations
 {
     /// <inheritdoc />
-    public partial class Inicio : Migration
+    public partial class inicio7 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -246,15 +246,14 @@ namespace PericoOnFire_2026.BD.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     IdCategoria = table.Column<int>(type: "int", nullable: false),
                     NombreSubcategoria = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    CategoriaId = table.Column<int>(type: "int", nullable: false),
                     EstadoRegistro = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Subcategorias", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Subcategorias_Categorias_CategoriaId",
-                        column: x => x.CategoriaId,
+                        name: "FK_Subcategorias_Categorias_IdCategoria",
+                        column: x => x.IdCategoria,
                         principalTable: "Categorias",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
@@ -273,31 +272,31 @@ namespace PericoOnFire_2026.BD.Migrations
                     Estado = table.Column<int>(type: "int", nullable: false),
                     FechaApertura = table.Column<DateTime>(type: "datetime2", nullable: false),
                     FechaCierre = table.Column<DateTime>(type: "datetime2", nullable: true),
-                    Total = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    Total = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
                     Observaciones = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: true),
-                    MesaId = table.Column<int>(type: "int", nullable: true),
-                    ClienteId = table.Column<int>(type: "int", nullable: true),
-                    UsuarioId = table.Column<int>(type: "int", nullable: true),
                     EstadoRegistro = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Comandas", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Comandas_Clientes_ClienteId",
-                        column: x => x.ClienteId,
+                        name: "FK_Comandas_Clientes_IdCliente",
+                        column: x => x.IdCliente,
                         principalTable: "Clientes",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_Comandas_Mesas_MesaId",
-                        column: x => x.MesaId,
+                        name: "FK_Comandas_Mesas_IdMesa",
+                        column: x => x.IdMesa,
                         principalTable: "Mesas",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_Comandas_Usuarios_UsuarioId",
-                        column: x => x.UsuarioId,
+                        name: "FK_Comandas_Usuarios_IdUsuario",
+                        column: x => x.IdUsuario,
                         principalTable: "Usuarios",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -308,7 +307,7 @@ namespace PericoOnFire_2026.BD.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     IdUsuario = table.Column<int>(type: "int", nullable: false),
                     TipoMovimiento = table.Column<int>(type: "int", nullable: false),
-                    Monto = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    Monto = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
                     Motivo = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
                     FechaMovimiento = table.Column<DateTime>(type: "datetime2", nullable: false),
                     Observaciones = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: true),
@@ -333,19 +332,18 @@ namespace PericoOnFire_2026.BD.Migrations
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
                     Nombre = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Precio = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    Precio = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
                     IdSubcategoria = table.Column<int>(type: "int", nullable: false),
                     SectorDestino = table.Column<int>(type: "int", nullable: false),
                     Activo = table.Column<bool>(type: "bit", nullable: false),
-                    SubcategoriaId = table.Column<int>(type: "int", nullable: false),
                     EstadoRegistro = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Productos", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Productos_Subcategorias_SubcategoriaId",
-                        column: x => x.SubcategoriaId,
+                        name: "FK_Productos_Subcategorias_IdSubcategoria",
+                        column: x => x.IdSubcategoria,
                         principalTable: "Subcategorias",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
@@ -360,9 +358,9 @@ namespace PericoOnFire_2026.BD.Migrations
                     IdComanda = table.Column<int>(type: "int", nullable: false),
                     IdUsuarioCaja = table.Column<int>(type: "int", nullable: false),
                     TipoPago = table.Column<int>(type: "int", nullable: false),
-                    MontoTotal = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    MontoPagado = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
-                    Vuelto = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    MontoTotal = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    MontoPagado = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
+                    Vuelto = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
                     FechaPago = table.Column<DateTime>(type: "datetime2", nullable: false),
                     ComandaId = table.Column<int>(type: "int", nullable: false),
                     UsuarioCajaId = table.Column<int>(type: "int", nullable: false),
@@ -400,24 +398,23 @@ namespace PericoOnFire_2026.BD.Migrations
                     FechaEntregado = table.Column<DateTime>(type: "datetime2", nullable: true),
                     IdDelivery = table.Column<int>(type: "int", nullable: true),
                     Observaciones = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: true),
-                    ComandaId = table.Column<int>(type: "int", nullable: false),
-                    DeliveryId = table.Column<int>(type: "int", nullable: true),
                     EstadoRegistro = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Pedidos", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_Pedidos_Comandas_ComandaId",
-                        column: x => x.ComandaId,
+                        name: "FK_Pedidos_Comandas_IdComanda",
+                        column: x => x.IdComanda,
                         principalTable: "Comandas",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_Pedidos_Usuarios_DeliveryId",
-                        column: x => x.DeliveryId,
+                        name: "FK_Pedidos_Usuarios_IdDelivery",
+                        column: x => x.IdDelivery,
                         principalTable: "Usuarios",
-                        principalColumn: "Id");
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
@@ -429,24 +426,22 @@ namespace PericoOnFire_2026.BD.Migrations
                     IdPedido = table.Column<int>(type: "int", nullable: false),
                     IdProducto = table.Column<int>(type: "int", nullable: false),
                     Cantidad = table.Column<int>(type: "int", nullable: false),
-                    PrecioUnitario = table.Column<decimal>(type: "decimal(18,2)", nullable: false),
+                    PrecioUnitario = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
                     Observacion = table.Column<string>(type: "nvarchar(300)", maxLength: 300, nullable: true),
-                    PedidoId = table.Column<int>(type: "int", nullable: false),
-                    ProductoId = table.Column<int>(type: "int", nullable: false),
                     EstadoRegistro = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_DetallesPedido", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_DetallesPedido_Pedidos_PedidoId",
-                        column: x => x.PedidoId,
+                        name: "FK_DetallesPedido_Pedidos_IdPedido",
+                        column: x => x.IdPedido,
                         principalTable: "Pedidos",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "FK_DetallesPedido_Productos_ProductoId",
-                        column: x => x.ProductoId,
+                        name: "FK_DetallesPedido_Productos_IdProducto",
+                        column: x => x.IdProducto,
                         principalTable: "Productos",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
@@ -497,29 +492,29 @@ namespace PericoOnFire_2026.BD.Migrations
                 filter: "[NormalizedUserName] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Comandas_ClienteId",
+                name: "IX_Comandas_IdCliente",
                 table: "Comandas",
-                column: "ClienteId");
+                column: "IdCliente");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Comandas_MesaId",
+                name: "IX_Comandas_IdMesa",
                 table: "Comandas",
-                column: "MesaId");
+                column: "IdMesa");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Comandas_UsuarioId",
+                name: "IX_Comandas_IdUsuario",
                 table: "Comandas",
-                column: "UsuarioId");
+                column: "IdUsuario");
 
             migrationBuilder.CreateIndex(
-                name: "IX_DetallesPedido_PedidoId",
+                name: "IX_DetallesPedido_IdPedido",
                 table: "DetallesPedido",
-                column: "PedidoId");
+                column: "IdPedido");
 
             migrationBuilder.CreateIndex(
-                name: "IX_DetallesPedido_ProductoId",
+                name: "IX_DetallesPedido_IdProducto",
                 table: "DetallesPedido",
-                column: "ProductoId");
+                column: "IdProducto");
 
             migrationBuilder.CreateIndex(
                 name: "IX_MovimientosCaja_UsuarioId",
@@ -537,24 +532,24 @@ namespace PericoOnFire_2026.BD.Migrations
                 column: "UsuarioCajaId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Pedidos_ComandaId",
+                name: "IX_Pedidos_IdComanda",
                 table: "Pedidos",
-                column: "ComandaId");
+                column: "IdComanda");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Pedidos_DeliveryId",
+                name: "IX_Pedidos_IdDelivery",
                 table: "Pedidos",
-                column: "DeliveryId");
+                column: "IdDelivery");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Productos_SubcategoriaId",
+                name: "IX_Productos_IdSubcategoria",
                 table: "Productos",
-                column: "SubcategoriaId");
+                column: "IdSubcategoria");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Subcategorias_CategoriaId",
+                name: "IX_Subcategorias_IdCategoria",
                 table: "Subcategorias",
-                column: "CategoriaId");
+                column: "IdCategoria");
         }
 
         /// <inheritdoc />

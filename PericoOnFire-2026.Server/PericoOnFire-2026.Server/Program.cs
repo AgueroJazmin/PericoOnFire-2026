@@ -36,17 +36,18 @@ builder.Services.AddAuthentication(options =>
         options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
     })
     .AddIdentityCookies();
-
-var connectionString = builder.Configuration.GetConnectionString("ConSqlServer") ?? throw new InvalidOperationException("Connection string 'ConSqlServer' not found.");
+var connectionString = builder.Configuration.GetConnectionString("ConSqlServer") ?? throw new InvalidOperationException("El string de conexion no existe.");
 builder.Services.AddDbContext<MiDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 //Registrar los repositorios
 
-
 builder.Services.AddScoped<ICategoriaRepositorio, CategoriaRepositorio>();
 builder.Services.AddScoped<ISubcategoriaRepositorio, SubcategoriaRepositorio>();
 builder.Services.AddScoped<IProductoRepositorio, ProductoRepositorio>();
+builder.Services.AddScoped<IComandaRepositorio, ComandaRepositorio>();
+builder.Services.AddScoped<IPedidoRepositorio, PedidoRepositorio>();
+builder.Services.AddScoped(typeof(IRepositorio<>), typeof(Repositorio<>));
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
