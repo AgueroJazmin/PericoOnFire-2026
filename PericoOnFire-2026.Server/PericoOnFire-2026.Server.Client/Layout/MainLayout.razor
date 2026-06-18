@@ -1,19 +1,49 @@
 ﻿@inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<div class="perico-layout">
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
+    <header class="perico-topbar">
+        <nav class="perico-menu">
+            <NavLink href="/" Match="NavLinkMatch.All" class="perico-link">
+                Mesas
+            </NavLink>
+
+            <NavLink href="/caja" class="perico-link">
+                Caja
+            </NavLink>
+
+            <NavLink href="/cocina" class="perico-link">
+                Cocina
+            </NavLink>
+
+            <NavLink href="/barra" class="perico-link">
+                Barra
+            </NavLink>
+
+            <NavLink href="/pedidos" class="perico-link">
+                Pedidos
+            </NavLink>
+        </nav>
+
+        <div class="perico-actions">
+
+            <img src="img/perico-logo.jpg"
+                 class="perico-logo"
+                 alt="Perico On Fire" />
+
+            <NavLink href="/configuracion"
+                     class="config-link">
+                <i class="bi bi-gear-fill"></i>
+               
+            </NavLink>
+
         </div>
+    </header>
 
-        <article class="content px-4">
-            @Body
-        </article>
+    <main class="perico-main-content">
+        @Body
     </main>
+
 </div>
 
 <div id="blazor-error-ui" data-nosnippet>
@@ -21,3 +51,89 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+<style>
+    .perico-layout {
+        min-height: 100vh;
+        background: #1f1f1f;
+        padding: 0;
+        margin: 0;
+    }
+
+    .perico-topbar {
+        height: 64px;
+        background: #f10b0b;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 2rem;
+        width: 100%;
+    }
+
+    .perico-menu {
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+    }
+
+    .perico-link {
+        color: black;
+        text-decoration: none;
+        font-weight: bold;
+        padding: 0.8rem 1.4rem;
+        border-radius: 2rem;
+    }
+
+        .perico-link.active {
+            background: rgba(0, 0, 0, 0.25);
+        }
+
+        .perico-link:hover {
+            background: rgba(0, 0, 0, 0.18);
+            color: black;
+        }
+
+    .perico-actions {
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+    }
+
+        .perico-actions a {
+            color: black;
+            text-decoration: none;
+            font-size: 1.6rem;
+        }
+
+    .perico-main-content {
+        width: 100%;
+        min-height: calc(100vh - 64px);
+        background: #1f1f1f;
+        padding: 1.5rem 2rem;
+    }
+
+    .perico-actions {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .perico-logo {
+        width: 55px;
+        height: 55px;
+        object-fit: contain;
+    }
+
+    .config-link {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        text-decoration: none;
+        color: black;
+        font-weight: bold;
+    }
+
+        .config-link i {
+            font-size: 1.4rem;
+        }
+</style>

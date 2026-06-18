@@ -1,7 +1,219 @@
 ﻿@page "/"
 
-<PageTitle>Home</PageTitle>
+<main class="perico-main">
 
-<h1>Hello, world!</h1>
+    <section class="salon salon-izq">
+        @foreach (var mesa in mesasIzquierda)
+        {
+            <button class="mesa mesa-@mesa.Numero">
+                <span>@mesa.Numero</span>
+            </button>
+        }
+    </section>
 
-Welcome to your new app.
+    <section class="salon salon-der">
+        <img src="img/perico-pizza.jpg" class="perico-img" />
+
+        @foreach (var mesa in mesasDerecha)
+        {
+            <button class="mesa mesa-@mesa.Numero">
+                <span>@mesa.Numero</span>
+            </button>
+        }
+    </section>
+
+</main>
+
+<style>
+    .perico-main {
+        width: 100%;
+        height: calc(100vh - 64px);
+        background: white;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        border: 2px solid #222;
+    }
+
+    .salon {
+        position: relative;
+        height: 100%;
+    }
+
+    .salon-izq {
+        border-right: 4px solid #222;
+    }
+
+    .mesa {
+        position: absolute;
+        width: 68px;
+        height: 46px;
+        background: white;
+        border: 1px solid #cfcfcf;
+        font-weight: bold;
+        cursor: pointer;
+        z-index: 2;
+    }
+
+        .mesa span {
+            position: relative;
+            z-index: 3;
+        }
+
+        .mesa::before,
+        .mesa::after {
+            content: "";
+            position: absolute;
+            background: white;
+            border: 1px solid #cfcfcf;
+            width: 16px;
+            height: 22px;
+            top: 11px;
+        }
+
+        .mesa::before {
+            left: -20px;
+        }
+
+        .mesa::after {
+            right: -20px;
+        }
+
+        .mesa span::before,
+        .mesa span::after {
+            content: "";
+            position: absolute;
+            background: white;
+            border: 1px solid #cfcfcf;
+            width: 18px;
+            height: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .mesa span::before {
+            top: -32px;
+        }
+
+        .mesa span::after {
+            bottom: -32px;
+        }
+
+        .mesa:hover {
+            background: #ffecec;
+            border-color: red;
+        }
+
+    .mesa-12 {
+        top: 35px;
+        left: 135px;
+    }
+
+    .mesa-11 {
+        top: 150px;
+        left: 70px;
+    }
+
+    .mesa-10 {
+        top: 145px;
+        left: 220px;
+    }
+
+    .mesa-9 {
+        top: 145px;
+        left: 370px;
+    }
+
+    .mesa-8 {
+        top: 270px;
+        left: 70px;
+    }
+
+    .mesa-7 {
+        top: 265px;
+        left: 220px;
+    }
+
+    .mesa-6 {
+        top: 265px;
+        left: 370px;
+    }
+
+    .mesa-5 {
+        top: 390px;
+        left: 70px;
+    }
+
+    .mesa-4 {
+        top: 385px;
+        left: 220px;
+    }
+
+    .mesa-3 {
+        top: 385px;
+        left: 370px;
+    }
+
+    .mesa-2 {
+        top: 515px;
+        left: 220px;
+    }
+
+    .mesa-1 {
+        top: 515px;
+        left: 370px;
+    }
+
+    .mesa-13 {
+        top: 260px;
+        left: 120px;
+    }
+
+    .mesa-14 {
+        top: 390px;
+        left: 120px;
+    }
+
+    .mesa-15 {
+        top: 520px;
+        left: 120px;
+    }
+
+    .perico-img {
+        position: absolute;
+        top: 180px;
+        right: 90px;
+        width: 260px;
+        height: 260px;
+        object-fit: cover;
+    }
+</style>
+
+@code {
+    private List<MesaHome> mesasIzquierda = new()
+    {
+        new MesaHome { Numero = 12 },
+        new MesaHome { Numero = 11 },
+        new MesaHome { Numero = 10 },
+        new MesaHome { Numero = 9 },
+        new MesaHome { Numero = 8 },
+        new MesaHome { Numero = 7 },
+        new MesaHome { Numero = 6 },
+        new MesaHome { Numero = 5 },
+        new MesaHome { Numero = 4 },
+        new MesaHome { Numero = 3 },
+        new MesaHome { Numero = 2 },
+        new MesaHome { Numero = 1 }
+    };
+
+    private List<MesaHome> mesasDerecha = new()
+    {
+        new MesaHome { Numero = 13 },
+        new MesaHome { Numero = 14 },
+        new MesaHome { Numero = 15 }
+    };
+
+    private class MesaHome
+    {
+        public int Numero { get; set; }
+    }
+}

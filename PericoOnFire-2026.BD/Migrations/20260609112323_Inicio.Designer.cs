@@ -12,8 +12,8 @@ using PericoOnFire_2026.BD.Datos;
 namespace PericoOnFire_2026.BD.Migrations
 {
     [DbContext(typeof(MiDbContext))]
-    [Migration("20260609011936_inicio7")]
-    partial class inicio7
+    [Migration("20260609112323_Inicio")]
+    partial class Inicio
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
