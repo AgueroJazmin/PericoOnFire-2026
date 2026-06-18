@@ -12,15 +12,15 @@ using PericoOnFire_2026.BD.Datos;
 namespace PericoOnFire_2026.BD.Migrations
 {
     [DbContext(typeof(MiDbContext))]
-    [Migration("20260609112323_Inicio")]
-    partial class Inicio
+    [Migration("20260618191554_inicio1")]
+    partial class inicio1
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.8")
+                .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
