@@ -1,5 +1,5 @@
 ﻿@page "/Account/Login"
-
+@attribute [AllowAnonymous]
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authentication
 @using Microsoft.AspNetCore.Identity
@@ -11,65 +11,149 @@
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Log in</PageTitle>
+<PageTitle>Iniciar sesión - Perico On Fire</PageTitle>
 
-<h1>Log in</h1>
-<div class="row">
-    <div class="col-lg-6">
-        <section>
+<div class="login-bg">
+    <div class="login-overlay"></div>
+    <div class="login-content">
+        <div class="login-card">
+            <img src="img/perico-logo.jpg" class="login-logo" alt="Perico On Fire" />
+            <h1>Iniciar sesión</h1>
+
             <StatusMessage Message="@errorMessage" />
+
             <EditForm EditContext="editContext" method="post" OnSubmit="LoginUser" FormName="login">
                 <DataAnnotationsValidator />
-                <h2>Use a local account to log in.</h2>
-                <hr />
                 <ValidationSummary class="text-danger" role="alert" />
-                <div class="form-floating mb-3">
-                    <InputText @bind-Value="Input.Email" id="Input.Email" class="form-control" autocomplete="username webauthn" aria-required="true" placeholder="name@example.com" />
-                    <label for="Input.Email" class="form-label">Email</label>
+
+                <div class="mb-3 text-start">
+                    <label for="email" class="form-label">Email</label>
+                    <InputText @bind-Value="Input.Email" id="email" class="form-control"
+                               autocomplete="username" placeholder="nombre@ejemplo.com" />
                     <ValidationMessage For="() => Input.Email" class="text-danger" />
                 </div>
-                <div class="form-floating mb-3">
-                    <InputText type="password" @bind-Value="Input.Password" id="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="password" />
-                    <label for="Input.Password" class="form-label">Password</label>
+
+                <div class="mb-3 text-start">
+                    <label for="password" class="form-label">Contraseña</label>
+                    <InputText type="password" @bind-Value="Input.Password" id="password" class="form-control"
+                               autocomplete="current-password" placeholder="Contraseña" />
                     <ValidationMessage For="() => Input.Password" class="text-danger" />
                 </div>
-                <div class="checkbox mb-3">
-                    <label class="form-label">
-                        <InputCheckbox @bind-Value="Input.RememberMe" class="darker-border-checkbox form-check-input" />
-                        Remember me
-                    </label>
+
+                <div class="mb-3 form-check text-start">
+                    <InputCheckbox @bind-Value="Input.RememberMe" class="form-check-input" id="rememberme" />
+                    <label class="form-check-label" for="rememberme">Recordarme</label>
                 </div>
-                <div>
-                    <button type="submit" class="w-100 btn btn-lg btn-primary">Log in</button>
-                </div>
-                <hr />
-                <div class="d-flex flex-column">
-                    <span class="text-secondary mx-auto mt-2">OR</span>
-                    <PasskeySubmit Operation="PasskeyOperation.Request" Name="Input.Passkey" EmailName="Input.Email" class="btn btn-link mx-auto">Log in with a passkey</PasskeySubmit>
-                </div>
-                <hr />
-                <div>
-                    <p>
-                        <a href="Account/ForgotPassword">Forgot your password?</a>
-                    </p>
-                    <p>
-                        <a href="@(NavigationManager.GetUriWithQueryParameters("Account/Register", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">Register as a new user</a>
-                    </p>
-                    <p>
-                        <a href="Account/ResendEmailConfirmation">Resend email confirmation</a>
-                    </p>
-                </div>
+
+                <button type="submit" class="btn btn-login w-100">Ingresar</button>
             </EditForm>
-        </section>
-    </div>
-    <div class="col-lg-4 col-lg-offset-2">
-        <section>
-            <h3>Use another service to log in.</h3>
-            <hr />
-            <ExternalLoginPicker />
-        </section>
+
+        </div>
     </div>
 </div>
+
+<style>
+    .login-bg {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        background-image: url('img/perico-fondo.jpg');
+        background-size: cover;
+        background-position: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: auto;
+    }
+
+    .login-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(20, 20, 20, 0.72);
+    }
+
+    .login-content {
+        position: relative;
+        z-index: 2;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1rem;
+    }
+
+    .login-card {
+        background: #ffffff;
+        width: 100%;
+        max-width: 380px;
+        padding: 2.5rem 2.2rem;
+        border-radius: 1.2rem;
+        box-shadow: 0 15px 45px rgba(0, 0, 0, 0.5);
+        text-align: center;
+    }
+
+    .login-logo {
+        width: 75px;
+        height: 75px;
+        object-fit: contain;
+        margin-bottom: .5rem;
+        border-radius: 50%;
+    }
+
+    .login-card h1 {
+        font-size: 1.5rem;
+        font-weight: 800;
+        color: #1f1f1f;
+        margin-bottom: 1.5rem;
+    }
+
+    .login-card .form-label {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: .25rem;
+    }
+
+    .login-card .form-control {
+        border-radius: .6rem;
+        border: 1px solid #ccc;
+        padding: .55rem .8rem;
+    }
+
+        .login-card .form-control:focus {
+            border-color: #b30000;
+            box-shadow: 0 0 0 .2rem rgba(179, 0, 0, .15);
+        }
+
+    .btn-login {
+        background: #b30000;
+        color: #ffffff;
+        font-weight: bold;
+        border: none;
+        border-radius: 2rem;
+        padding: .65rem 0;
+        margin-top: .5rem;
+        transition: background .15s ease;
+    }
+
+        .btn-login:hover {
+            background: #8a0000;
+            color: #ffffff;
+        }
+
+    .login-link {
+        display: inline-block;
+        margin-top: 1.2rem;
+        font-size: .9rem;
+        color: #b30000;
+        text-decoration: none;
+        font-weight: 600;
+    }
+
+        .login-link:hover {
+            text-decoration: underline;
+        }
+</style>
 
 @code {
     private string? errorMessage;
@@ -87,42 +171,23 @@
     protected override async Task OnInitializedAsync()
     {
         Input ??= new();
-
         editContext = new EditContext(Input);
 
         if (HttpMethods.IsGet(HttpContext.Request.Method))
         {
-            // Clear the existing external cookie to ensure a clean login process
             await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
         }
     }
 
     public async Task LoginUser()
     {
-        if (!string.IsNullOrEmpty(Input.Passkey?.Error))
+        if (!editContext.Validate())
         {
-            errorMessage = $"Error: {Input.Passkey.Error}";
             return;
         }
 
-        SignInResult result;
-        if (!string.IsNullOrEmpty(Input.Passkey?.CredentialJson))
-        {
-            // When performing passkey sign-in, don't perform form validation.
-            result = await SignInManager.PasskeySignInAsync(Input.Passkey.CredentialJson);
-        }
-        else
-        {
-            // If doing a password sign-in, validate the form.
-            if (!editContext.Validate())
-            {
-                return;
-            }
-
-            // This doesn't count login failures towards account lockout
-            // To enable password failures to trigger account lockout, set lockoutOnFailure: true
-            result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
-        }
+        var result = await SignInManager.PasswordSignInAsync(
+            Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
 
         if (result.Succeeded)
         {
@@ -142,23 +207,21 @@
         }
         else
         {
-            errorMessage = "Error: Invalid login attempt.";
+            errorMessage = "Error: usuario o contraseña incorrectos.";
         }
     }
 
     private sealed class InputModel
     {
-        [Required]
+        [Required(ErrorMessage = "El email es obligatorio")]
         [EmailAddress]
         public string Email { get; set; } = "";
 
-        [Required]
+        [Required(ErrorMessage = "La contraseña es obligatoria")]
         [DataType(DataType.Password)]
         public string Password { get; set; } = "";
 
-        [Display(Name = "Remember me?")]
+        [Display(Name = "Recordarme")]
         public bool RememberMe { get; set; }
-
-        public PasskeyInputModel? Passkey { get; set; }
     }
 }

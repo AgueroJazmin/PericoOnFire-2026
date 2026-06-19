@@ -22,7 +22,6 @@ namespace PericoOnFire_2026.BD.Datos.Entity
 
         /* Saco esto de Usuario porque el identity ya lo genera propio
            Tambien es necesario modificar el EnumRolUsuario porque el identity ya tiene su propio sistema de roles
-           
         
         [Required(ErrorMessage = "El usuario es obligatorio")]
         [MaxLength(50)]

@@ -2,6 +2,7 @@
 @using PericoOnFire_2026.Shared.DTOs
 @using PericoOnFire_2026.Shared.ENUM
 @using PericoOnFire_2026.Servicio.ServicioHttp
+@inject NavigationManager NavManager
 
 @inject IHttpServicio http
 
@@ -26,6 +27,20 @@
             <i class="bi bi-box-seam-fill"></i>
             <span>Cargar Producto</span>
         </button>
+
+        <!-- Esto es mio que es lo de roles-->
+        <AuthorizeView Roles="Administracion">
+            <Authorized>
+                <button class="config-card" @onclick='() => NavManager.NavigateTo("/crear-empleado")'>
+                    <i class="bi bi-person-plus-fill"></i>
+                    <span>Crear Empleado</span>
+                </button>
+                <button class="config-card" @onclick='() => NavManager.NavigateTo("/roles")'>
+                    <i class="bi bi-shield-fill"></i>
+                    <span>Administrar Roles</span>
+                </button>
+            </Authorized>
+        </AuthorizeView>
 
     </div>
 
@@ -162,6 +177,7 @@
                     <button class="btn btn-primary" type="submit">Guardar</button>
                     <button class="btn btn-secondary" type="button" @onclick="CerrarModales">Cancelar</button>
                 </div>
+
             </EditForm>
         </div>
     </div>

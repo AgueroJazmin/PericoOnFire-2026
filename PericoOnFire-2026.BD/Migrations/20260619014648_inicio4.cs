@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace PericoOnFire_2026.BD.Migrations
 {
     /// <inheritdoc />
-    public partial class inicio1 : Migration
+    public partial class inicio4 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -93,24 +93,6 @@ namespace PericoOnFire_2026.BD.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Mesas", x => x.Id);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "Usuarios",
-                columns: table => new
-                {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Nombre = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    NombreUsuario = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    Contrasena = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Rol = table.Column<int>(type: "int", nullable: false),
-                    Activo = table.Column<bool>(type: "bit", nullable: false),
-                    EstadoRegistro = table.Column<int>(type: "int", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_Usuarios", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -233,6 +215,29 @@ namespace PericoOnFire_2026.BD.Migrations
                     table.ForeignKey(
                         name: "FK_AspNetUserTokens_AspNetUsers_UserId",
                         column: x => x.UserId,
+                        principalTable: "AspNetUsers",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Usuarios",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    IdApplicationUser = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    Nombre = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
+                    Activo = table.Column<bool>(type: "bit", nullable: false),
+                    ApplicationUserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    EstadoRegistro = table.Column<int>(type: "int", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Usuarios", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Usuarios_AspNetUsers_ApplicationUserId",
+                        column: x => x.ApplicationUserId,
                         principalTable: "AspNetUsers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Restrict);
@@ -550,6 +555,11 @@ namespace PericoOnFire_2026.BD.Migrations
                 name: "IX_Subcategorias_IdCategoria",
                 table: "Subcategorias",
                 column: "IdCategoria");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Usuarios_ApplicationUserId",
+                table: "Usuarios",
+                column: "ApplicationUserId");
         }
 
         /// <inheritdoc />
@@ -586,9 +596,6 @@ namespace PericoOnFire_2026.BD.Migrations
                 name: "AspNetRoles");
 
             migrationBuilder.DropTable(
-                name: "AspNetUsers");
-
-            migrationBuilder.DropTable(
                 name: "Pedidos");
 
             migrationBuilder.DropTable(
@@ -611,6 +618,9 @@ namespace PericoOnFire_2026.BD.Migrations
 
             migrationBuilder.DropTable(
                 name: "Categorias");
+
+            migrationBuilder.DropTable(
+                name: "AspNetUsers");
         }
     }
 }
