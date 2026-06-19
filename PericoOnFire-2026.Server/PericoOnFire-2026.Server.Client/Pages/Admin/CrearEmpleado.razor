@@ -1,0 +1,147 @@
+﻿@page "/crear-empleado"
+@using PericoOnFire_2026.Servicio.ServicioHttp
+@using PericoOnFire_2026.Shared.DTOs
+@using PericoOnFire_2026.Shared.ENUM
+@rendermode InteractiveAuto
+@inject IHttpServicio http
+
+<h3>Crear empleado</h3>
+<br>
+
+<AuthorizeView Roles="Administracion" Context="authContext">
+    <Authorized>
+        <EditForm Model="modelo" OnValidSubmit="Crear">
+            <DataAnnotationsValidator />
+
+            <div class="mb-3">
+                <label class="form-label">Nombre completo</label>
+                <InputText class="form-control" @bind-Value="modelo.Nombre" />
+                <ValidationMessage For="@(() => modelo.Nombre)" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Email (es el usuario para el login)</label>
+                <InputText class="form-control" @bind-Value="modelo.Email" />
+                <ValidationMessage For="@(() => modelo.Email)" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Contraseña</label>
+                <InputText type="password" class="form-control" @bind-Value="modelo.Contrasena" />
+                <ValidationMessage For="@(() => modelo.Contrasena)" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Rol</label>
+                <InputSelect class="form-select" @bind-Value="modelo.Rol">
+                    <option value="">-- Seleccioná un rol --</option>
+                    @foreach (var rol in rolesDisponibles)
+                    {
+                        <option value="@rol">@rol</option>
+                    }
+                </InputSelect>
+                <ValidationMessage For="@(() => modelo.Rol)" />
+            </div>
+
+            <button type="submit" class="btn btn-primary" disabled="@cargando">
+                @if (cargando)
+                {
+                    <span>Creando...</span>
+                }
+                else
+                {
+                    <span>Crear empleado</span>
+                }
+            </button>
+        </EditForm>
+
+        @* Mensajes de éxito *@
+        @if (!string.IsNullOrEmpty(mensajeExito))
+        {
+            <div class="alert alert-success mt-3">@mensajeExito</div>
+        }
+
+        @* Errores devueltos por Identity (pueden ser varios a la vez) *@
+        @if (errores.Count > 0)
+        {
+            <div class="alert alert-danger mt-3">
+                <strong>No se pudo crear el empleado:</strong>
+                <ul class="mb-0 mt-1">
+                    @foreach (var error in errores)
+                    {
+                        <li>@error</li>
+                    }
+                </ul>
+            </div>
+        }
+    </Authorized>
+    <NotAuthorized>
+        <p>No tenés permiso para ver esta página.</p>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    CrearEmpleadoDTO modelo = new();
+    List<string> rolesDisponibles = Enum.GetNames(typeof(EnumRolSistema)).ToList();
+
+    string mensajeExito = "";
+    List<string> errores = new();
+    bool cargando = false;
+
+    private async Task Crear()
+    {
+        // Limpiar estado anterior
+        mensajeExito = "";
+        errores = new();
+        cargando = true;
+
+        var resp = await http.Post<CrearEmpleadoDTO>(
+            "api/seguridad/crear-empleado", modelo);
+
+        if (!resp.Error)
+        {
+            mensajeExito = $"Empleado {modelo.Email} creado correctamente con el rol {modelo.Rol}.";
+            modelo = new(); // limpia el formulario para poder crear otro
+        }
+        else
+        {
+            // Intentar leer los errores detallados que mandó el servidor.
+            // El servidor devuelve { errores: ["...", "..."] }
+            // Usamos ObtenerMensajeError de tu HttpServicio para leer el body.
+            var mensajeRaw = await http.ObtenerMensajeError(resp.HttpResponseMessage);
+
+            // Tratar de parsear los errores como lista
+            try
+            {
+                var obj = System.Text.Json.JsonSerializer.Deserialize<ErroresResponse>(
+                    mensajeRaw,
+                    new System.Text.Json.JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                if (obj?.Errores != null && obj.Errores.Count > 0)
+                {
+                    errores = obj.Errores;
+                }
+                else
+                {
+                    errores.Add(mensajeRaw);
+                }
+            }
+            catch
+            {
+                // Si no pudo parsear, mostrar el mensaje tal cual
+                errores.Add(resp.ObtenerError());
+            }
+        }
+
+        cargando = false;
+    }
+
+    // Clase auxiliar para deserializar la respuesta de error del servidor
+    private class ErroresResponse
+    {
+        public List<string> Errores { get; set; } = new();
+    }
+}

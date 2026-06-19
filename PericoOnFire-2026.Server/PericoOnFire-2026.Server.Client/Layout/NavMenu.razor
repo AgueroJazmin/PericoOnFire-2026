@@ -1,10 +1,9 @@
 ﻿@implements IDisposable
-
 @inject NavigationManager NavigationManager
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">PericoOnFire-2026.Server</a>
+        <a class="navbar-brand" href="">PericoOnFire 2026</a>
     </div>
 </div>
 
@@ -12,66 +11,125 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="auth">
-                <span class="bi bi-lock-nav-menu" aria-hidden="true"></span> Auth Required
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="Swagger">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Swagger
-            </NavLink>
-        </div>
 
         <AuthorizeView>
+
             <Authorized>
+
+                @* Visible para todos los logueados *@
                 <div class="nav-item px-3">
                     <NavLink class="nav-link" href="Account/Manage">
-                        <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> @context.User.Identity?.Name
+                        <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span>
+                        @context.User.Identity?.Name
                     </NavLink>
                 </div>
+
+                @* Solo Administracion — IsInRole no genera conflicto de context *@
+                @if (context.User.IsInRole("Administracion"))
+                {
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="crear-empleado">
+                            <span class="bi bi-person-plus-fill-nav-menu" aria-hidden="true"></span>
+                            Crear empleado
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="roles">
+                            <span class="bi bi-shield-fill-nav-menu" aria-hidden="true"></span>
+                            Administrar roles
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="barra">
+                            <span class="bi bi-shield-fill-nav-menu" aria-hidden="true"></span>
+                            Barra
+                        </NavLink>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="pedidos">
+                                <span class="bi bi-shield-fill-nav-menu" aria-hidden="true"></span>
+                                Pedidos
+                            </NavLink>
+                        </div>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="cocina">
+                                <span class="bi bi-shield-fill-nav-menu" aria-hidden="true"></span>
+                                Pedidos cocina
+                            </NavLink>
+                        </div>
+                        <div class="nav-item px-3">
+                            <NavLink class="nav-link" href="caja">
+                                <span class="bi bi-shield-fill-nav-menu" aria-hidden="true"></span>
+                                Caja
+                            </NavLink>
+                        </div>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="https://localhost:7202/swagger" target="_blank">
+                            <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span>
+                            Swagger
+                        </NavLink>
+                    </div>
+                }
+
+                @* Solo Cocina *@
+                @if (context.User.IsInRole("Cocina"))
+                {
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="cocina">
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span>
+                            Pedidos cocina
+                        </NavLink>
+                    </div>
+                }
+
+                @* Solo Mozo *@
+                @if (context.User.IsInRole("Mozo"))
+                {
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="comandas">
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span>
+                            Comandas
+                        </NavLink>
+                    </div>
+                }
+
+                @* Solo Delivery *@
+                @if (context.User.IsInRole("Delivery"))
+                {
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="delivery">
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span>
+                            Mis entregas
+                        </NavLink>
+                    </div>
+                }
+
+                @* Logout visible para todos *@
                 <div class="nav-item px-3">
                     <form action="Account/Logout" method="post">
                         <AntiforgeryToken />
                         <input type="hidden" name="ReturnUrl" value="@currentUrl" />
                         <button type="submit" class="nav-link">
-                            <span class="bi bi-arrow-bar-left-nav-menu" aria-hidden="true"></span> Logout
+                            <span class="bi bi-arrow-bar-left-nav-menu" aria-hidden="true"></span>
+                            Logout
                         </button>
                     </form>
                 </div>
+
             </Authorized>
+
+            @* No logueado: solo Login, sin Register *@
             <NotAuthorized>
                 <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="Account/Register">
-                        <span class="bi bi-person-nav-menu" aria-hidden="true"></span> Register
-                    </NavLink>
-                </div>
-                <div class="nav-item px-3">
                     <NavLink class="nav-link" href="Account/Login">
-                        <span class="bi bi-person-badge-nav-menu" aria-hidden="true"></span> Login
+                        <span class="bi bi-person-badge-nav-menu" aria-hidden="true"></span>
+                        Login
                     </NavLink>
                 </div>
             </NotAuthorized>
+
         </AuthorizeView>
+
     </nav>
 </div>
 
@@ -95,4 +153,3 @@
         NavigationManager.LocationChanged -= OnLocationChanged;
     }
 }
-

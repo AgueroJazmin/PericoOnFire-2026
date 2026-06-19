@@ -1,0 +1,181 @@
+﻿@page "/roles"
+@using PericoOnFire_2026.Servicio.ServicioHttp
+@using PericoOnFire_2026.Shared.DTOs
+@using PericoOnFire_2026.Shared.ENUM
+@rendermode InteractiveAuto
+@inject IHttpServicio http
+
+<h3>Administrar Roles</h3>
+<br>
+
+<AuthorizeView Roles="Administracion" Context="authContext">
+    <Authorized>
+
+        @if (usuarios == null)
+        {
+            <p>Buscando usuarios...</p>
+        }
+        else if (usuarios.Count == 0)
+        {
+            <p>No hay usuarios registrados.</p>
+        }
+        else
+        {
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Email</th>
+                        <th>Roles actuales</th>
+                        <th>Asignar rol</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var usuario in usuarios)
+                    {
+                        <tr>
+                            <td>@usuario.Email</td>
+                            <td>
+                                @if (usuario.Roles.Count == 0)
+                                {
+                                    <span class="text-muted">Sin rol</span>
+                                }
+                                else
+                                {
+                                    @foreach (var rol in usuario.Roles)
+                                    {
+                                        <span class="badge bg-secondary me-1">
+                                            @rol
+                                            <button class="btn btn-sm btn-link text-white p-0 ms-1"
+                                                    title="Quitar este rol"
+                                                    @onclick="() => RemoverRol(usuario, rol)">
+                                                x
+                                            </button>
+                                        </span>
+                                    }
+                                }
+                            </td>
+                            <td>
+                                <select class="form-select"
+                                        value="@rolSeleccionado[usuario.Email]"
+                                        @onchange="e => rolSeleccionado[usuario.Email] = e.Value!.ToString()!">
+                                    @foreach (var rol in rolesDisponibles)
+                                    {
+                                        <option value="@rol">@rol</option>
+                                    }
+                                </select>
+                            </td>
+                            <td>
+                                <button class="btn btn-primary"
+                                        @onclick="() => AsignarRol(usuario)">
+                                    Asignar
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        @if (!string.IsNullOrEmpty(mensajeExito))
+        {
+            <div class="alert alert-success mt-3">@mensajeExito</div>
+        }
+
+        @if (!string.IsNullOrEmpty(mensajeError))
+        {
+            <div class="alert alert-danger mt-3">@mensajeError</div>
+        }
+
+    </Authorized>
+    <NotAuthorized>
+        <p>No tenés permiso para ver esta página.</p>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    List<UsuarioRolDTO>? usuarios;
+    List<string> rolesDisponibles = Enum.GetNames(typeof(EnumRolSistema)).ToList();
+    Dictionary<string, string> rolSeleccionado = new();
+
+    string mensajeExito = "";
+    string mensajeError = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        await ObtenerUsuarios();
+    }
+
+    private async Task ObtenerUsuarios()
+    {
+        var resp = await http.Get<List<UsuarioRolDTO>>("api/seguridad/usuarios");
+        if (!resp.Error)
+        {
+            usuarios = resp.Respuesta;
+
+            // Inicializar el dropdown de cada usuario con el primer rol disponible
+            if (usuarios != null)
+            {
+                foreach (var u in usuarios)
+                {
+                    if (!rolSeleccionado.ContainsKey(u.Email))
+                        rolSeleccionado[u.Email] = rolesDisponibles.First();
+                }
+            }
+        }
+        else
+        {
+            mensajeError = resp.ObtenerError();
+        }
+    }
+
+    private async Task AsignarRol(UsuarioRolDTO usuario)
+    {
+        mensajeExito = "";
+        mensajeError = "";
+
+        var dto = new AsignarRolDTO
+        {
+            Email = usuario.Email,
+            Rol = rolSeleccionado[usuario.Email]
+        };
+
+        var resp = await http.Post<AsignarRolDTO>("api/seguridad/asignar-rol", dto);
+
+        if (!resp.Error)
+        {
+            mensajeExito = $"Rol {dto.Rol} asignado a {dto.Email}.";
+            await ObtenerUsuarios();
+        }
+        else
+        {
+            mensajeError = resp.ObtenerError();
+        }
+    }
+
+    private async Task RemoverRol(UsuarioRolDTO usuario, string rol)
+    {
+        mensajeExito = "";
+        mensajeError = "";
+
+        var dto = new AsignarRolDTO
+        {
+            Email = usuario.Email,
+            Rol = rol
+        };
+
+        var resp = await http.Post<AsignarRolDTO>("api/seguridad/remover-rol", dto);
+
+        if (!resp.Error)
+        {
+            mensajeExito = $"Rol {rol} removido de {usuario.Email}.";
+            await ObtenerUsuarios();
+        }
+        else
+        {
+            mensajeError = resp.ObtenerError();
+        }
+    }
+}
+

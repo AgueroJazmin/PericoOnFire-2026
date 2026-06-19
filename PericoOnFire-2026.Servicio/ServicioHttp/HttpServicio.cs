@@ -48,6 +48,27 @@ namespace PericoOnFire_2026.Servicio.ServicioHttp
 
         }
 
+        public async Task<HttpRespuesta<object>> Post<T>(string url, T entidad)
+        {
+            var enviarJson = JsonSerializer.Serialize(entidad);
+
+            var enviarContent = new StringContent(enviarJson,
+                                Encoding.UTF8,
+                                "application/json");
+
+            var response = await http.PostAsync(url, enviarContent);
+            if (response.IsSuccessStatusCode)
+            {
+                //var respuesta = await DesSerializar<object>(response);
+                return new HttpRespuesta<object>(null, false, response);
+            }
+            else
+            {
+                return new HttpRespuesta<object>(default, true, response);
+            }
+
+        }
+
         //En este metodo el Put no devuelve ningun objeto, solo un status
         // por eso el HttpRespuesta tiene un object como tipo generico
         public async Task<HttpRespuesta<object>> Put<T>(string url, T entidad)

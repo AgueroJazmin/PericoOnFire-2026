@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using PericoOnFire_2026.BD.Datos;
 using PericoOnFire_2026.BD.Datos.Entity;
 using PericoOnFire_2026.Repositorio.Repositorios;
+using PericoOnFire_2026.Repositorio.Seguridad;
 using PericoOnFire_2026.Server.Client.Pages;
 using PericoOnFire_2026.Server.Components;
 using PericoOnFire_2026.Server.Components.Account;
@@ -47,6 +48,7 @@ builder.Services.AddScoped<ISubcategoriaRepositorio, SubcategoriaRepositorio>();
 builder.Services.AddScoped<IProductoRepositorio, ProductoRepositorio>();
 builder.Services.AddScoped<IComandaRepositorio, ComandaRepositorio>();
 builder.Services.AddScoped<IPedidoRepositorio, PedidoRepositorio>();
+builder.Services.AddScoped<IServicioSeguridad, ServicioSeguridad>();
 builder.Services.AddScoped(typeof(IRepositorio<>), typeof(Repositorio<>));
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
@@ -54,6 +56,8 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
         options.SignIn.RequireConfirmedAccount = true;
         options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
     })
+    //Esto es lo de roles que tenemos que agregar para el identity
+    .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<MiDbContext>()
     .AddSignInManager()
     .AddDefaultTokenProviders();
@@ -61,6 +65,18 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
 var app = builder.Build();
+//Supuestamente aca tendria que crear los roles al arrancar la aplicacion
+
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    string[] roles = { "Administracion", "Cocina", "Delivery", "Mozo" };
+    foreach (var rol in roles)
+    {
+        if (!await roleManager.RoleExistsAsync(rol))
+            await roleManager.CreateAsync(new IdentityRole(rol));
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

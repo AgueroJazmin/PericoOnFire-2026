@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace PericoOnFire_2026.BD.Migrations
 {
     /// <inheritdoc />
-    public partial class inicio7 : Migration
+    public partial class Inicio1 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
