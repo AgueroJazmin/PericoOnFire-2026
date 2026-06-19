@@ -4,38 +4,72 @@
 
     <header class="perico-topbar">
         <nav class="perico-menu">
-            <NavLink href="/" Match="NavLinkMatch.All" class="perico-link">
-                Mesas
-            </NavLink>
-
-            <NavLink href="/caja" class="perico-link">
-                Caja
-            </NavLink>
-
-            <NavLink href="/cocina" class="perico-link">
-                Cocina
-            </NavLink>
-
-            <NavLink href="/barra" class="perico-link">
-                Barra
-            </NavLink>
-
-            <NavLink href="/pedidos" class="perico-link">
-                Pedidos
-            </NavLink>
+            <AuthorizeView>
+                <Authorized Context="navContext">
+                    @if (navContext.User.IsInRole("Administracion") || navContext.User.IsInRole("Mozo"))
+                    {
+                        <NavLink href="/" Match="NavLinkMatch.All" class="perico-link">
+                            Mesas
+                        </NavLink>
+                    }
+                    @if (navContext.User.IsInRole("Administracion"))
+                    {
+                        <NavLink href="/caja" class="perico-link">
+                            Caja
+                        </NavLink>
+                    }
+                    @if (navContext.User.IsInRole("Administracion") || navContext.User.IsInRole("Cocina"))
+                    {
+                        <NavLink href="/cocina" class="perico-link">
+                            Cocina
+                        </NavLink>
+                    }
+                    @if (navContext.User.IsInRole("Administracion"))
+                    {
+                        <NavLink href="/barra" class="perico-link">
+                            Barra
+                        </NavLink>
+                    }
+                    @if (navContext.User.IsInRole("Administracion") || navContext.User.IsInRole("Mozo"))
+                    {
+                        <NavLink href="/pedidos" class="perico-link">
+                            Pedidos
+                        </NavLink>
+                    }
+                </Authorized>
+            </AuthorizeView>
         </nav>
 
         <div class="perico-actions">
+
+            <AuthorizeView>
+                <NotAuthorized>
+                    <NavLink href="/Account/Login" class="perico-link">
+                        Login
+                    </NavLink>
+                </NotAuthorized>
+                <Authorized>
+                    <span class="perico-link" style="cursor:default;">
+                        @context.User.Identity?.Name
+                    </span>
+                    <form action="Account/Logout" method="post" style="display:inline;">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ReturnUrl" value="/Account/Login" />
+                        <button type="submit" class="perico-link" style="border:none; background:none; cursor:pointer;">
+                            Logout
+                        </button>
+                    </form>
+                </Authorized>
+            </AuthorizeView>
 
             <img src="img/perico-logo.jpg"
                  class="perico-logo"
                  alt="Perico On Fire" />
 
-            <NavLink href="/configuracion"
-                     class="config-link">
+            <NavLink href="/configuracion" class="config-link">
                 <i class="bi bi-gear-fill"></i>
-               
             </NavLink>
+
 
         </div>
     </header>

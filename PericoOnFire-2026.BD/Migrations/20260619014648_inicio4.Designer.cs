@@ -12,15 +12,15 @@ using PericoOnFire_2026.BD.Datos;
 namespace PericoOnFire_2026.BD.Migrations
 {
     [DbContext(typeof(MiDbContext))]
-    [Migration("20260616110429_Inicio1")]
-    partial class Inicio1
+    [Migration("20260619014648_inicio4")]
+    partial class inicio4
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.8")
+                .HasAnnotation("ProductVersion", "10.0.9")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -620,27 +620,25 @@ namespace PericoOnFire_2026.BD.Migrations
                     b.Property<bool>("Activo")
                         .HasColumnType("bit");
 
-                    b.Property<string>("Contrasena")
+                    b.Property<string>("ApplicationUserId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(450)");
 
                     b.Property<int>("EstadoRegistro")
                         .HasColumnType("int");
+
+                    b.Property<string>("IdApplicationUser")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Nombre")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("NombreUsuario")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<int>("Rol")
-                        .HasColumnType("int");
-
                     b.HasKey("Id");
+
+                    b.HasIndex("ApplicationUserId");
 
                     b.ToTable("Usuarios");
                 });
@@ -858,6 +856,17 @@ namespace PericoOnFire_2026.BD.Migrations
                         .IsRequired();
 
                     b.Navigation("Categoria");
+                });
+
+            modelBuilder.Entity("PericoOnFire_2026.BD.Datos.Entity.Usuario", b =>
+                {
+                    b.HasOne("PericoOnFire_2026.BD.Datos.ApplicationUser", "ApplicationUser")
+                        .WithMany()
+                        .HasForeignKey("ApplicationUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ApplicationUser");
                 });
 
             modelBuilder.Entity("PericoOnFire_2026.BD.Datos.Entity.Categoria", b =>
