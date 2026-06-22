@@ -84,6 +84,22 @@ using (var scope = app.Services.CreateScope())
         if (!await roleManager.RoleExistsAsync(rol))
             await roleManager.CreateAsync(new IdentityRole(rol));
     }
+
+    // Usuario admin semilla — solo se crea si no existe
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+    var emailAdmin = "admin@pericoonfire.com";
+    var adminExiste = await userManager.FindByEmailAsync(emailAdmin);
+    if (adminExiste == null)
+    {
+        var adminUser = new ApplicationUser
+        {
+            UserName = emailAdmin,
+            Email = emailAdmin,
+            EmailConfirmed = true
+        };
+        await userManager.CreateAsync(adminUser, "Admin1234!");
+        await userManager.AddToRoleAsync(adminUser, "Administracion");
+    }
 }
 
 // Configure the HTTP request pipeline.
@@ -92,6 +108,7 @@ if (app.Environment.IsDevelopment())
     app.UseWebAssemblyDebugging();
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.MapSwagger().AllowAnonymous();
 }
 else
 {
