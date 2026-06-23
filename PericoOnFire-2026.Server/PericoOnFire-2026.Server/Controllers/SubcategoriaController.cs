@@ -24,7 +24,18 @@ namespace PericoOnFire_2026.Server.Controllers
         [HttpGet]
         public async Task<ActionResult<List<Subcategoria>>> Get()
         {
-            return await repositorio.Select();
+            var lista = await context.Subcategorias
+                .Include(s => s.Categoria)
+                .Select(s => new SubcategoriaListadoDTO
+                {
+            Id = s.Id,
+            IdCategoria = s.IdCategoria,
+            NombreSubcategoria = s.NombreSubcategoria,
+            NombreCategoria = s.Categoria.NombreCategoria
+                })
+                .ToListAsync();
+            
+            return Ok(lista);
         }
 
         [HttpGet("{id:int}")]
@@ -68,13 +79,18 @@ namespace PericoOnFire_2026.Server.Controllers
         }
 
         [HttpPut("{id:int}")]
-        public async Task<ActionResult> Put(int id, Subcategoria entidad)
+        public async Task<ActionResult> Put(int id, SubcategoriaCrearDTO dto)
         {
-            var ok = await repositorio.Update(id, entidad);
+            var subcategoria = await repositorio.SelectById(id);
+            if (subcategoria == null)
+                return NotFound();
 
+            subcategoria.NombreSubcategoria = dto.NombreSubcategoria;
+            subcategoria.IdCategoria = dto.IdCategoria;
+
+            var ok = await repositorio.Update(id, subcategoria);
             if (!ok)
                 return BadRequest();
-
             return NoContent();
         }
 

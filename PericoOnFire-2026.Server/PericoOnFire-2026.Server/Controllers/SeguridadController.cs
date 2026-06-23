@@ -75,5 +75,29 @@ namespace PericoOnFire_2026.Server.Controllers
                     return BadRequest(new { errores = new List<string> { "Error desconocido." } });
             }
         }
+
+        [HttpPost("desactivar-usuario")]
+        public async Task<ActionResult> DesactivarUsuario(AsignarRolDTO dto)
+        {
+            var resultado = await servicio.DesactivarUsuario(dto.Email);
+            return resultado switch
+            {
+                ResultadoOperacionSeguridad.Exitoso => Ok("Usuario desactivado."),
+                ResultadoOperacionSeguridad.NoEncontrado => NotFound($"No se encontró el usuario {dto.Email}."),
+                _ => BadRequest("No se pudo desactivar el usuario.")
+            };
+        }
+
+        [HttpPost("activar-usuario")]
+        public async Task<ActionResult> ActivarUsuario(AsignarRolDTO dto)
+        {
+            var resultado = await servicio.ActivarUsuario(dto.Email);
+            return resultado switch
+            {
+                ResultadoOperacionSeguridad.Exitoso => Ok("Usuario activado."),
+                ResultadoOperacionSeguridad.NoEncontrado => NotFound($"No se encontró el usuario {dto.Email}."),
+                _ => BadRequest("No se pudo activar el usuario.")
+            };
+        }
     }
 }

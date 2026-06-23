@@ -35,8 +35,13 @@
 
                 <div class="mb-3 text-start">
                     <label for="password" class="form-label">Contraseña</label>
-                    <InputText type="password" @bind-Value="Input.Password" id="password" class="form-control"
-                               autocomplete="current-password" placeholder="Contraseña" />
+                    <div class="password-wrapper">
+                        <InputText type="password" @bind-Value="Input.Password" id="password"
+                                   class="form-control" autocomplete="current-password" placeholder="Contraseña" />
+                        <button type="button" class="ojo-btn" onclick="togglePassword()">
+                            <i class="bi bi-eye" id="iconoOjo"></i>
+                        </button>
+                    </div>
                     <ValidationMessage For="() => Input.Password" class="text-danger" />
                 </div>
 
@@ -52,7 +57,23 @@
     </div>
 </div>
 
-<style>
+<script>
+    function togglePassword() {
+        const input = document.getElementById('password');
+        const icono = document.getElementById('iconoOjo');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icono.classList.remove('bi-eye');
+            icono.classList.add('bi-eye-slash');
+        } else {
+            input.type = 'password';
+            icono.classList.remove('bi-eye-slash');
+            icono.classList.add('bi-eye');
+        }
+    }
+</script>
+
+<style> 
     .login-bg {
         position: fixed;
         inset: 0;
@@ -153,6 +174,35 @@
         .login-link:hover {
             text-decoration: underline;
         }
+
+
+    .password-wrapper {
+        position: relative;
+    }
+
+        .password-wrapper .form-control {
+            padding-right: 2.8rem;
+            border-radius: .6rem;
+        }
+
+    .ojo-btn {
+        position: absolute;
+        right: .6rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #888;
+        cursor: pointer;
+        padding: 0;
+        font-size: 1.1rem;
+        line-height: 1;
+    }
+
+        .ojo-btn:hover {
+            color: #b30000;
+        }
+
 </style>
 
 @code {
