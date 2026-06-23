@@ -1,10 +1,11 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Humanizer;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using PericoOnFire_2026.BD.Datos;
 using PericoOnFire_2026.BD.Datos.Entity;
 using PericoOnFire_2026.Repositorio.Repositorios;
 using PericoOnFire_2026.Shared.DTOs;
 using PericoOnFire_2026.Shared.ENUM;
-using Microsoft.EntityFrameworkCore;
 
 namespace PericoOnFire_2026.Server.Controllers
 {
@@ -24,7 +25,15 @@ namespace PericoOnFire_2026.Server.Controllers
         [HttpGet]
         public async Task<ActionResult<List<Categoria>>> Get()
         {
-            return await repositorio.Select();
+            var lista = await context.Categorias
+                .Select(c => new CategoriaListadoDTO
+                {
+                    Id = c.Id,
+                    NombreCategoria = c.NombreCategoria
+                })
+                .ToListAsync();
+            
+            return Ok(lista);
         }
 
         [HttpGet("{id:int}")]
@@ -37,7 +46,7 @@ namespace PericoOnFire_2026.Server.Controllers
 
             return categoria;
         }
-
+        // FFF
         [HttpPost]
         public async Task<ActionResult<int>> Post(CategoriaCrearDTO dto)
         {
@@ -53,13 +62,17 @@ namespace PericoOnFire_2026.Server.Controllers
         }
 
         [HttpPut("{id:int}")]
-        public async Task<ActionResult> Put(int id, Categoria categoria)
+        public async Task<ActionResult> Put(int id, CategoriaCrearDTO dto)
         {
-            var ok = await repositorio.Update(id, categoria);
+            var categoria = await repositorio.SelectById(id);
+            if (categoria == null)
+                return NotFound();
 
+            categoria.NombreCategoria = dto.NombreCategoria;
+
+            var ok = await repositorio.Update(id, categoria);
             if (!ok)
                 return BadRequest();
-
             return NoContent();
         }
 

@@ -5,133 +5,211 @@
 @rendermode InteractiveAuto
 @inject IHttpServicio http
 
-<h3>Crear empleado</h3>
-<br>
+<div class="page-wrapper">
+    <div class="titulo-container">
+        <h3 class="titulo-page">Crear empleado</h3>
+    </div>
+    <br>
+    <AuthorizeView Roles="Administracion" Context="authContext">
+        <Authorized>
+            <div class="form-card">
+                <EditForm Model="modelo" OnValidSubmit="Crear">
+                    <DataAnnotationsValidator />
 
-<AuthorizeView Roles="Administracion" Context="authContext">
-    <Authorized>
-        <EditForm Model="modelo" OnValidSubmit="Crear">
-            <DataAnnotationsValidator />
+                    <div class="mb-3">
+                        <label class="form-label">Nombre completo</label>
+                        <InputText class="form-control" @bind-Value="modelo.Nombre" />
+                        <ValidationMessage For="@(() => modelo.Nombre)" />
+                    </div>
 
-            <div class="mb-3">
-                <label class="form-label">Nombre completo</label>
-                <InputText class="form-control" @bind-Value="modelo.Nombre" />
-                <ValidationMessage For="@(() => modelo.Nombre)" />
-            </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email</label>
+                        <InputText class="form-control" @bind-Value="modelo.Email" />
+                        <ValidationMessage For="@(() => modelo.Email)" />
+                    </div>
 
-            <div class="mb-3">
-                <label class="form-label">Email (es el usuario para el login)</label>
-                <InputText class="form-control" @bind-Value="modelo.Email" />
-                <ValidationMessage For="@(() => modelo.Email)" />
-            </div>
+                    <div class="mb-3">
+                        <label class="form-label">Contraseña</label>
+                        <div class="password-wrapper">
+                            <InputText type="@tipoPassword" class="form-control" @bind-Value="modelo.Contrasena" placeholder="Contraseña" />
+                            <button type="button" class="ojo-btn" @onclick="TogglePassword">
+                                <i class="bi @(mostrarPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                            </button>
+                        </div>
+                        <ValidationMessage For="@(() => modelo.Contrasena)" />
+                    </div>
 
-            <div class="mb-3">
-                <label class="form-label">Contraseña</label>
-                <InputText type="password" class="form-control" @bind-Value="modelo.Contrasena" />
-                <ValidationMessage For="@(() => modelo.Contrasena)" />
-            </div>
+                    <div class="mb-3">
+                        <label class="form-label">Rol</label>
+                        <InputSelect class="form-select" @bind-Value="modelo.Rol">
+                            <option value="">-- Seleccioná un rol --</option>
+                            @foreach (var rol in rolesDisponibles)
+                            {
+                                <option value="@rol">@rol</option>
+                            }
+                        </InputSelect>
+                        <ValidationMessage For="@(() => modelo.Rol)" />
+                    </div>
 
-            <div class="mb-3">
-                <label class="form-label">Rol</label>
-                <InputSelect class="form-select" @bind-Value="modelo.Rol">
-                    <option value="">-- Seleccioná un rol --</option>
-                    @foreach (var rol in rolesDisponibles)
-                    {
-                        <option value="@rol">@rol</option>
-                    }
-                </InputSelect>
-                <ValidationMessage For="@(() => modelo.Rol)" />
-            </div>
+                    <button type="submit" class="btn btn-crear" disabled="@cargando">
+                        @(cargando ? "Creando..." : "Crear empleado")
+                    </button>
+                </EditForm>
 
-            <button type="submit" class="btn btn-primary" disabled="@cargando">
-                @if (cargando)
+                @if (!string.IsNullOrEmpty(mensajeExito))
                 {
-                    <span>Creando...</span>
+                    <div class="alert alert-success mt-3">@mensajeExito</div>
                 }
-                else
+                @if (errores.Count > 0)
                 {
-                    <span>Crear empleado</span>
+                    <div class="alert alert-danger mt-3">
+                        <strong>No se pudo crear el empleado:</strong>
+                        <ul class="mb-0 mt-1">
+                            @foreach (var error in errores)
+                            {
+                                <li>@error</li>
+                            }
+                        </ul>
+                    </div>
                 }
-            </button>
-        </EditForm>
+            </div>
+        </Authorized>
+        <NotAuthorized>
+            <p class="text-white">No tenés permiso para ver esta página.</p>
+        </NotAuthorized>
+    </AuthorizeView>
+</div>
 
-        @* Mensajes de éxito *@
-        @if (!string.IsNullOrEmpty(mensajeExito))
-        {
-            <div class="alert alert-success mt-3">@mensajeExito</div>
+<style>
+    .page-wrapper {
+        padding: 1.5rem;
+        color: white;
+    }
+
+    .titulo-container {
+        max-width: 700px;
+        margin: 0 auto 1.5rem auto;
+    }
+
+    .titulo-page {
+        text-align: center;
+        color: white;
+        font-weight: bold;
+        margin: 0;
+        font-size: clamp(1.5rem, 4vw, 2.5rem);
+    }
+
+    .form-card {
+        background: white;
+        border-radius: 1rem;
+        padding: 2.5rem 3rem;
+        max-width: 700px;
+        margin: 0 auto;
+        box-shadow: 0 5px 20px rgba(0,0,0,.3);
+    }
+
+        .form-card .form-label {
+            font-weight: 600;
+            color: #222;
         }
 
-        @* Errores devueltos por Identity (pueden ser varios a la vez) *@
-        @if (errores.Count > 0)
-        {
-            <div class="alert alert-danger mt-3">
-                <strong>No se pudo crear el empleado:</strong>
-                <ul class="mb-0 mt-1">
-                    @foreach (var error in errores)
-                    {
-                        <li>@error</li>
-                    }
-                </ul>
-            </div>
+        .form-card .form-control,
+        .form-card .form-select {
+            border-radius: .6rem;
+            border: 1px solid #ccc;
         }
-    </Authorized>
-    <NotAuthorized>
-        <p>No tenés permiso para ver esta página.</p>
-    </NotAuthorized>
-</AuthorizeView>
+
+            .form-card .form-control:focus,
+            .form-card .form-select:focus {
+                border-color: #b30000;
+                box-shadow: 0 0 0 .2rem rgba(179,0,0,.15);
+            }
+
+    .password-wrapper {
+        position: relative;
+    }
+
+        .password-wrapper .form-control {
+            padding-right: 2.8rem;
+        }
+
+    .ojo-btn {
+        position: absolute;
+        right: .6rem;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #888;
+        cursor: pointer;
+        padding: 0;
+        font-size: 1.1rem;
+    }
+
+        .ojo-btn:hover {
+            color: #b30000;
+        }
+
+    .btn-crear {
+        background: #b30000;
+        color: white;
+        font-weight: bold;
+        border: none;
+        border-radius: 2rem;
+        padding: .6rem 2rem;
+        margin-top: .5rem;
+    }
+
+        .btn-crear:hover {
+            background: #8a0000;
+            color: white;
+        }
+
+        .btn-crear:disabled {
+            opacity: .7;
+        }
+</style>
 
 @code {
     CrearEmpleadoDTO modelo = new();
     List<string> rolesDisponibles = Enum.GetNames(typeof(EnumRolSistema)).ToList();
-
     string mensajeExito = "";
     List<string> errores = new();
     bool cargando = false;
+    bool mostrarPassword = false;
+    string tipoPassword => mostrarPassword ? "text" : "password";
+
+    private void TogglePassword() => mostrarPassword = !mostrarPassword;
 
     private async Task Crear()
     {
-        // Limpiar estado anterior
         mensajeExito = "";
         errores = new();
         cargando = true;
 
-        var resp = await http.Post<CrearEmpleadoDTO>(
-            "api/seguridad/crear-empleado", modelo);
+        var resp = await http.Post<CrearEmpleadoDTO>("api/seguridad/crear-empleado", modelo);
 
         if (!resp.Error)
         {
             mensajeExito = $"Empleado {modelo.Email} creado correctamente con el rol {modelo.Rol}.";
-            modelo = new(); // limpia el formulario para poder crear otro
+            modelo = new();
         }
         else
         {
-            // Intentar leer los errores detallados que mandó el servidor.
-            // El servidor devuelve { errores: ["...", "..."] }
-            // Usamos ObtenerMensajeError de tu HttpServicio para leer el body.
             var mensajeRaw = await http.ObtenerMensajeError(resp.HttpResponseMessage);
-
-            // Tratar de parsear los errores como lista
             try
             {
                 var obj = System.Text.Json.JsonSerializer.Deserialize<ErroresResponse>(
                     mensajeRaw,
-                    new System.Text.Json.JsonSerializerOptions
-                    {
-                        PropertyNameCaseInsensitive = true
-                    });
+                    new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
 
                 if (obj?.Errores != null && obj.Errores.Count > 0)
-                {
                     errores = obj.Errores;
-                }
                 else
-                {
                     errores.Add(mensajeRaw);
-                }
             }
             catch
             {
-                // Si no pudo parsear, mostrar el mensaje tal cual
                 errores.Add(resp.ObtenerError());
             }
         }
@@ -139,7 +217,6 @@
         cargando = false;
     }
 
-    // Clase auxiliar para deserializar la respuesta de error del servidor
     private class ErroresResponse
     {
         public List<string> Errores { get; set; } = new();

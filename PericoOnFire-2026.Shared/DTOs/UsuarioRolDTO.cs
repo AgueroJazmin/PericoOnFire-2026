@@ -10,5 +10,7 @@ namespace PericoOnFire_2026.Shared.DTOs
         public string Email { get; set; } = "";
         public List<string> Roles { get; set; } = new();
 
+        public bool Activo { get; set; } = true;
+
     }
 }

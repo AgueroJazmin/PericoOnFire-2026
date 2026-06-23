@@ -12,6 +12,7 @@ namespace PericoOnFire_2026.Shared.DTOs
         public decimal Precio { get; set; }
         public int IdSubcategoria { get; set; }
         public string NombreSubcategoria { get; set; } = "";
+        public string NombreCategoria { get; set; } = "";
         public EnumSectorDestino SectorDestino { get; set; }
         public bool Activo { get; set; }
     }

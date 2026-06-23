@@ -41,7 +41,8 @@ namespace PericoOnFire_2026.Repositorio.Seguridad
                 {
                     Id = u.Id,
                     Email = u.Email!,
-                    Roles = roles.ToList()
+                    Roles = roles.ToList(),
+                    Activo = u.LockoutEnd == null || u.LockoutEnd < DateTimeOffset.UtcNow
                 });
             }
 
@@ -205,5 +206,37 @@ namespace PericoOnFire_2026.Repositorio.Seguridad
             };
         }
 
+        public async Task<ResultadoOperacionSeguridad> DesactivarUsuario(string email)
+        {
+            try
+            {
+                var usuario = await userManager.FindByEmailAsync(email);
+                if (usuario == null)
+                    return ResultadoOperacionSeguridad.NoEncontrado;
+
+                // LockoutEnd en el futuro lejano = bloqueado indefinidamente
+                await userManager.SetLockoutEnabledAsync(usuario, true);
+                await userManager.SetLockoutEndDateAsync(usuario, DateTimeOffset.MaxValue);
+                await userManager.UpdateSecurityStampAsync(usuario);
+                return ResultadoOperacionSeguridad.Exitoso;
+            }
+            catch { return ResultadoOperacionSeguridad.Fallido; }
+        }
+
+        public async Task<ResultadoOperacionSeguridad> ActivarUsuario(string email)
+        {
+            try
+            {
+                var usuario = await userManager.FindByEmailAsync(email);
+                if (usuario == null)
+                    return ResultadoOperacionSeguridad.NoEncontrado;
+
+                // Sacar el lockout = usuario activo de nuevo
+                await userManager.SetLockoutEndDateAsync(usuario, null);
+                await userManager.UpdateSecurityStampAsync(usuario);
+                return ResultadoOperacionSeguridad.Exitoso;
+            }
+            catch { return ResultadoOperacionSeguridad.Fallido; }
+        }
     }
 }
