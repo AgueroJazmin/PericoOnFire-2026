@@ -40,7 +40,10 @@ builder.Services.AddAuthentication(options =>
     .AddIdentityCookies();
 var connectionString = builder.Configuration.GetConnectionString("ConSqlServer") ?? throw new InvalidOperationException("El string de conexion no existe.");
 builder.Services.AddDbContext<MiDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseSqlServer(connectionString, sqlOptions =>
+    {
+        sqlOptions.EnableRetryOnFailure();
+    }));
 
 //Registrar los repositorios
 
@@ -82,7 +85,9 @@ using (var scope = app.Services.CreateScope())
     foreach (var rol in roles)
     {
         if (!await roleManager.RoleExistsAsync(rol))
+        {
             await roleManager.CreateAsync(new IdentityRole(rol));
+        }
     }
 
     // Usuario admin semilla — solo se crea si no existe

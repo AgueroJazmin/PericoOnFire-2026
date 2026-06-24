@@ -30,19 +30,19 @@
                 <h4>CONFIGURACIÓN</h4>
 
                 <button class="side-item @(seccionActiva == "categorias" ? "side-activo" : "")"
-                        @onclick="@(() => CambiarSeccion("categorias"))">
+                        @onclick="MostrarCategorias">
                     <i class="bi bi-tags-fill"></i>
                     Categorías
                 </button>
 
                 <button class="side-item @(seccionActiva == "subcategorias" ? "side-activo" : "")"
-                        @onclick="@(() => CambiarSeccion("subcategorias"))">
+                        @onclick="MostrarSubcategorias">
                     <i class="bi bi-diagram-3-fill"></i>
                     Subcategorías
                 </button>
 
                 <button class="side-item @(seccionActiva == "productos" ? "side-activo" : "")"
-                        @onclick="@(() => CambiarSeccion("productos"))">
+                        @onclick="MostrarProductos">
                     <i class="bi bi-box-seam-fill"></i>
                     Productos
                 </button>
@@ -264,34 +264,50 @@
                         <ValidationSummary />
 
                         <div class="form-line productos-form">
-                            <InputText class="form-control"
-                                       placeholder="Nombre producto"
-                                       @bind-Value="producto.Nombre" />
 
-                            <InputNumber class="form-control"
-                                         placeholder="Precio"
-                                         @bind-Value="producto.Precio" />
+                            <div>
+                                <label class="form-label">Nombre</label>
+                                <InputText class="form-control"
+                                           placeholder="Ej: Hamburguesa doble cheddar"
+                                           @bind-Value="producto.Nombre" />
+                            </div>
 
-                            <InputSelect class="form-select"
-                                         @bind-Value="producto.IdSubcategoria">
-                                <option value="0">Seleccione subcategoría</option>
-                                @foreach (var sub in subcategorias)
-                                {
-                                    <option value="@sub.Id">@sub.NombreSubcategoria</option>
-                                }
-                            </InputSelect>
+                            <div>
+                                <label class="form-label">Precio</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <InputNumber class="form-control"
+                                                 @bind-Value="producto.Precio" />
+                                </div>
+                            </div>
 
-                            <InputSelect class="form-select"
-                                         @bind-Value="producto.SectorDestino">
-                                @foreach (var sector in Enum.GetValues<EnumSectorDestino>())
-                                {
-                                    <option value="@sector">@sector</option>
-                                }
-                            </InputSelect>
+                            <div>
+                                <label class="form-label">Subcategoría</label>
+                                <InputSelect class="form-select"
+                                             @bind-Value="producto.IdSubcategoria">
+                                    <option value="0">Seleccione subcategoría</option>
+                                    @foreach (var sub in subcategorias)
+                                    {
+                                        <option value="@sub.Id">@sub.NombreSubcategoria</option>
+                                    }
+                                </InputSelect>
+                            </div>
 
-                            <button class="btn btn-dark" type="submit">
-                                + Nuevo Producto
+                            <div>
+                                <label class="form-label">Sector</label>
+                                <InputSelect class="form-select"
+                                             @bind-Value="producto.SectorDestino">
+                                    @foreach (var sector in Enum.GetValues<EnumSectorDestino>())
+                                    {
+                                        <option value="@sector">@sector</option>
+                                    }
+                                </InputSelect>
+                            </div>
+
+                            <button class="btn btn-dark btn-producto" type="submit">
+                                + Nuevo
                             </button>
+
                         </div>
                     </EditForm>
 
@@ -387,16 +403,110 @@
                 @if (seccionActiva == "usuarios")
                 {
                     <h3>Usuarios</h3>
-                    <p>Acá después cargamos administración de usuarios.</p>
+
+                    <div class="top-action">
+                        <button class="btn btn-dark">
+                            + Nuevo Usuario
+                        </button>
+                    </div>
+
+                    <div class="usuarios-layout">
+
+                        <div>
+                            <div class="alert alert-warning">
+                                ⚠ Completá el registro de tu cuenta.
+                                <a class="float-end fw-bold">Validar e-mail</a>
+                            </div>
+
+                            <table class="table tabla-config">
+                                <thead>
+                                    <tr>
+                                        <th>Usuario</th>
+                                        <th>Rol</th>
+                                        <th>Nombre</th>
+                                        <th>Último Login</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="fila-seleccionada">
+                                        <td>admin@perico56</td>
+                                        <td>Admin</td>
+                                        <td>emilseferrer1@gmail.com</td>
+                                        <td>23/06/26 20:49:23</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="detalle-panel">
+                            <div class="detalle-header">
+                                ADMIN@PERICO56
+                                <button class="btn btn-sm btn-warning">
+                                    <i class="bi bi-pencil-fill"></i>
+                                </button>
+                            </div>
+
+                            <div class="detalle-body">
+                                <p><b>Usuario</b> <span>admin@perico56</span></p>
+                                <p><b>Contraseña</b> <span>**********</span></p>
+                                <p><b>Nombre</b> <span>emilseferrer1@gmail.com</span></p>
+                                <p><b>E-mail</b> <span>emilseferrer1@gmail.com ⚠</span></p>
+                                <p><b>Teléfono</b> <span></span></p>
+                                <p><b>Rol</b> <span>Admin</span></p>
+                                <p><b>PIN</b> <span>No</span></p>
+                                <p><b>Superusuario</b> <span>Sí</span></p>
+                                <p><b>Activo</b> <span>Sí</span></p>
+                                <p><b>Último Login</b> <span>23/06/26 20:49:23</span></p>
+                            </div>
+                        </div>
+
+                    </div>
                 }
 
                 @if (seccionActiva == "roles")
                 {
-                    <h3>Roles</h3>
-                    <button class="btn btn-dark"
-                            @onclick='() => NavManager.NavigateTo("/roles")'>
-                        Administrar roles
-                    </button>
+                    <h3>Roles de usuario</h3>
+
+                    <div class="top-action">
+                        <button class="btn btn-dark">
+                            + Nuevo Rol
+                        </button>
+                    </div>
+
+                    <div class="roles-layout">
+                        <table class="table tabla-config">
+                            <thead>
+                                <tr>
+                                    <th>Rol</th>
+                                    <th>Usuarios</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Administracion</td>
+                                    <td>1</td>
+                                    <td><i class="bi bi-x-lg text-muted"></i></td>
+                                </tr>
+                                <tr>
+                                    <td>Cocina</td>
+                                    <td>-</td>
+                                    <td><i class="bi bi-x-lg text-muted"></i></td>
+                                </tr>
+                                <tr>
+                                    <td>Mozo</td>
+                                    <td>-</td>
+                                    <td><i class="bi bi-x-lg text-muted"></i></td>
+                                </tr>
+                                <tr>
+                                    <td>Delivery</td>
+                                    <td>-</td>
+                                    <td><i class="bi bi-x-lg text-muted"></i></td>
+                                </tr>
+                                
+                            </tbody>
+                        </table>
+                    </div>
                 }
 
             </main>
@@ -516,7 +626,10 @@
     }
 
     .productos-form {
-        grid-template-columns: 1.2fr 160px 240px 180px 220px;
+        display: grid;
+        grid-template-columns: 4fr 110px 220px 180px 150px;
+        gap: 12px;
+        align-items: end;
     }
 
     .tabla-config thead {
@@ -549,6 +662,72 @@
         min-height: calc(100vh - 106px);
         padding: 2rem;
     }
+
+    .top-action {
+        display: flex;
+        justify-content: flex-end;
+        margin-bottom: 1rem;
+    }
+
+    .usuarios-layout {
+        display: grid;
+        grid-template-columns: 60% 40%;
+        gap: 1rem;
+    }
+
+    .fila-seleccionada {
+        background: #ffd96b !important;
+        font-weight: 600;
+    }
+
+    .detalle-panel {
+        border-left: 1px solid #ddd;
+        background: #f6f6f6;
+        min-height: 400px;
+    }
+
+    .detalle-header {
+        background: #ff8500;
+        color: white;
+        font-weight: bold;
+        padding: .8rem 1rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .detalle-body {
+        padding: 1rem;
+    }
+
+        .detalle-body p {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            margin-bottom: .9rem;
+        }
+
+    .roles-layout {
+        max-width: 650px;
+    }
+
+    .btn-producto {
+        height: 38px;
+        font-size: 14px;
+        padding: 0 12px;
+    }
+
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    input[type=number] {
+        -moz-appearance: textfield;
+    }
+
+    
+
 </style>
 
 @code {
@@ -810,6 +989,27 @@
     private void CambiarSeccion(string seccion)
     {
         seccionActiva = seccion;
+        Mensaje = "";
+        CancelarEdicion();
+    }
+
+    private void MostrarCategorias()
+    {
+        seccionActiva = "categorias";
+        Mensaje = "";
+        CancelarEdicion();
+    }
+
+    private void MostrarSubcategorias()
+    {
+        seccionActiva = "subcategorias";
+        Mensaje = "";
+        CancelarEdicion();
+    }
+
+    private void MostrarProductos()
+    {
+        seccionActiva = "productos";
         Mensaje = "";
         CancelarEdicion();
     }
