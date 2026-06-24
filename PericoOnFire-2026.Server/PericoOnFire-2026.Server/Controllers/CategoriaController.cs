@@ -1,4 +1,5 @@
 ﻿using Humanizer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PericoOnFire_2026.BD.Datos;
@@ -21,9 +22,10 @@ namespace PericoOnFire_2026.Server.Controllers
             this.repositorio = repositorio;
             this.context = context;
         }
-
+        
+        [AllowAnonymous]
         [HttpGet]
-        public async Task<ActionResult<List<Categoria>>> Get()
+        public async Task<ActionResult<List<CategoriaListadoDTO>>> Get()
         {
             var lista = await context.Categorias
                 .Select(c => new CategoriaListadoDTO
@@ -36,6 +38,7 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok(lista);
         }
 
+        [AllowAnonymous]
         [HttpGet("{id:int}")]
         public async Task<ActionResult<Categoria>> Get(int id)
         {
@@ -46,7 +49,8 @@ namespace PericoOnFire_2026.Server.Controllers
 
             return categoria;
         }
-        // FFF
+        [Authorize(Roles = "Administracion")]
+        
         [HttpPost]
         public async Task<ActionResult<int>> Post(CategoriaCrearDTO dto)
         {
@@ -61,6 +65,8 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok(id);
         }
 
+        [Authorize(Roles = "Administracion")]
+       
         [HttpPut("{id:int}")]
         public async Task<ActionResult> Put(int id, CategoriaCrearDTO dto)
         {
@@ -76,6 +82,8 @@ namespace PericoOnFire_2026.Server.Controllers
             return NoContent();
         }
 
+        [Authorize(Roles = "Administracion")]
+        
         [HttpDelete("{id:int}")]
         public async Task<ActionResult> Delete(int id)
         {

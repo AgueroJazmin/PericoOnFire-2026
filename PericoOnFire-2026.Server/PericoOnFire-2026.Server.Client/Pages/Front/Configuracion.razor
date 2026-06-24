@@ -1,410 +1,531 @@
 ﻿@page "/configuracion"
+@using Microsoft.AspNetCore.Authorization
 @using PericoOnFire_2026.Shared.DTOs
 @using PericoOnFire_2026.Shared.ENUM
 @using PericoOnFire_2026.Servicio.ServicioHttp
 @inject NavigationManager NavManager
 @inject IHttpServicio http
 @rendermode InteractiveAuto
+@attribute [Authorize(Roles = "Administracion")]
 
-<div class="config-page">
+<div class="config-layout">
 
-    <h2>Configuración</h2>
-    <p>Alta de categorías, subcategorías y productos.</p>
-
-    <div class="config-cards">
-
-        <button class="config-card @(seccionActiva == "categoria" ? "card-activa" : "")" @onclick="AbrirCategoria">
-            <i class="bi bi-tags-fill"></i>
-            <span>Cargar Categoría</span>
+    <div class="config-tabs">
+        <button class="tab-btn @(tabActiva == "general" ? "tab-activa" : "")"
+                @onclick='() => CambiarTab("general")'>
+            Configuración general
         </button>
 
-        <button class="config-card @(seccionActiva == "subcategoria" ? "card-activa" : "")" @onclick="AbrirSubcategoria">
-            <i class="bi bi-diagram-3-fill"></i>
-            <span>Cargar Subcategoría</span>
+        <button class="tab-btn @(tabActiva == "mesas" ? "tab-activa" : "")"
+                @onclick='() => CambiarTab("mesas")'>
+            Mesas
         </button>
-
-        <button class="config-card @(seccionActiva == "producto" ? "card-activa" : "")" @onclick="AbrirProducto">
-            <i class="bi bi-box-seam-fill"></i>
-            <span>Cargar Producto</span>
-        </button>
-
-        <AuthorizeView Roles="Administracion">
-            <Authorized>
-                <button class="config-card" @onclick='() => NavManager.NavigateTo("/crear-empleado")'>
-                    <i class="bi bi-person-plus-fill"></i>
-                    <span>Crear Empleado</span>
-                </button>
-                <button class="config-card" @onclick='() => NavManager.NavigateTo("/roles")'>
-                    <i class="bi bi-shield-fill"></i>
-                    <span>Administrar Roles</span>
-                </button>
-            </Authorized>
-        </AuthorizeView>
-
     </div>
 
-    @if (!string.IsNullOrWhiteSpace(Mensaje))
+    @if (tabActiva == "general")
     {
-        <div class="alert alert-info mt-3">@Mensaje</div>
-    }
+        <div class="config-body">
 
-    @* ── SECCIÓN CATEGORÍAS ── *@
-    @if (seccionActiva == "categoria")
-    {
-        <div class="tabla-bloque mt-4">
-            <h5>Categorías</h5>
-            <table class="table tabla-config">
-                <thead>
-                    <tr>
-                        <th>Nombre</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var c in categorias)
-                    {
-                        <tr>
-                            <td>
-                                @if (editandoCategoriaId == c.Id)
+            <aside class="config-sidebar">
+                <h4>CONFIGURACIÓN</h4>
+
+                <button class="side-item @(seccionActiva == "categorias" ? "side-activo" : "")"
+                        @onclick="@(() => CambiarSeccion("categorias"))">
+                    <i class="bi bi-tags-fill"></i>
+                    Categorías
+                </button>
+
+                <button class="side-item @(seccionActiva == "subcategorias" ? "side-activo" : "")"
+                        @onclick="@(() => CambiarSeccion("subcategorias"))">
+                    <i class="bi bi-diagram-3-fill"></i>
+                    Subcategorías
+                </button>
+
+                <button class="side-item @(seccionActiva == "productos" ? "side-activo" : "")"
+                        @onclick="@(() => CambiarSeccion("productos"))">
+                    <i class="bi bi-box-seam-fill"></i>
+                    Productos
+                </button>
+
+                <button class="side-item @(seccionActiva == "usuarios" ? "side-activo" : "")"
+                        @onclick="@(() => CambiarSeccion("usuarios"))">
+                    <i class="bi bi-people-fill"></i>
+                    Usuarios
+                </button>
+
+                <button class="side-item @(seccionActiva == "roles" ? "side-activo" : "")"
+                        @onclick="@(() => CambiarSeccion("roles"))">
+                    <i class="bi bi-shield-lock-fill"></i>
+                    Roles
+                </button>
+            </aside>
+
+            <main class="config-content">
+
+
+
+                @if (!string.IsNullOrWhiteSpace(Mensaje))
+                {
+                    <div class="alert alert-info">@Mensaje</div>
+                }
+
+                @if (seccionActiva == "")
+                {
+                    <div class="empty-state">
+                        <i class="bi bi-chevron-left"></i>
+                        Seleccioná un ítem del listado
+                    </div>
+                }
+
+                @if (seccionActiva == "categorias")
+                {
+                    <div class="section-header">
+                        <h3>Categorías</h3>
+                    </div>
+
+                    <EditForm Model="categoria" OnValidSubmit="GuardarCategoria">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="form-line categorias-form">
+                            <InputText class="form-control"
+                                       placeholder="Nombre categoría"
+                                       @bind-Value="categoria.NombreCategoria" />
+
+                            <button class="btn btn-dark" type="submit">
+                                + Nueva Categoría
+                            </button>
+                        </div>
+                    </EditForm>
+
+                    <table class="table tabla-config mt-3">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th style="width: 130px;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @if (categorias.Count == 0)
+                            {
+                                <tr>
+                                    <td colspan="2" class="text-muted">
+                                        No hay categorías cargadas.
+                                    </td>
+                                </tr>
+                            }
+                            else
+                            {
+                                @foreach (var c in categorias)
                                 {
-                                    <input class="form-control form-control-sm"
-                                           @bind="editandoCategoriaNombre" />
+                                    <tr>
+                                        <td>
+                                            @if (editandoCategoriaId == c.Id)
+                                            {
+                                                <input class="form-control form-control-sm"
+                                                       @bind="editandoCategoriaNombre" />
+                                            }
+                                            else
+                                            {
+                                                @c.NombreCategoria
+                                            }
+                                        </td>
+
+                                        <td class="acciones">
+                                            @if (editandoCategoriaId == c.Id)
+                                            {
+                                                <button class="btn btn-sm btn-success"
+                                                        @onclick="() => GuardarEdicionCategoria(c)">
+                                                    <i class="bi bi-check-lg"></i>
+                                                </button>
+
+                                                <button class="btn btn-sm btn-secondary"
+                                                        @onclick="CancelarEdicion">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-sm btn-outline-primary"
+                                                        title="Editar"
+                                                        @onclick="() => EditarCategoria(c)">
+                                                    <i class="bi bi-pencil-square"></i>
+                                                </button>
+
+                                                <button class="btn btn-sm btn-outline-danger"
+                                                        title="Borrar"
+                                                        @onclick="() => EliminarCategoria(c.Id)">
+                                                    <i class="bi bi-trash3"></i>
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
                                 }
-                                else
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                @if (seccionActiva == "subcategorias")
+                {
+                    <div class="section-header">
+                        <h3>Subcategorías</h3>
+                    </div>
+
+                    <EditForm Model="subcategoria" OnValidSubmit="GuardarSubcategoria">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="form-line subcategorias-form">
+                            <InputSelect class="form-select"
+                                         @bind-Value="subcategoria.IdCategoria">
+                                <option value="0">Seleccione categoría</option>
+                                @foreach (var cat in categorias)
                                 {
-                                    @c.NombreCategoria
+                                    <option value="@cat.Id">@cat.NombreCategoria</option>
                                 }
-                            </td>
-                            <td class="acciones">
-                                @if (editandoCategoriaId == c.Id)
+                            </InputSelect>
+
+                            <InputText class="form-control"
+                                       placeholder="Nombre subcategoría"
+                                       @bind-Value="subcategoria.NombreSubcategoria" />
+
+                            <button class="btn btn-dark" type="submit">
+                                + Nueva Subcategoría
+                            </button>
+                        </div>
+                    </EditForm>
+
+                    <table class="table tabla-config mt-3">
+                        <thead>
+                            <tr>
+                                <th>Categoría</th>
+                                <th>Subcategoría</th>
+                                <th style="width: 130px;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var s in subcategorias)
+                            {
+                                <tr>
+                                    <td>@s.NombreCategoria</td>
+                                    <td>
+                                        @if (editandoSubcategoriaId == s.Id)
+                                        {
+                                            <input class="form-control form-control-sm"
+                                                   @bind="editandoSubcategoriaNombre" />
+                                        }
+                                        else
+                                        {
+                                            @s.NombreSubcategoria
+                                        }
+                                    </td>
+
+                                    <td class="acciones">
+                                        @if (editandoSubcategoriaId == s.Id)
+                                        {
+                                            <button class="btn btn-sm btn-success"
+                                                    @onclick="() => GuardarEdicionSubcategoria(s)">
+                                                <i class="bi bi-check-lg"></i>
+                                            </button>
+
+                                            <button class="btn btn-sm btn-secondary"
+                                                    @onclick="CancelarEdicion">
+                                                <i class="bi bi-x-lg"></i>
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm btn-outline-primary"
+                                                    @onclick="() => EditarSubcategoria(s)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+
+                                            <button class="btn btn-sm btn-outline-danger"
+                                                    @onclick="() => EliminarSubcategoria(s.Id)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                @if (seccionActiva == "productos")
+                {
+                    <div class="section-header">
+                        <h3>Productos</h3>
+                    </div>
+
+                    <EditForm Model="producto" OnValidSubmit="GuardarProducto">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="form-line productos-form">
+                            <InputText class="form-control"
+                                       placeholder="Nombre producto"
+                                       @bind-Value="producto.Nombre" />
+
+                            <InputNumber class="form-control"
+                                         placeholder="Precio"
+                                         @bind-Value="producto.Precio" />
+
+                            <InputSelect class="form-select"
+                                         @bind-Value="producto.IdSubcategoria">
+                                <option value="0">Seleccione subcategoría</option>
+                                @foreach (var sub in subcategorias)
                                 {
-                                    <button class="btn btn-sm btn-success" @onclick="() => GuardarEdicionCategoria(c)">
-                                        <i class="bi bi-check-lg"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-secondary" @onclick="CancelarEdicion">
-                                        <i class="bi bi-x-lg"></i>
-                                    </button>
+                                    <option value="@sub.Id">@sub.NombreSubcategoria</option>
                                 }
-                                else
+                            </InputSelect>
+
+                            <InputSelect class="form-select"
+                                         @bind-Value="producto.SectorDestino">
+                                @foreach (var sector in Enum.GetValues<EnumSectorDestino>())
                                 {
-                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => EditarCategoria(c)">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => EliminarCategoria(c.Id)">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
+                                    <option value="@sector">@sector</option>
                                 }
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+                            </InputSelect>
+
+                            <button class="btn btn-dark" type="submit">
+                                + Nuevo Producto
+                            </button>
+                        </div>
+                    </EditForm>
+
+                    <table class="table tabla-config mt-3">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Categoría</th>
+                                <th>Subcategoría</th>
+                                <th>Precio</th>
+                                <th>Sector</th>
+                                <th>Activo</th>
+                                <th style="width: 130px;">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in productos)
+                            {
+                                <tr>
+                                    <td>
+                                        @if (editandoProductoId == p.Id)
+                                        {
+                                            <input class="form-control form-control-sm"
+                                                   @bind="editandoProducto.Nombre" />
+                                        }
+                                        else
+                                        {
+                                            @p.Nombre
+                                        }
+                                    </td>
+
+                                    <td>@p.NombreCategoria</td>
+                                    <td>@p.NombreSubcategoria</td>
+
+                                    <td>
+                                        @if (editandoProductoId == p.Id)
+                                        {
+                                            <input type="number"
+                                                   class="form-control form-control-sm"
+                                                   @bind="editandoProducto.Precio" />
+                                        }
+                                        else
+                                        {
+                                            @($"$ {p.Precio:N0}")
+                                        }
+                                    </td>
+
+                                    <td>@p.SectorDestino</td>
+
+                                    <td>
+                                        @if (p.Activo)
+                                        {
+                                            <span class="badge bg-success">Sí</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">No</span>
+                                        }
+                                    </td>
+
+                                    <td class="acciones">
+                                        @if (editandoProductoId == p.Id)
+                                        {
+                                            <button class="btn btn-sm btn-success"
+                                                    @onclick="() => GuardarEdicionProducto(p)">
+                                                <i class="bi bi-check-lg"></i>
+                                            </button>
+
+                                            <button class="btn btn-sm btn-secondary"
+                                                    @onclick="CancelarEdicion">
+                                                <i class="bi bi-x-lg"></i>
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm btn-outline-primary"
+                                                    @onclick="() => EditarProducto(p)">
+                                                <i class="bi bi-pencil"></i>
+                                            </button>
+
+                                            <button class="btn btn-sm btn-outline-danger"
+                                                    @onclick="() => EliminarProducto(p.Id)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                }
+
+                @if (seccionActiva == "usuarios")
+                {
+                    <h3>Usuarios</h3>
+                    <p>Acá después cargamos administración de usuarios.</p>
+                }
+
+                @if (seccionActiva == "roles")
+                {
+                    <h3>Roles</h3>
+                    <button class="btn btn-dark"
+                            @onclick='() => NavManager.NavigateTo("/roles")'>
+                        Administrar roles
+                    </button>
+                }
+
+            </main>
         </div>
     }
 
-    @* ── SECCIÓN SUBCATEGORÍAS ── *@
-    @if (seccionActiva == "subcategoria")
+    @if (tabActiva == "mesas")
     {
-        <div class="tabla-bloque mt-4">
-            <h5>Subcategorías</h5>
-            <table class="table tabla-config">
-                <thead>
-                    <tr>
-                        <th>Categoría</th>
-                        <th>Nombre</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var s in subcategorias)
-                    {
-                        <tr>
-                            <td>@s.NombreCategoria</td>
-                            <td>
-                                @if (editandoSubcategoriaId == s.Id)
-                                {
-                                    <input class="form-control form-control-sm"
-                                           @bind="editandoSubcategoriaNombre" />
-                                }
-                                else
-                                {
-                                    @s.NombreSubcategoria
-                                }
-                            </td>
-                            <td class="acciones">
-                                @if (editandoSubcategoriaId == s.Id)
-                                {
-                                    <button class="btn btn-sm btn-success" @onclick="() => GuardarEdicionSubcategoria(s)">
-                                        <i class="bi bi-check-lg"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-secondary" @onclick="CancelarEdicion">
-                                        <i class="bi bi-x-lg"></i>
-                                    </button>
-                                }
-                                else
-                                {
-                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => EditarSubcategoria(s)">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => EliminarSubcategoria(s.Id)">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                }
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
-
-    @* ── SECCIÓN PRODUCTOS ── *@
-    @if (seccionActiva == "producto")
-    {
-        <div class="tabla-bloque mt-4">
-            <h5>Productos</h5>
-            <table class="table tabla-config">
-                <thead>
-                    <tr>
-                        <th>Categoría</th>
-                        <th>Subcategoría</th>
-                        <th>Nombre</th>
-                        <th>Precio</th>
-                        <th>Sector</th>
-                        <th>Activo</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var p in productos)
-                    {
-                        <tr>
-                            <td>@p.NombreCategoria</td>
-                            <td>@p.NombreSubcategoria</td>
-                            <td>
-                                @if (editandoProductoId == p.Id)
-                                {
-                                    <input class="form-control form-control-sm"
-                                           @bind="editandoProducto.Nombre" />
-                                }
-                                else
-                                {
-                                    @p.Nombre
-                                }
-                            </td>
-                            <td>
-                                @if (editandoProductoId == p.Id)
-                                {
-                                    <input type="number" class="form-control form-control-sm"
-                                           @bind="editandoProducto.Precio" />
-                                }
-                                else
-                                {
-                                    @($"${p.Precio:N0}")
-                                }
-                            </td>
-                            <td>@p.SectorDestino</td>
-                            <td>
-                                @if (p.Activo)
-                                {
-                                    <span class="badge bg-success">Sí</span>
-                                }
-                                else
-                                {
-                                    <span class="badge bg-secondary">No</span>
-                                }
-                            </td>
-                            <td class="acciones">
-                                @if (editandoProductoId == p.Id)
-                                {
-                                    <button class="btn btn-sm btn-success" @onclick="() => GuardarEdicionProducto(p)">
-                                        <i class="bi bi-check-lg"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-secondary" @onclick="CancelarEdicion">
-                                        <i class="bi bi-x-lg"></i>
-                                    </button>
-                                }
-                                else
-                                {
-                                    <button class="btn btn-sm btn-outline-primary" @onclick="() => EditarProducto(p)">
-                                        <i class="bi bi-pencil"></i>
-                                    </button>
-                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => EliminarProducto(p.Id)">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                }
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
+        <div class="mesas-config">
+            <h3>Mesas</h3>
+            <p>Acá después configuramos salas y mesas.</p>
         </div>
     }
 
 </div>
 
-@* ── MODALES ── *@
-@if (modalCategoria)
-{
-    <div class="modal-fondo">
-        <div class="modal-card">
-            <h4>Cargar Categoría</h4>
-            <EditForm Model="categoria" OnValidSubmit="GuardarCategoria">
-                <DataAnnotationsValidator />
-                <ValidationSummary />
-                <div class="mb-3">
-                    <label>Nombre categoría</label>
-                    <InputText class="form-control" @bind-Value="categoria.NombreCategoria" />
-                </div>
-                <div class="modal-actions">
-                    <button class="btn btn-primary" type="submit">Guardar</button>
-                    <button class="btn btn-secondary" type="button" @onclick="CerrarModales">Cancelar</button>
-                </div>
-            </EditForm>
-        </div>
-    </div>
-}
-
-@if (modalSubcategoria)
-{
-    <div class="modal-fondo">
-        <div class="modal-card">
-            <h4>Cargar Subcategoría</h4>
-            <EditForm Model="subcategoria" OnValidSubmit="GuardarSubcategoria">
-                <DataAnnotationsValidator />
-                <ValidationSummary />
-                <div class="mb-3">
-                    <label>Categoría</label>
-                    <InputSelect class="form-select" @bind-Value="subcategoria.IdCategoria">
-                        <option value="0">Seleccione una categoría</option>
-                        @foreach (var cat in categorias)
-                        {
-                            <option value="@cat.Id">@cat.NombreCategoria</option>
-                        }
-                    </InputSelect>
-                </div>
-                <div class="mb-3">
-                    <label>Nombre subcategoría</label>
-                    <InputText class="form-control" @bind-Value="subcategoria.NombreSubcategoria" />
-                </div>
-                <div class="modal-actions">
-                    <button class="btn btn-primary" type="submit">Guardar</button>
-                    <button class="btn btn-secondary" type="button" @onclick="CerrarModales">Cancelar</button>
-                </div>
-            </EditForm>
-        </div>
-    </div>
-}
-
-@if (modalProducto)
-{
-    <div class="modal-fondo">
-        <div class="modal-card modal-card-lg">
-            <h4>Cargar Producto</h4>
-            <EditForm Model="producto" OnValidSubmit="GuardarProducto">
-                <DataAnnotationsValidator />
-                <ValidationSummary />
-                <div class="mb-3">
-                    <label>Nombre producto</label>
-                    <InputText class="form-control" @bind-Value="producto.Nombre" />
-                </div>
-                <div class="mb-3">
-                    <label>Precio</label>
-                    <InputNumber class="form-control" @bind-Value="producto.Precio" />
-                </div>
-                <div class="mb-3">
-                    <label>Subcategoría</label>
-                    <InputSelect class="form-select" @bind-Value="producto.IdSubcategoria">
-                        <option value="0">Seleccione una subcategoría</option>
-                        @foreach (var sub in subcategorias)
-                        {
-                            <option value="@sub.Id">@sub.NombreSubcategoria</option>
-                        }
-                    </InputSelect>
-                </div>
-                <div class="mb-3">
-                    <label>Sector destino</label>
-                    <InputSelect class="form-control" @bind-Value="producto.SectorDestino">
-                        @foreach (var sector in Enum.GetValues<EnumSectorDestino>())
-                        {
-                            <option value="@sector">@sector</option>
-                        }
-                    </InputSelect>
-                </div>
-                <div class="form-check mb-3">
-                    <InputCheckbox class="form-check-input" @bind-Value="producto.Activo" />
-                    <label class="form-check-label">Activo</label>
-                </div>
-                <div class="modal-actions">
-                    <button class="btn btn-primary" type="submit">Guardar</button>
-                    <button class="btn btn-secondary" type="button" @onclick="CerrarModales">Cancelar</button>
-                </div>
-            </EditForm>
-        </div>
-    </div>
-}
-
 <style>
-    .config-page {
-        background: white;
+    .config-layout {
+        background: #f4f4f4;
         min-height: calc(100vh - 64px);
-        padding: 2rem;
-        border-radius: 0.5rem;
+        font-family: Arial, sans-serif;
     }
 
-        .config-page h2 {
-            font-weight: bold;
-            margin-bottom: .3rem;
-        }
-
-    .config-cards {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 1.5rem;
-        margin-top: 2rem;
-    }
-
-    .config-card {
-        height: 160px;
-        background: #f20b0b;
-        color: black;
-        border: none;
-        border-radius: 1.2rem;
-        font-weight: bold;
-        font-size: 1.1rem;
+    .config-tabs {
+        height: 42px;
+        background: #5a5a5a;
         display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        cursor: pointer;
-        box-shadow: 0 5px 14px rgba(0,0,0,.25);
-        transition: transform 0.15s, background 0.15s;
     }
 
-        .config-card i {
-            font-size: 2.3rem;
-            margin-bottom: .7rem;
+    .tab-btn {
+        border: none;
+        background: #555;
+        color: white;
+        padding: 0 1.5rem;
+        font-weight: 600;
+    }
+
+        .tab-btn:hover {
+            background: #4a4a4a;
         }
 
-        .config-card:hover {
-            transform: scale(1.03);
-            background: #d90000;
+    .tab-activa {
+        background: #444;
+    }
+
+    .config-body {
+        display: grid;
+        grid-template-columns: 265px 1fr;
+        min-height: calc(100vh - 106px);
+    }
+
+    .config-sidebar {
+        background: #555;
+        color: white;
+        padding-top: 1rem;
+    }
+
+        .config-sidebar h4 {
+            padding: 0 1rem 1rem 1rem;
+            font-weight: bold;
+            font-size: 1.15rem;
         }
 
-        .config-card.card-activa {
-            background: #a00000;
-            box-shadow: 0 0 0 3px #f20b0b, 0 5px 14px rgba(0,0,0,.35);
+    .side-item {
+        width: 100%;
+        border: none;
+        background: transparent;
+        color: white;
+        padding: 1rem;
+        text-align: left;
+        font-weight: 500;
+        display: flex;
+        gap: .8rem;
+        align-items: center;
+    }
+
+        .side-item:hover,
+        .side-activo {
+            background: #ff3b1f;
         }
 
-    .tabla-bloque h5 {
-        font-weight: bold;
-        margin-bottom: .8rem;
-        color: #b30000;
+        .side-item i {
+            font-size: 1.4rem;
+        }
+
+    .config-content {
+        background: white;
+        padding: 2rem;
+        border-left: 1px solid #ddd;
+    }
+
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+        .section-header h3 {
+            font-weight: bold;
+            margin: 0;
+        }
+
+    .form-line {
+        display: grid;
+        gap: 1rem;
+        align-items: end;
+        margin-bottom: 1rem;
+    }
+
+    .categorias-form {
+        grid-template-columns: 1fr 220px;
+    }
+
+    .subcategorias-form {
+        grid-template-columns: 260px 1fr 240px;
+    }
+
+    .productos-form {
+        grid-template-columns: 1.2fr 160px 240px 180px 220px;
     }
 
     .tabla-config thead {
-        background: #b30000;
-        color: white;
+        background: #eeeeee;
+        color: #555;
+    }
+
+    .tabla-config tbody tr:hover {
+        background: #f7f7f7;
     }
 
     .acciones {
@@ -413,33 +534,20 @@
         align-items: center;
     }
 
-    .modal-fondo {
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,.55);
+    .empty-state {
+        height: 300px;
         display: flex;
         justify-content: center;
         align-items: center;
-        z-index: 9999;
+        color: #444;
+        gap: .5rem;
+        font-size: 1rem;
     }
 
-    .modal-card {
-        width: 420px;
+    .mesas-config {
         background: white;
-        padding: 1.5rem;
-        border-radius: 1rem;
-        box-shadow: 0 6px 25px rgba(0,0,0,.35);
-    }
-
-    .modal-card-lg {
-        width: 520px;
-    }
-
-    .modal-actions {
-        display: flex;
-        justify-content: flex-end;
-        gap: .8rem;
-        margin-top: 1rem;
+        min-height: calc(100vh - 106px);
+        padding: 2rem;
     }
 </style>
 
@@ -448,12 +556,9 @@
     private List<SubcategoriaListadoDTO> subcategorias = new();
     private List<ProductoListadoDTO> productos = new();
 
-    private bool modalCategoria = false;
-    private bool modalSubcategoria = false;
-    private bool modalProducto = false;
-
     private string Mensaje = "";
-    private string seccionActiva = "";  // ← único agregado al @code
+    private string tabActiva = "general";
+    private string seccionActiva = "";
 
     private CategoriaCrearDTO categoria = new();
     private SubcategoriaCrearDTO subcategoria = new();
@@ -475,16 +580,32 @@
         await CargarProductos();
     }
 
+    private void CambiarTab(string tab)
+    {
+        tabActiva = tab;
+        seccionActiva = "";
+        Mensaje = "";
+        CancelarEdicion();
+    }
+
     private async Task CargarCategorias()
     {
         var resp = await http.Get<List<CategoriaListadoDTO>>("api/Categoria");
+
         if (!resp.Error && resp.Respuesta != null)
+        {
             categorias = resp.Respuesta;
+        }
+        else
+        {
+            Mensaje = resp.ObtenerError();
+        }
     }
 
     private async Task CargarSubcategorias()
     {
         var resp = await http.Get<List<SubcategoriaListadoDTO>>("api/Subcategoria");
+
         if (!resp.Error && resp.Respuesta != null)
             subcategorias = resp.Respuesta;
     }
@@ -492,77 +613,57 @@
     private async Task CargarProductos()
     {
         var resp = await http.Get<List<ProductoListadoDTO>>("api/Producto");
+
         if (!resp.Error && resp.Respuesta != null)
             productos = resp.Respuesta;
-    }
-
-    // AbrirX ahora también activa la sección correspondiente
-    private void AbrirCategoria()
-    {
-        Mensaje = "";
-        categoria = new();
-        seccionActiva = "categoria";
-        modalCategoria = true;
-    }
-
-    private void AbrirSubcategoria()
-    {
-        Mensaje = "";
-        subcategoria = new();
-        seccionActiva = "subcategoria";
-        modalSubcategoria = true;
-    }
-
-    private void AbrirProducto()
-    {
-        Mensaje = "";
-        producto = new();
-        seccionActiva = "producto";
-        modalProducto = true;
-    }
-
-    // CerrarModales NO limpia seccionActiva — la tabla queda visible
-    private void CerrarModales()
-    {
-        modalCategoria = false;
-        modalSubcategoria = false;
-        modalProducto = false;
     }
 
     private async Task GuardarCategoria()
     {
         var resp = await http.Post<CategoriaCrearDTO, int>("api/Categoria", categoria);
+
         if (!resp.Error)
         {
             Mensaje = "Categoría cargada correctamente.";
-            CerrarModales();
+            categoria = new();
             await CargarCategorias();
         }
-        else Mensaje = resp.ObtenerError();
+        else
+        {
+            Mensaje = resp.ObtenerError();
+        }
     }
 
     private async Task GuardarSubcategoria()
     {
         var resp = await http.Post<SubcategoriaCrearDTO, int>("api/Subcategoria", subcategoria);
+
         if (!resp.Error)
         {
             Mensaje = "Subcategoría cargada correctamente.";
-            CerrarModales();
+            subcategoria = new();
             await CargarSubcategorias();
         }
-        else Mensaje = resp.ObtenerError();
+        else
+        {
+            Mensaje = resp.ObtenerError();
+        }
     }
 
     private async Task GuardarProducto()
     {
         var resp = await http.Post<ProductoCrearDTO, int>("api/Producto", producto);
+
         if (!resp.Error)
         {
             Mensaje = "Producto cargado correctamente.";
-            CerrarModales();
+            producto = new();
             await CargarProductos();
         }
-        else Mensaje = resp.ObtenerError();
+        else
+        {
+            Mensaje = resp.ObtenerError();
+        }
     }
 
     private void EditarCategoria(CategoriaListadoDTO c)
@@ -574,17 +675,38 @@
 
     private async Task GuardarEdicionCategoria(CategoriaListadoDTO c)
     {
-        var dto = new CategoriaCrearDTO { NombreCategoria = editandoCategoriaNombre };
+        var dto = new CategoriaCrearDTO
+        {
+            NombreCategoria = editandoCategoriaNombre
+        };
+
         var resp = await http.Put<CategoriaCrearDTO>($"api/Categoria/{c.Id}", dto);
-        if (!resp.Error) { Mensaje = "Categoría actualizada."; CancelarEdicion(); await CargarCategorias(); }
-        else Mensaje = resp.ObtenerError();
+
+        if (!resp.Error)
+        {
+            Mensaje = "Categoría actualizada.";
+            CancelarEdicion();
+            await CargarCategorias();
+        }
+        else
+        {
+            Mensaje = resp.ObtenerError();
+        }
     }
 
     private async Task EliminarCategoria(int id)
     {
         var resp = await http.Delete($"api/Categoria/{id}");
-        if (!resp.Error) { Mensaje = "Categoría eliminada."; await CargarCategorias(); }
-        else Mensaje = resp.ObtenerError();
+
+        if (!resp.Error)
+        {
+            Mensaje = "Categoría eliminada.";
+            await CargarCategorias();
+        }
+        else
+        {
+            Mensaje = resp.ObtenerError();
+        }
     }
 
     private void EditarSubcategoria(SubcategoriaListadoDTO s)
@@ -601,22 +723,42 @@
             IdCategoria = s.IdCategoria,
             NombreSubcategoria = editandoSubcategoriaNombre
         };
+
         var resp = await http.Put<SubcategoriaCrearDTO>($"api/Subcategoria/{s.Id}", dto);
-        if (!resp.Error) { Mensaje = "Subcategoría actualizada."; CancelarEdicion(); await CargarSubcategorias(); }
-        else Mensaje = resp.ObtenerError();
+
+        if (!resp.Error)
+        {
+            Mensaje = "Subcategoría actualizada.";
+            CancelarEdicion();
+            await CargarSubcategorias();
+        }
+        else
+        {
+            Mensaje = resp.ObtenerError();
+        }
     }
 
     private async Task EliminarSubcategoria(int id)
     {
         var resp = await http.Delete($"api/Subcategoria/{id}");
-        if (!resp.Error) { Mensaje = "Subcategoría eliminada."; await CargarSubcategorias(); }
-        else Mensaje = resp.ObtenerError();
+
+        if (!resp.Error)
+        {
+            Mensaje = "Subcategoría eliminada.";
+            await CargarSubcategorias();
+        }
+        else
+        {
+            Mensaje = resp.ObtenerError();
+        }
     }
 
     private void EditarProducto(ProductoListadoDTO p)
     {
         CancelarEdicion();
+
         editandoProductoId = p.Id;
+
         editandoProducto = new ProductoCrearDTO
         {
             Nombre = p.Nombre,
@@ -630,15 +772,32 @@
     private async Task GuardarEdicionProducto(ProductoListadoDTO p)
     {
         var resp = await http.Put<ProductoCrearDTO>($"api/Producto/{p.Id}", editandoProducto);
-        if (!resp.Error) { Mensaje = "Producto actualizado."; CancelarEdicion(); await CargarProductos(); }
-        else Mensaje = resp.ObtenerError();
+
+        if (!resp.Error)
+        {
+            Mensaje = "Producto actualizado.";
+            CancelarEdicion();
+            await CargarProductos();
+        }
+        else
+        {
+            Mensaje = resp.ObtenerError();
+        }
     }
 
     private async Task EliminarProducto(int id)
     {
         var resp = await http.Delete($"api/Producto/{id}");
-        if (!resp.Error) { Mensaje = "Producto eliminado."; await CargarProductos(); }
-        else Mensaje = resp.ObtenerError();
+
+        if (!resp.Error)
+        {
+            Mensaje = "Producto eliminado.";
+            await CargarProductos();
+        }
+        else
+        {
+            Mensaje = resp.ObtenerError();
+        }
     }
 
     private void CancelarEdicion()
@@ -647,5 +806,11 @@
         editandoSubcategoriaId = null;
         editandoProductoId = null;
         editandoProducto = new();
+    }
+    private void CambiarSeccion(string seccion)
+    {
+        seccionActiva = seccion;
+        Mensaje = "";
+        CancelarEdicion();
     }
 }

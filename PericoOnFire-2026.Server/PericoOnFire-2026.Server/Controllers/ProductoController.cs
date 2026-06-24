@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PericoOnFire_2026.BD.Datos;
 using PericoOnFire_2026.BD.Datos.Entity;
@@ -20,27 +21,31 @@ namespace PericoOnFire_2026.Server.Controllers
             this.repositorio = repositorio;
             this.context = context;
         }
-
+        [AllowAnonymous]
         [HttpGet]
         public async Task<ActionResult<List<ProductoListadoDTO>>> Get()
         {
             var lista = await context.Productos
-                .Include(p => p.Subcategoria)
-                .Select(p => new ProductoListadoDTO
-                {
-                    Id = p.Id,
-                    Nombre = p.Nombre,
-                    Precio = p.Precio,
-                    IdSubcategoria = p.IdSubcategoria,
-                    NombreSubcategoria = p.Subcategoria.NombreSubcategoria,
-                    SectorDestino = p.SectorDestino,
-                    Activo = p.Activo
-                })
-                .ToListAsync();
+                        .Include(p => p.Subcategoria)
+                        .ThenInclude(s => s.Categoria)
+                        .Select(p => new ProductoListadoDTO
+                    {
+                        Id = p.Id,
+                        Nombre = p.Nombre,
+                        Precio = p.Precio,
+                        IdSubcategoria = p.IdSubcategoria,
+                        NombreSubcategoria = p.Subcategoria.NombreSubcategoria,
+                        NombreCategoria = p.Subcategoria.Categoria.NombreCategoria,
+                        SectorDestino = p.SectorDestino,
+                        Activo = p.Activo
+                    }
+                        )
+                        
+                        .ToListAsync();
 
             return Ok(lista);
         }
-
+        [AllowAnonymous]
         [HttpGet("{id:int}")]
         public async Task<ActionResult<ProductoCrearDTO>> GetById(int id)
         {
@@ -60,7 +65,7 @@ namespace PericoOnFire_2026.Server.Controllers
 
             return Ok(dto);
         }
-
+        [AllowAnonymous]
         [HttpGet("Activos")]
         public async Task<ActionResult<List<Producto>>> GetActivos()
         {
@@ -72,7 +77,8 @@ namespace PericoOnFire_2026.Server.Controllers
         {
             return await repositorio.SelectBySubcategoria(idSubcategoria);
         }
-
+        
+        [Authorize(Roles = "Administracion")]
         [HttpPost]
         public async Task<ActionResult<int>> Post(ProductoCrearDTO dto)
         {
@@ -90,7 +96,8 @@ namespace PericoOnFire_2026.Server.Controllers
 
             return Ok(id);
         }
-
+        
+        [Authorize(Roles = "Administracion")]
         [HttpPut("{id:int}")]
         public async Task<ActionResult> Put(int id, ProductoCrearDTO dto)
         {
@@ -112,7 +119,8 @@ namespace PericoOnFire_2026.Server.Controllers
 
             return Ok("Producto actualizado correctamente.");
         }
-
+        
+        [Authorize(Roles = "Administracion")]
         [HttpDelete("{id:int}")]
         public async Task<ActionResult> Delete(int id)
         {

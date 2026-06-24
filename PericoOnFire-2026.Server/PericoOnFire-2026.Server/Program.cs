@@ -13,10 +13,10 @@ using PericoOnFire_2026.Servicio.ServicioHttp;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddScoped(sp =>
-    new HttpClient { BaseAddress = new Uri("https://localhost:7202") });
-
-builder.Services.AddScoped<IHttpServicio, HttpServicio>();
+builder.Services.AddHttpClient<IHttpServicio, HttpServicio>(client =>
+{
+    client.BaseAddress = new Uri("https://localhost:7202");
+});
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
