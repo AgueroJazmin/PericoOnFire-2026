@@ -405,62 +405,98 @@
                     <h3>Usuarios</h3>
 
                     <div class="top-action">
-                        <button class="btn btn-dark">
+                        <button class="btn btn-dark" @onclick="NuevoUsuario">
                             + Nuevo Usuario
                         </button>
                     </div>
 
-                    <div class="usuarios-layout">
+                    @if (creandoUsuario)
+                    {
+                        <div class="card p-3 mb-3">
+                            <h5>Nuevo usuario</h5>
 
-                        <div>
-                            <div class="alert alert-warning">
-                                ⚠ Completá el registro de tu cuenta.
-                                <a class="float-end fw-bold">Validar e-mail</a>
-                            </div>
+                            <EditForm Model="usuarioNuevo" OnValidSubmit="GuardarUsuarioNuevo">
+                                <DataAnnotationsValidator />
+                                <ValidationSummary />
 
-                            <table class="table tabla-config">
-                                <thead>
-                                    <tr>
-                                        <th>Usuario</th>
-                                        <th>Rol</th>
-                                        <th>Nombre</th>
-                                        <th>Último Login</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <tr class="fila-seleccionada">
-                                        <td>admin@perico56</td>
-                                        <td>Admin</td>
-                                        <td>emilseferrer1@gmail.com</td>
-                                        <td>23/06/26 20:49:23</td>
-                                    </tr>
-                                </tbody>
-                            </table>
+                                <InputText class="form-control mb-2" placeholder="Email"
+                                           @bind-Value="usuarioNuevo.Email" />
+
+                                <InputText class="form-control mb-2" placeholder="Contraseña"
+                                           @bind-Value="usuarioNuevo.Password" />
+
+                                <InputSelect class="form-select mb-2" @bind-Value="usuarioNuevo.Rol">
+                                    <option value="">Seleccione rol</option>
+                                    <option value="Administracion">Administracion</option>
+                                    <option value="Cocina">Cocina</option>
+                                    <option value="Delivery">Delivery</option>
+                                    <option value="Mozo">Mozo</option>
+                                </InputSelect>
+
+                                <button class="btn btn-success" type="submit">Guardar</button>
+                            </EditForm>
                         </div>
+                    }
 
-                        <div class="detalle-panel">
-                            <div class="detalle-header">
-                                ADMIN@PERICO56
-                                <button class="btn btn-sm btn-warning">
-                                    <i class="bi bi-pencil-fill"></i>
+                    <table class="table tabla-config">
+                        <thead>
+                            <tr>
+                                <th>Usuario</th>
+                                <th>Rol</th>
+                                <th>Email confirmado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var u in usuarios)
+                            {
+                                <tr>
+                                    <td>@u.Email</td>
+                                    <td>@u.Rol</td>
+                                    <td>@(u.EmailConfirmed ? "Sí" : "No")</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary"
+                                                @onclick="() => EditarUsuario(u)">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    @if (usuarioEditandoId != null)
+                    {
+                        <div class="card p-3 mt-3">
+                            <h5>Editar usuario</h5>
+
+                            <EditForm Model="usuarioEditar" OnValidSubmit="GuardarUsuarioEditado">
+                                <DataAnnotationsValidator />
+                                <ValidationSummary />
+
+                                <InputText class="form-control mb-2"
+                                           @bind-Value="usuarioEditar.Email" />
+
+                                <InputSelect class="form-select mb-2" @bind-Value="usuarioEditar.Rol">
+                                    <option value="Administracion">Administracion</option>
+                                    <option value="Cocina">Cocina</option>
+                                    <option value="Delivery">Delivery</option>
+                                    <option value="Mozo">Mozo</option>
+                                </InputSelect>
+
+                                <label>
+                                    <InputCheckbox @bind-Value="usuarioEditar.EmailConfirmed" />
+                                    Email confirmado
+                                </label>
+
+                                <br />
+
+                                <button class="btn btn-success mt-2" type="submit">
+                                    Guardar cambios
                                 </button>
-                            </div>
-
-                            <div class="detalle-body">
-                                <p><b>Usuario</b> <span>admin@perico56</span></p>
-                                <p><b>Contraseña</b> <span>**********</span></p>
-                                <p><b>Nombre</b> <span>emilseferrer1@gmail.com</span></p>
-                                <p><b>E-mail</b> <span>emilseferrer1@gmail.com ⚠</span></p>
-                                <p><b>Teléfono</b> <span></span></p>
-                                <p><b>Rol</b> <span>Admin</span></p>
-                                <p><b>PIN</b> <span>No</span></p>
-                                <p><b>Superusuario</b> <span>Sí</span></p>
-                                <p><b>Activo</b> <span>Sí</span></p>
-                                <p><b>Último Login</b> <span>23/06/26 20:49:23</span></p>
-                            </div>
+                            </EditForm>
                         </div>
-
-                    </div>
+                    }
                 }
 
                 @if (seccionActiva == "roles")
@@ -498,6 +534,7 @@
                                     <td>-</td>
                                     <td><i class="bi bi-x-lg text-muted"></i></td>
                                 </tr>
+
                                 <tr>
                                     <td>Delivery</td>
                                     <td>-</td>
@@ -734,6 +771,7 @@
     private List<CategoriaListadoDTO> categorias = new();
     private List<SubcategoriaListadoDTO> subcategorias = new();
     private List<ProductoListadoDTO> productos = new();
+    private List<UsuarioListadoDTO> usuarios = new();
 
     private string Mensaje = "";
     private string tabActiva = "general";
@@ -742,6 +780,11 @@
     private CategoriaCrearDTO categoria = new();
     private SubcategoriaCrearDTO subcategoria = new();
     private ProductoCrearDTO producto = new();
+
+    private UsuarioCrearDTO usuarioNuevo = new();
+    private UsuarioEditarDTO usuarioEditar = new();
+    private string? usuarioEditandoId;
+    private bool creandoUsuario = false;
 
     private int? editandoCategoriaId;
     private string editandoCategoriaNombre = "";
@@ -757,6 +800,7 @@
         await CargarCategorias();
         await CargarSubcategorias();
         await CargarProductos();
+        await CargarUsuarios();
     }
 
     private void CambiarTab(string tab)
@@ -1012,5 +1056,73 @@
         seccionActiva = "productos";
         Mensaje = "";
         CancelarEdicion();
+    }
+
+    private async Task CargarUsuarios()
+    {
+        var resp = await http.Get<List<UsuarioListadoDTO>>("api/Usuario");
+
+        if (!resp.Error && resp.Respuesta != null)
+            usuarios = resp.Respuesta;
+        else
+            Mensaje = resp.ObtenerError();
+    }
+
+    private void NuevoUsuario()
+    {
+        usuarioNuevo = new();
+        creandoUsuario = true;
+        usuarioEditandoId = null;
+        Mensaje = "";
+    }
+
+    private async Task GuardarUsuarioNuevo()
+    {
+        var resp = await http.Post<UsuarioCrearDTO>("api/Usuario", usuarioNuevo);
+
+        if (!resp.Error)
+        {
+            Mensaje = "Usuario creado correctamente.";
+            creandoUsuario = false;
+            usuarioNuevo = new();
+            await CargarUsuarios();
+        }
+        else
+        {
+            Mensaje = resp.ObtenerError();
+        }
+    }
+
+    private void EditarUsuario(UsuarioListadoDTO u)
+    {
+        usuarioEditandoId = u.Id;
+        creandoUsuario = false;
+
+        usuarioEditar = new UsuarioEditarDTO
+        {
+            Email = u.Email,
+            Rol = u.Rol,
+            EmailConfirmed = u.EmailConfirmed
+        };
+    }
+
+    private async Task GuardarUsuarioEditado()
+    {
+        if (usuarioEditandoId == null)
+            return;
+
+        var resp = await http.Put<UsuarioEditarDTO>($"api/Usuario/{usuarioEditandoId}", usuarioEditar);
+
+        if (!resp.Error)
+        {
+            Mensaje = "Usuario actualizado correctamente.";
+            usuarioEditandoId = null;
+            usuarioEditar = new();
+            await CargarUsuarios();
+        }
+        else
+        {
+            Mensaje = resp.ObtenerError();
+        }
     }
 }
