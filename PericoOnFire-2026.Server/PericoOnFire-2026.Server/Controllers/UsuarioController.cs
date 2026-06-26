@@ -68,8 +68,14 @@ namespace PericoOnFire_2026.Server.Controllers
 
             await userManager.AddToRoleAsync(usuario, dto.Rol);
 
+            // usa dto.Nombre en lugar de dto.Email
+            var nombreClaim = !string.IsNullOrWhiteSpace(dto.Nombre) ? dto.Nombre : dto.Email;
+            await userManager.AddClaimAsync(usuario,
+                new System.Security.Claims.Claim("nombre", nombreClaim));
+
             return Ok();
         }
+
         [AllowAnonymous]
         [HttpPut("{id}")]
         public async Task<ActionResult> Put(string id, UsuarioEditarDTO dto)

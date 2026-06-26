@@ -26,7 +26,10 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents()
     .AddInteractiveWebAssemblyComponents()
-    .AddAuthenticationStateSerialization();
+    .AddAuthenticationStateSerialization(options =>
+    {
+        options.SerializeAllClaims = true;
+    });
 
 builder.Services.AddCascadingAuthenticationState();
 builder.Services.AddScoped<IdentityRedirectManager>();
@@ -104,8 +107,34 @@ using (var scope = app.Services.CreateScope())
         };
         await userManager.CreateAsync(adminUser, "Admin1234!");
         await userManager.AddToRoleAsync(adminUser, "Administracion");
+        await userManager.AddClaimAsync(adminUser, new System.Security.Claims.Claim("nombre", "Administrador"));
+    }
+
+    // Migrar claim "nombre" a usuarios existentes que no lo tengan
+    var dbContext = scope.ServiceProvider.GetRequiredService<MiDbContext>();
+
+    var todosLosUsers = await userManager.Users.ToListAsync();
+
+    foreach (var u in todosLosUsers)
+    {
+        var claims = await userManager.GetClaimsAsync(u);
+        var tieneClaim = claims.Any(c => c.Type == "nombre");
+
+        if (!tieneClaim)
+        {
+            // Buscar el nombre en tu tabla Usuario
+            var usuarioDb = await dbContext.Usuarios
+                .FirstOrDefaultAsync(x => x.IdApplicationUser == u.Id);
+
+            var nombre = usuarioDb?.Nombre ?? u.Email ?? u.UserName ?? "Sin nombre";
+
+            await userManager.AddClaimAsync(u,
+                new System.Security.Claims.Claim("nombre", nombre));
+        }
     }
 }
+
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

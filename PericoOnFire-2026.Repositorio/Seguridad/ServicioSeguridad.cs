@@ -96,6 +96,8 @@ namespace PericoOnFire_2026.Repositorio.Seguridad
             // 5. Asignar el rol en el mismo acto que se crea la cuenta
             await userManager.AddToRoleAsync(nuevoUser, dto.Rol);
 
+            await userManager.AddClaimAsync(nuevoUser, new System.Security.Claims.Claim("nombre", dto.Nombre));
+
             return ResultadoCrearEmpleado.Ok();
         }
 

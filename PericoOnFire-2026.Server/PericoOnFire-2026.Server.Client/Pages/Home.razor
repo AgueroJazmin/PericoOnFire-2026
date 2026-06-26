@@ -3,23 +3,27 @@
 <main class="perico-main">
 
     <section class="salon salon-izq">
-        @foreach (var mesa in mesasIzquierda)
-        {
-            <button class="mesa mesa-@mesa.Numero">
-                <span>@mesa.Numero</span>
-            </button>
-        }
+        <div class="salon-inner">
+            @foreach (var mesa in mesasIzquierda)
+            {
+                <button class="mesa mesa-@mesa.Numero">
+                    <span>@mesa.Numero</span>
+                </button>
+            }
+        </div>
     </section>
 
     <section class="salon salon-der">
-        <img src="img/perico-pizza.jpg" class="perico-img" />
+        <div class="salon-inner">
+            <img src="img/perico-pizza.jpg" class="perico-img" />
 
-        @foreach (var mesa in mesasDerecha)
-        {
-            <button class="mesa mesa-@mesa.Numero">
-                <span>@mesa.Numero</span>
-            </button>
-        }
+            @foreach (var mesa in mesasDerecha)
+            {
+                <button class="mesa mesa-@mesa.Numero">
+                    <span>@mesa.Numero</span>
+                </button>
+            }
+        </div>
     </section>
 
 </main>
@@ -31,16 +35,27 @@
         background: white;
         display: grid;
         grid-template-columns: 1fr 1fr;
-        border: 2px solid #222;
+        border: 2px solid #111;
+        overflow: hidden;
     }
 
     .salon {
         position: relative;
         height: 100%;
+        overflow: hidden;
     }
 
     .salon-izq {
-        border-right: 4px solid #222;
+        border-right: 4px solid #111;
+    }
+
+    .salon-inner {
+        position: absolute;
+        width: 520px;
+        height: 700px;
+        top: 0;
+        left: 0;
+        transform-origin: top left;
     }
 
     .mesa {
@@ -48,10 +63,11 @@
         width: 68px;
         height: 46px;
         background: white;
-        border: 1px solid #cfcfcf;
+        border: 2px solid #888;
         font-weight: bold;
         cursor: pointer;
         z-index: 2;
+        font-size: 0.95rem;
     }
 
         .mesa span {
@@ -64,10 +80,10 @@
             content: "";
             position: absolute;
             background: white;
-            border: 1px solid #cfcfcf;
+            border: 2px solid #888;
             width: 16px;
             height: 22px;
-            top: 11px;
+            top: 10px;
         }
 
         .mesa::before {
@@ -83,7 +99,7 @@
             content: "";
             position: absolute;
             background: white;
-            border: 1px solid #cfcfcf;
+            border: 2px solid #888;
             width: 18px;
             height: 14px;
             left: 50%;
@@ -91,17 +107,27 @@
         }
 
         .mesa span::before {
-            top: -32px;
+            top: -30px;
         }
 
         .mesa span::after {
-            bottom: -32px;
+            bottom: -30px;
         }
 
         .mesa:hover {
             background: #ffecec;
-            border-color: red;
+            border-color: #cc0000;
         }
+
+            .mesa:hover::before,
+            .mesa:hover::after {
+                border-color: #cc0000;
+            }
+
+            .mesa:hover span::before,
+            .mesa:hover span::after {
+                border-color: #cc0000;
+            }
 
     .mesa-12 {
         top: 35px;
@@ -181,12 +207,36 @@
     .perico-img {
         position: absolute;
         top: 180px;
-        right: 90px;
+        left: 300px;
         width: 260px;
         height: 260px;
         object-fit: cover;
+        border-radius: 4px;
     }
 </style>
+
+<script>
+    function escalarSalones() {
+        const salones = document.querySelectorAll('.salon-inner');
+        salones.forEach(inner => {
+            const parent = inner.parentElement;
+            const anchoDisponible = parent.clientWidth;
+            const altoDisponible = parent.clientHeight;
+            const escalaX = anchoDisponible / 520;
+            const escalaY = altoDisponible / 700;
+            const escala = Math.min(escalaX, escalaY);
+            inner.style.transform = `scale(${escala})`;
+        });
+    }
+
+    // Ejecutar al cargar y al redimensionar
+    document.addEventListener('DOMContentLoaded', escalarSalones);
+    window.addEventListener('resize', escalarSalones);
+
+    // Para Blazor que renderiza después del DOM
+    setTimeout(escalarSalones, 100);
+    setTimeout(escalarSalones, 500);
+</script>
 
 @code {
     private List<MesaHome> mesasIzquierda = new()
@@ -215,5 +265,13 @@
     private class MesaHome
     {
         public int Numero { get; set; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await Task.Delay(150);
+        }
     }
 }
