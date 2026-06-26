@@ -52,9 +52,9 @@
                     <i class="bi bi-people-fill"></i>
                     Usuarios
                 </button>
-
+                <!-- Cambie el boton de roles para que me dirija a mi page que cree, asi que la page de roles se puede eliminar-->
                 <button class="side-item @(seccionActiva == "roles" ? "side-activo" : "")"
-                        @onclick="@(() => CambiarSeccion("roles"))">
+                        @onclick="MostrarRoles">
                     <i class="bi bi-shield-lock-fill"></i>
                     Roles
                 </button>
@@ -419,6 +419,9 @@
                                 <DataAnnotationsValidator />
                                 <ValidationSummary />
 
+                                <InputText class="form-control mb-2" placeholder="Nombre completo"
+                                           @bind-Value="usuarioNuevo.Nombre" />
+
                                 <InputText class="form-control mb-2" placeholder="Email"
                                            @bind-Value="usuarioNuevo.Email" />
 
@@ -498,54 +501,110 @@
                         </div>
                     }
                 }
-
+                <!-- No se que quisite hacer con eso, pero ya esta la pagina de roles -->
                 @if (seccionActiva == "roles")
                 {
-                    <h3>Roles de usuario</h3>
-
-                    <div class="top-action">
-                        <button class="btn btn-dark">
-                            + Nuevo Rol
-                        </button>
+                    <div class="section-header">
+                        <h3>Roles de usuario</h3>
                     </div>
 
-                    <div class="roles-layout">
+                    <div class="filtros-row mb-3">
+                        <input class="form-control buscador-rol" placeholder="Buscar por email..."
+                               @bind="filtroRol" @bind:event="oninput" />
+                        <select class="form-select filtro-estado-rol" @bind="filtroEstadoRol">
+                            <option value="todos">Todos</option>
+                            <option value="activos">Activos</option>
+                            <option value="inactivos">Inactivos</option>
+                        </select>
+                    </div>
+
+                    @if (usuariosRol == null)
+                    {
+                        <p class="text-muted">Cargando usuarios...</p>
+                    }
+                    else
+                    {
                         <table class="table tabla-config">
                             <thead>
                                 <tr>
-                                    <th>Rol</th>
-                                    <th>Usuarios</th>
+                                    <th>Email</th>
+                                    <th>Estado</th>
+                                    <th>Roles actuales</th>
+                                    <th>Asignar rol</th>
                                     <th></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr>
-                                    <td>Administracion</td>
-                                    <td>1</td>
-                                    <td><i class="bi bi-x-lg text-muted"></i></td>
-                                </tr>
-                                <tr>
-                                    <td>Cocina</td>
-                                    <td>-</td>
-                                    <td><i class="bi bi-x-lg text-muted"></i></td>
-                                </tr>
-                                <tr>
-                                    <td>Mozo</td>
-                                    <td>-</td>
-                                    <td><i class="bi bi-x-lg text-muted"></i></td>
-                                </tr>
-
-                                <tr>
-                                    <td>Delivery</td>
-                                    <td>-</td>
-                                    <td><i class="bi bi-x-lg text-muted"></i></td>
-                                </tr>
-                                
+                                @foreach (var usuario in UsuariosRolFiltrados)
+                                {
+                                    <tr>
+                                        <td>@usuario.Email</td>
+                                        <td>
+                                            @if (usuario.Activo)
+                                            {
+                                                <span class="badge bg-success">Activo</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">Inactivo</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (usuario.Roles.Count == 0)
+                                            {
+                                                <span class="text-muted">Sin rol</span>
+                                            }
+                                            else
+                                            {
+                                                @foreach (var rol in usuario.Roles)
+                                                {
+                                                    <span class="badge bg-dark me-1">
+                                                        @rol
+                                                        <button class="btn btn-sm btn-link text-white p-0 ms-1"
+                                                                @onclick="() => RemoverRol(usuario, rol)">
+                                                            x
+                                                        </button>
+                                                    </span>
+                                                }
+                                            }
+                                        </td>
+                                        <td>
+                                            <select class="form-select form-select-sm"
+                                                    value="@rolSeleccionado[usuario.Email]"
+                                                    @onchange="e => rolSeleccionado[usuario.Email] = e.Value!.ToString()!">
+                                                @foreach (var rol in rolesDisponibles2)
+                                                {
+                                                    <option value="@rol">@rol</option>
+                                                }
+                                            </select>
+                                        </td>
+                                        <td class="acciones">
+                                            <button class="btn btn-sm btn-primary"
+                                                    @onclick="() => AsignarRol(usuario)">
+                                                Asignar
+                                            </button>
+                                            @if (usuario.Activo)
+                                            {
+                                                <button class="btn btn-sm btn-warning"
+                                                        @onclick="() => CambiarEstadoUsuario(usuario, false)">
+                                                    Desactivar
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-sm btn-success"
+                                                        @onclick="() => CambiarEstadoUsuario(usuario, true)">
+                                                    Activar
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
                             </tbody>
                         </table>
-                    </div>
+                    }
                 }
-
+                <!-- Hasta aca-->
             </main>
         </div>
     }
@@ -763,7 +822,21 @@
         -moz-appearance: textfield;
     }
 
-    
+    .filtros-row {
+        display: flex;
+        gap: 1rem;
+        max-width: 600px;
+    }
+
+    .buscador-rol {
+        flex: 1;
+        border-radius: .6rem;
+    }
+
+    .filtro-estado-rol {
+        width: 160px;
+        border-radius: .6rem;
+    }
 
 </style>
 
@@ -795,6 +868,71 @@
     private int? editandoProductoId;
     private ProductoCrearDTO editandoProducto = new();
 
+    //Esto es lo que yo agrego para que ande roles con lo que yo hice de mi page
+    private List<UsuarioRolDTO>? usuariosRol;
+    private List<string> rolesDisponibles2 = Enum.GetNames(typeof(EnumRolSistema)).ToList();
+    private Dictionary<string, string> rolSeleccionado = new();
+    private string filtroRol = "";
+    private string filtroEstadoRol = "todos";
+    private IEnumerable<UsuarioRolDTO> UsuariosRolFiltrados => (usuariosRol ?? new())
+        .Where(u => string.IsNullOrEmpty(filtroRol) || u.Email.Contains(filtroRol, StringComparison.OrdinalIgnoreCase))
+        .Where(u => filtroEstadoRol == "todos" ||
+                    (filtroEstadoRol == "activos" && u.Activo) ||
+                    (filtroEstadoRol == "inactivos" && !u.Activo));
+
+
+
+    private async Task CargarUsuariosRol()
+    {
+        var resp = await http.Get<List<UsuarioRolDTO>>("api/seguridad/usuarios");
+        if (!resp.Error && resp.Respuesta != null)
+        {
+            usuariosRol = resp.Respuesta;
+            foreach (var u in usuariosRol)
+                if (!rolSeleccionado.ContainsKey(u.Email))
+                    rolSeleccionado[u.Email] = rolesDisponibles2.First();
+        }
+        else Mensaje = resp.ObtenerError();
+    }
+
+    private async Task AsignarRol(UsuarioRolDTO usuario)
+    {
+        Mensaje = "";
+        var dto = new AsignarRolDTO { Email = usuario.Email, Rol = rolSeleccionado[usuario.Email] };
+        var resp = await http.Post<AsignarRolDTO>("api/seguridad/asignar-rol", dto);
+        if (!resp.Error) { Mensaje = $"Rol {dto.Rol} asignado a {dto.Email}."; await CargarUsuariosRol(); }
+        else Mensaje = resp.ObtenerError();
+    }
+
+    private async Task RemoverRol(UsuarioRolDTO usuario, string rol)
+    {
+        Mensaje = "";
+        var dto = new AsignarRolDTO { Email = usuario.Email, Rol = rol };
+        var resp = await http.Post<AsignarRolDTO>("api/seguridad/remover-rol", dto);
+        if (!resp.Error) { Mensaje = $"Rol {rol} removido de {usuario.Email}."; await CargarUsuariosRol(); }
+        else Mensaje = resp.ObtenerError();
+    }
+
+    private async Task CambiarEstadoUsuario(UsuarioRolDTO usuario, bool activar)
+    {
+        Mensaje = "";
+        var dto = new AsignarRolDTO { Email = usuario.Email, Rol = "" };
+        var endpoint = activar ? "api/seguridad/activar-usuario" : "api/seguridad/desactivar-usuario";
+        var resp = await http.Post<AsignarRolDTO>(endpoint, dto);
+        if (!resp.Error) { Mensaje = $"Usuario {usuario.Email} {(activar ? "activado" : "desactivado")}."; await CargarUsuariosRol(); }
+        else Mensaje = resp.ObtenerError();
+    }
+
+    private async Task MostrarRoles()
+    {
+        seccionActiva = "roles";
+        Mensaje = "";
+        CancelarEdicion();
+        await CargarUsuariosRol();
+    }
+
+    //Hasta aca
+  
     protected override async Task OnInitializedAsync()
     {
         await CargarCategorias();
