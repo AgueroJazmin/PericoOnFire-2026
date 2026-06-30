@@ -97,6 +97,10 @@
                             </button>
                         </div>
                     </EditForm>
+                    <input class="form-control mt-3 mb-3"
+                           placeholder="Buscar categoría..."
+                           @bind="filtroCategoria"
+                           @bind:event="oninput" />
 
                     <table class="table tabla-config mt-3">
                         <thead>
@@ -116,7 +120,7 @@
                             }
                             else
                             {
-                                @foreach (var c in categorias)
+                                @foreach (var c in CategoriasFiltradas)
                                 {
                                     <tr>
                                         <td>
@@ -196,6 +200,11 @@
                         </div>
                     </EditForm>
 
+                    <input class="form-control mt-3"
+                           placeholder="Buscar subcategoría o categoría..."
+                           @bind="filtroSubcategoria"
+                           @bind:event="oninput" />
+
                     <table class="table tabla-config mt-3">
                         <thead>
                             <tr>
@@ -205,7 +214,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var s in subcategorias)
+                            @foreach (var s in SubcategoriasFiltradas)
                             {
                                 <tr>
                                     <td>@s.NombreCategoria</td>
@@ -311,6 +320,11 @@
                         </div>
                     </EditForm>
 
+                    <input class="form-control mt-3"
+                           placeholder="Buscar producto, categoría o subcategoría..."
+                           @bind="filtroProducto"
+                           @bind:event="oninput" />
+
                     <table class="table tabla-config mt-3">
                         <thead>
                             <tr>
@@ -324,7 +338,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var p in productos)
+                            @foreach (var p in ProductosFiltrados)
                             {
                                 <tr>
                                     <td>
@@ -868,6 +882,10 @@
     private int? editandoProductoId;
     private ProductoCrearDTO editandoProducto = new();
 
+    private string filtroCategoria = "";
+    private string filtroSubcategoria = "";
+    private string filtroProducto = "";
+
     //Esto es lo que yo agrego para que ande roles con lo que yo hice de mi page
     private List<UsuarioRolDTO>? usuariosRol;
     private List<string> rolesDisponibles2 = Enum.GetNames(typeof(EnumRolSistema)).ToList();
@@ -1195,6 +1213,27 @@
         Mensaje = "";
         CancelarEdicion();
     }
+
+    private IEnumerable<CategoriaListadoDTO> CategoriasFiltradas =>
+    string.IsNullOrWhiteSpace(filtroCategoria)
+        ? categorias
+        : categorias.Where(c =>
+            c.NombreCategoria.Contains(filtroCategoria, StringComparison.OrdinalIgnoreCase));
+
+private IEnumerable<SubcategoriaListadoDTO> SubcategoriasFiltradas =>
+    string.IsNullOrWhiteSpace(filtroSubcategoria)
+        ? subcategorias
+        : subcategorias.Where(s =>
+            s.NombreSubcategoria.Contains(filtroSubcategoria, StringComparison.OrdinalIgnoreCase)
+            || s.NombreCategoria.Contains(filtroSubcategoria, StringComparison.OrdinalIgnoreCase));
+
+private IEnumerable<ProductoListadoDTO> ProductosFiltrados =>
+    string.IsNullOrWhiteSpace(filtroProducto)
+        ? productos
+        : productos.Where(p =>
+            p.Nombre.Contains(filtroProducto, StringComparison.OrdinalIgnoreCase)
+            || p.NombreCategoria.Contains(filtroProducto, StringComparison.OrdinalIgnoreCase)
+            || p.NombreSubcategoria.Contains(filtroProducto, StringComparison.OrdinalIgnoreCase));
 
     private async Task CargarUsuarios()
     {
