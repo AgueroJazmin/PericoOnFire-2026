@@ -43,9 +43,9 @@ builder.Services.AddAuthentication(options =>
     .AddIdentityCookies();
 var connectionString = builder.Configuration.GetConnectionString("ConSqlServer") ?? throw new InvalidOperationException("El string de conexion no existe.");
 builder.Services.AddDbContext<MiDbContext>(options =>
-    options.UseSqlServer(connectionString, sqlOptions =>
+    options.UseNpgsql(connectionString, npgsqlOptions =>
     {
-        sqlOptions.EnableRetryOnFailure();
+        npgsqlOptions.EnableRetryOnFailure();
     }));
 
 //Registrar los repositorios
