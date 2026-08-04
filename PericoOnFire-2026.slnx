@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Elementos de la solución/">
+    <File Path="Dockerfile" />
+  </Folder>
   <Project Path="PericoOnFire-2026.BD/PericoOnFire-2026.BD.csproj" />
   <Project Path="PericoOnFire-2026.Repositorio/PericoOnFire-2026.Repositorio.csproj" />
   <Project Path="PericoOnFire-2026.Server/PericoOnFire-2026.Server.Client/PericoOnFire-2026.Server.Client.csproj" />
