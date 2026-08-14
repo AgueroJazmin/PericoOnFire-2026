@@ -24,7 +24,8 @@ namespace PericoOnFire_2026.Servicio.ServicioHttp
             }
             else
             {
-                return new HttpRespuesta<T>(default, true, response);
+                var mensaje = await ObtenerMensajeError(response);
+                return new HttpRespuesta<T>(default, true, response, mensaje);
             }
         }
 
@@ -43,7 +44,8 @@ namespace PericoOnFire_2026.Servicio.ServicioHttp
             }
             else
             {
-                return new HttpRespuesta<TResp>(default, true, response);
+                var mensaje = await ObtenerMensajeError(response);
+                return new HttpRespuesta<TResp>(default, true, response, mensaje);
             }
 
         }
@@ -64,7 +66,8 @@ namespace PericoOnFire_2026.Servicio.ServicioHttp
             }
             else
             {
-                return new HttpRespuesta<object>(default, true, response);
+                var mensaje = await ObtenerMensajeError(response);
+                return new HttpRespuesta<object>(default, true, response, mensaje);
             }
 
         }
@@ -87,7 +90,8 @@ namespace PericoOnFire_2026.Servicio.ServicioHttp
             }
             else
             {
-                return new HttpRespuesta<object>(default, true, response);
+                var mensaje = await ObtenerMensajeError(response);
+                return new HttpRespuesta<object>(default, true, response, mensaje);
             }
         }
 
@@ -107,16 +111,23 @@ namespace PericoOnFire_2026.Servicio.ServicioHttp
             }
             else
             {
-                return new HttpRespuesta<TResp>(default, true, response);
+                var mensaje = await ObtenerMensajeError(response);
+                return new HttpRespuesta<TResp>(default, true, response, mensaje);
             }
         }
 
         public async Task<HttpRespuesta<object>> Delete(string url)
         {
             var respuesta = await http.DeleteAsync(url);
-            return new HttpRespuesta<object>(null,
-                                             !respuesta.IsSuccessStatusCode,
-                                             respuesta);
+            if (respuesta.IsSuccessStatusCode)
+            {
+                return new HttpRespuesta<object>(null, false, respuesta);
+            }
+            else
+            {
+                var mensaje = await ObtenerMensajeError(respuesta);
+                return new HttpRespuesta<object>(null, true, respuesta, mensaje);
+            }
         }
 
         private async Task<T?> DesSerializar<T>(HttpResponseMessage response)

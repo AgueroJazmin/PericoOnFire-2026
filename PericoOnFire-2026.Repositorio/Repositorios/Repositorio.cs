@@ -69,7 +69,12 @@ namespace PericoOnFire_2026.Repositorio.Repositorios
                 await context.SaveChangesAsync();
                 return true;
             }
-            catch (Exception) { throw; }
+            catch (DbUpdateException)
+            {
+                // Hay registros hijos dependiendo de esta entidad (FK)
+                throw new InvalidOperationException(
+                    "No se puede eliminar: hay elementos relacionados que dependen de este registro.");
+            }
         }
     }
 }

@@ -58,6 +58,9 @@ builder.Services.AddScoped<IComandaRepositorio, ComandaRepositorio>();
 builder.Services.AddScoped<IPedidoRepositorio, PedidoRepositorio>();
 builder.Services.AddScoped<IServicioSeguridad, ServicioSeguridad>();
 builder.Services.AddScoped(typeof(IRepositorio<>), typeof(Repositorio<>));
+//Para notificar cambios en la base de datos
+builder.Services.AddTransient<PericoOnFire_2026.Shared.SerPolling.PollingService>();
+builder.Services.AddSingleton<PericoOnFire_2026.Servicio.ServicioHttp.NotificarCambios>();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
     {
