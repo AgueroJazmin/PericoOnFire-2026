@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using PericoOnFire_2026.BD.Datos;
 using PericoOnFire_2026.BD.Datos.Entity;
 using PericoOnFire_2026.Repositorio.Repositorios;
+using PericoOnFire_2026.Servicio.ServicioHttp;
 using PericoOnFire_2026.Shared.DTOs;
 using PericoOnFire_2026.Shared.ENUM;
 
@@ -87,12 +88,19 @@ namespace PericoOnFire_2026.Server.Controllers
         [HttpDelete("{id:int}")]
         public async Task<ActionResult> Delete(int id)
         {
-            var ok = await repositorio.Delete(id);
+            try
+            {
+                var ok = await repositorio.Delete(id);
 
-            if (!ok)
-                return NotFound();
+                if (!ok)
+                    return NotFound();
 
-            return NoContent();
+                return NoContent();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { error = ex.Message });
+            }
         }
     }
 }

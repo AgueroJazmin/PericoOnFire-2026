@@ -10,14 +10,16 @@ namespace PericoOnFire_2026.Servicio.ServicioHttp
         public T? Respuesta { get; }
         public bool Error { get; }
         public HttpResponseMessage HttpResponseMessage { get; set; }
+        public string? MensajeServidor { get; }
 
         public HttpRespuesta(T? respuesta,
                              bool error,
-                             HttpResponseMessage httpResponseMessage)
+                             HttpResponseMessage httpResponseMessage, string? mensajeServidor = null)
         {
             Respuesta = respuesta;
             Error = error;
             HttpResponseMessage = httpResponseMessage;
+            MensajeServidor = mensajeServidor;
         }
 
         public string ObtenerError()
@@ -40,8 +42,14 @@ namespace PericoOnFire_2026.Servicio.ServicioHttp
                         return "No tiene autorización a ejecutar este proceso.";
                     case HttpStatusCode.BadRequest:
                         return "No se pudo procesar la información.";
+                    case HttpStatusCode.Conflict:
+                        return string.IsNullOrWhiteSpace(MensajeServidor)
+                            ? "No se pudo completar la operación por un conflicto con datos existentes."
+                            : MensajeServidor;
                     default:
-                        return $"Error en la llamada HTTP. Código de estado: {statuscode}";
+                        return string.IsNullOrWhiteSpace(MensajeServidor)
+                            ? $"Error en la llamada HTTP. Código de estado: {statuscode}"
+                            : MensajeServidor;
                 }
             }
         }

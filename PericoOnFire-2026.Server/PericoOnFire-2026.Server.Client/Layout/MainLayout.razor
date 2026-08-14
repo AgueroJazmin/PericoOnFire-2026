@@ -1,4 +1,5 @@
 ﻿@inherits LayoutComponentBase
+@inject NavigationManager NavManager
 
 <div class="perico-layout">
 
@@ -58,10 +59,11 @@
                 </Authorized>
             </AuthorizeView>
 
-            <!-- Config a la izquierda del logo -->
+            <!-- Config a la izquierda del logo-->
             <NavLink href="/configuracion" class="config-link" title="Configuración">
                 <i class="bi bi-gear-fill"></i>
             </NavLink>
+          
 
             <!-- Logo siempre de fondo-->
             <img src="img/perico-logo.jpg" class="perico-logo" alt="Perico On Fire" />
@@ -338,4 +340,5 @@
     {
         timer?.Dispose();
     }
+
 }

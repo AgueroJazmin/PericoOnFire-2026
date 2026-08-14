@@ -3,6 +3,8 @@
 @using PericoOnFire_2026.Shared.DTOs
 @using PericoOnFire_2026.Shared.ENUM
 @using PericoOnFire_2026.Servicio.ServicioHttp
+@implements IAsyncDisposable
+@inject PericoOnFire_2026.Shared.SerPolling.PollingService Polling
 @inject NavigationManager NavManager
 @inject IHttpServicio http
 @rendermode InteractiveAuto
@@ -957,6 +959,22 @@
         await CargarSubcategorias();
         await CargarProductos();
         await CargarUsuarios();
+
+        Polling.Iniciar(ActualizarTodo, TimeSpan.FromSeconds(2));
+    }
+
+    private async Task ActualizarTodo()
+    {
+        await CargarCategorias();
+        await CargarSubcategorias();
+        await CargarProductos();
+        await CargarUsuarios();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await Polling.DisposeAsync();
     }
 
     private void CambiarTab(string tab)

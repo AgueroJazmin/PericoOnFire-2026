@@ -11,4 +11,6 @@ builder.Services.AddScoped(sp => new HttpClient { BaseAddress = new Uri(builder.
 
 builder.Services.AddScoped<IHttpServicio, HttpServicio>();
 
+builder.Services.AddTransient<PericoOnFire_2026.Shared.SerPolling.PollingService>();
+
 await builder.Build().RunAsync();
