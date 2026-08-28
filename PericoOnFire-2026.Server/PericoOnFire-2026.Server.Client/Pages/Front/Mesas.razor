@@ -1,0 +1,719 @@
+﻿@page "/comandas"
+@using Microsoft.AspNetCore.Authorization
+@using PericoOnFire_2026.Shared.DTOs
+@using PericoOnFire_2026.Shared.ENUM
+@using PericoOnFire_2026.Servicio.ServicioHttp
+@using PericoOnFire_2026.Server.Client.Shared
+@implements IAsyncDisposable
+@inject PericoOnFire_2026.Shared.SerPolling.PollingService Polling
+@inject IHttpServicio http
+@rendermode InteractiveAuto
+@attribute [Authorize(Roles = "Mozo,Administracion")]
+
+<main class="perico-main">
+
+    <section class="salon salon-izq">
+        <div class="salon-inner">
+            @foreach (var numero in numerosIzquierda)
+            {
+                @RenderMesa(numero)
+            }
+        </div>
+    </section>
+
+    <section class="salon salon-der">
+        <div class="salon-inner">
+            <img src="img/perico-pizza.jpg" class="perico-img" />
+
+            @foreach (var numero in numerosDerecha)
+            {
+                @RenderMesa(numero)
+            }
+        </div>
+    </section>
+
+</main>
+
+@if (mesaSeleccionada != null)
+{
+    <aside class="panel-mesa">
+        <div class="panel-header">
+            <h5>Mesa @mesaSeleccionada.NumeroMesa</h5>
+            <button class="btn-cerrar" @onclick="CerrarPanel">&times;</button>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Mensaje))
+        {
+            <div class="alert alert-info">@Mensaje</div>
+        }
+
+        @if (cargandoPanel)
+        {
+            <p>Cargando...</p>
+        }
+        else if (comandaActual == null)
+        {
+            <div class="panel-body">
+                <p>La mesa está libre.</p>
+                <button class="btn btn-primary" @onclick="AbrirMesa">
+                    Abrir mesa
+                </button>
+            </div>
+        }
+        else
+        {
+            <div class="panel-body">
+
+                <h6>Pedidos enviados</h6>
+                @if (!pedidosActuales.Any())
+                {
+                    <p class="texto-vacio">Todavía no se envió nada a cocina/barra.</p>
+                }
+                else
+                {
+                    @foreach (var grupo in pedidosActuales.GroupBy(p => p.SectorDestino))
+                    {
+                        <div class="grupo-sector">
+                            <strong>@grupo.Key</strong>
+                            @foreach (var pedido in grupo)
+                            {
+                                <div class="pedido-card">
+                                    <span class="pedido-estado">@pedido.Estado</span>
+                                    <ul>
+                                        @foreach (var detalle in pedido.DetallesPedido)
+                                        {
+                                            <li>@detalle.Cantidad x @detalle.NombreProducto</li>
+                                        }
+                                    </ul>
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+
+                @if (comandaActual.Estado == EnumEstadoComanda.PendienteCobro)
+                {
+                    <hr />
+                    <p class="texto-vacio">Mesa cerrada, pendiente de cobro. El cobro se hace desde Caja.</p>
+                }
+                else
+                {
+                    <hr />
+
+                    <h6>Agregar ítems</h6>
+                    <select class="form-select" @bind="idProductoSeleccionado">
+                        <option value="0">Seleccioná un producto...</option>
+                        @foreach (var cat in productos.GroupBy(p => p.NombreCategoria))
+                        {
+                            <optgroup label="@cat.Key">
+                                @foreach (var prod in cat)
+                                {
+                                    <option value="@prod.Id">@prod.Nombre - $@prod.Precio</option>
+                                }
+                            </optgroup>
+                        }
+                    </select>
+                    <button class="btn btn-sm btn-secondary mt-2" @onclick="AgregarAlCarrito">
+                        Agregar
+                    </button>
+
+                    @if (carrito.Any())
+                    {
+                        <ul class="carrito-lista">
+                            @foreach (var item in carrito)
+                            {
+                                <li>
+                                    @item.Cantidad x @NombreProducto(item.IdProducto)
+                                    <button class="btn-quitar" @onclick="() => QuitarDelCarrito(item)">x</button>
+                                </li>
+                            }
+                        </ul>
+
+                        <button class="btn btn-success w-100 mb-2" @onclick="EnviarPedido">
+                            Enviar a cocina/barra
+                        </button>
+                    }
+
+                    <hr />
+
+                    @if (!pedidosActuales.Any())
+                    {
+                        <button class="btn btn-outline-danger w-100" @onclick="PedirCancelarMesa">
+                            Cancelar mesa (abierta por error)
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-dark w-100" @onclick="PedirCerrarMesa">
+                            Cerrar mesa (consumo final)
+                        </button>
+                    }
+                }
+            </div>
+        }
+
+        <Confirmacion @ref="confirmacion"
+                      Titulo="@tituloConfirmacion"
+                      textOk="Sí, continuar"
+                      textCancelar="Volver"
+                      onConfirm="EjecutarConfirmacion"
+                      onCancel="() => confirmacion!.Ocultar()">
+            <p>@mensajeConfirmacion</p>
+        </Confirmacion>
+    </aside>
+}
+
+<style>
+    .perico-main {
+        width: 100%;
+        height: calc(100vh - 64px);
+        background: white;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        border: 2px solid #111;
+        overflow: hidden;
+    }
+
+    .salon {
+        position: relative;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    .salon-izq {
+        border-right: 4px solid #111;
+    }
+
+    .salon-inner {
+        position: absolute;
+        width: 520px;
+        height: 700px;
+        top: 0;
+        left: 0;
+        transform-origin: top left;
+    }
+
+    .mesa {
+        position: absolute;
+        width: 68px;
+        height: 46px;
+        background: white;
+        border: 2px solid #888;
+        font-weight: bold;
+        cursor: pointer;
+        z-index: 2;
+        font-size: 0.95rem;
+    }
+
+        .mesa span {
+            position: relative;
+            z-index: 3;
+        }
+
+        .mesa::before,
+        .mesa::after {
+            content: "";
+            position: absolute;
+            background: white;
+            border: 2px solid #888;
+            width: 16px;
+            height: 22px;
+            top: 10px;
+        }
+
+        .mesa::before {
+            left: -20px;
+        }
+
+        .mesa::after {
+            right: -20px;
+        }
+
+        .mesa span::before,
+        .mesa span::after {
+            content: "";
+            position: absolute;
+            background: white;
+            border: 2px solid #888;
+            width: 18px;
+            height: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .mesa span::before {
+            top: -30px;
+        }
+
+        .mesa span::after {
+            bottom: -30px;
+        }
+
+    .estado-Libre {
+        border-color: #2e7d32;
+        background: #eafaf0;
+    }
+
+    .estado-Ocupada {
+        border-color: #c62828;
+        background: #fdecea;
+    }
+
+    .estado-Reservada {
+        border-color: #f9a825;
+        background: #fff8e1;
+    }
+
+    .estado-PendienteCobro {
+        border-color: #ef6c00;
+        background: #fff3e0;
+    }
+
+    .sin-configurar {
+        border-color: #ccc;
+        background: #f5f5f5;
+        color: #aaa;
+        cursor: not-allowed;
+    }
+
+    .badge-notif {
+        position: absolute;
+        top: -6px;
+        right: -6px;
+        width: 14px;
+        height: 14px;
+        background: #e53935;
+        border: 2px solid white;
+        border-radius: 50%;
+        z-index: 5;
+        animation: pulso 1.2s infinite;
+    }
+
+    .mesa-12 {
+        top: 35px;
+        left: 135px;
+    }
+
+    .mesa-11 {
+        top: 150px;
+        left: 70px;
+    }
+
+    .mesa-10 {
+        top: 145px;
+        left: 220px;
+    }
+
+    .mesa-9 {
+        top: 145px;
+        left: 370px;
+    }
+
+    .mesa-8 {
+        top: 270px;
+        left: 70px;
+    }
+
+    .mesa-7 {
+        top: 265px;
+        left: 220px;
+    }
+
+    .mesa-6 {
+        top: 265px;
+        left: 370px;
+    }
+
+    .mesa-5 {
+        top: 390px;
+        left: 70px;
+    }
+
+    .mesa-4 {
+        top: 385px;
+        left: 220px;
+    }
+
+    .mesa-3 {
+        top: 385px;
+        left: 370px;
+    }
+
+    .mesa-2 {
+        top: 515px;
+        left: 220px;
+    }
+
+    .mesa-1 {
+        top: 515px;
+        left: 370px;
+    }
+
+    .mesa-13 {
+        top: 260px;
+        left: 120px;
+    }
+
+    .mesa-14 {
+        top: 390px;
+        left: 120px;
+    }
+
+    .mesa-15 {
+        top: 520px;
+        left: 120px;
+    }
+
+    .perico-img {
+        position: absolute;
+        top: 180px;
+        left: 300px;
+        width: 260px;
+        height: 260px;
+        object-fit: cover;
+        border-radius: 4px;
+    }
+
+    .panel-mesa {
+        position: fixed;
+        top: 64px;
+        right: 0;
+        width: 360px;
+        height: calc(100vh - 64px);
+        background: white;
+        border-left: 2px solid #ddd;
+        box-shadow: -4px 0 10px rgba(0,0,0,0.15);
+        overflow-y: auto;
+        padding: 1rem;
+        z-index: 50;
+    }
+
+    .panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .btn-cerrar {
+        border: none;
+        background: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+    }
+
+    .grupo-sector {
+        margin-bottom: 0.75rem;
+    }
+
+    .pedido-card {
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 0.4rem 0.6rem;
+        margin: 0.3rem 0;
+    }
+
+    .pedido-estado {
+        font-size: 0.75rem;
+        font-weight: bold;
+        color: #555;
+    }
+
+    .carrito-lista {
+        list-style: none;
+        padding: 0;
+        margin-top: 0.75rem;
+    }
+
+        .carrito-lista li {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.25rem 0;
+        }
+
+    .btn-quitar {
+        border: none;
+        background: none;
+        color: #c62828;
+        cursor: pointer;
+    }
+
+    .texto-vacio {
+        color: #888;
+        font-size: 0.85rem;
+    }
+</style>
+
+<script>
+    function escalarSalones() {
+        const salones = document.querySelectorAll('.salon-inner');
+        salones.forEach(inner => {
+            const parent = inner.parentElement;
+            const anchoDisponible = parent.clientWidth;
+            const altoDisponible = parent.clientHeight;
+            const escalaX = anchoDisponible / 520;
+            const escalaY = altoDisponible / 700;
+            const escala = Math.min(escalaX, escalaY);
+            inner.style.transform = `scale(${escala})`;
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', escalarSalones);
+    window.addEventListener('resize', escalarSalones);
+    setTimeout(escalarSalones, 100);
+    setTimeout(escalarSalones, 500);
+</script>
+
+@code {
+    private readonly int[] numerosIzquierda = { 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1 };
+    private readonly int[] numerosDerecha = { 13, 14, 15 };
+
+    private List<MesaDTO> mesas = new();
+    private List<ProductoListadoDTO> productos = new();
+
+    private MesaDTO? mesaSeleccionada;
+    private ComandaDTO? comandaActual;
+    private List<PedidoDTO> pedidosActuales = new();
+    private List<ItemPedidoDTO> carrito = new();
+
+    private int idProductoSeleccionado;
+    private int? idUsuarioActual;
+    private bool cargandoPanel;
+    private string? Mensaje;
+
+    private Confirmacion? confirmacion;
+    private string tituloConfirmacion = "";
+    private string mensajeConfirmacion = "";
+    private Func<Task>? accionConfirmada;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarMesas();
+        await CargarProductos();
+        await CargarUsuarioActual();
+
+        Polling.Iniciar(CargarMesas, TimeSpan.FromSeconds(2));
+    }
+
+    private RenderFragment RenderMesa(int numero) => @<text>
+        @{
+            var mesa = ObtenerMesa(numero);
+            var clase = mesa == null ? "sin-configurar" : $"estado-{mesa.Estado}";
+        }
+        <button class="mesa mesa-@numero @clase"
+                disabled="@(mesa == null)"
+                title="@(mesa == null ? "Mesa no configurada en Configuración > Mesas" : mesa.Estado.ToString())"
+                @onclick="@(() => SeleccionarMesa(mesa!))">
+            <span>@numero</span>
+            @if (mesa != null && mesa.TienePedidoListo)
+            {
+                <span class="badge-notif"></span>
+            }
+        </button>
+    </text>;
+
+    private MesaDTO? ObtenerMesa(int numero) => mesas.FirstOrDefault(m => m.NumeroMesa == numero);
+
+    private string NombreProducto(int idProducto) =>
+        productos.FirstOrDefault(p => p.Id == idProducto)?.Nombre ?? "";
+
+    private async Task CargarMesas()
+    {
+        var respuesta = await http.Get<List<MesaDTO>>("api/Mesa");
+        if (!respuesta.Error && respuesta.Respuesta != null)
+        {
+            mesas = respuesta.Respuesta;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task CargarProductos()
+    {
+        var respuesta = await http.Get<List<ProductoListadoDTO>>("api/Producto");
+        if (!respuesta.Error && respuesta.Respuesta != null)
+        {
+            productos = respuesta.Respuesta.Where(p => p.Activo).ToList();
+        }
+    }
+
+    private async Task CargarUsuarioActual()
+    {
+        var respuesta = await http.Get<int>("api/Usuario/Actual");
+        if (!respuesta.Error)
+        {
+            idUsuarioActual = respuesta.Respuesta;
+        }
+    }
+
+    private async Task SeleccionarMesa(MesaDTO mesa)
+    {
+        mesaSeleccionada = mesa;
+        comandaActual = null;
+        pedidosActuales = new();
+        carrito = new();
+        Mensaje = null;
+        cargandoPanel = true;
+
+        if (mesa.Estado != EnumEstadoMesa.Libre)
+        {
+            var respuesta = await http.Get<ComandaDTO>($"api/Comanda/Mesa/{mesa.Id}");
+            if (!respuesta.Error && respuesta.Respuesta != null)
+            {
+                comandaActual = respuesta.Respuesta;
+                await CargarPedidos();
+            }
+        }
+
+        cargandoPanel = false;
+    }
+
+    private async Task CargarPedidos()
+    {
+        if (comandaActual == null) return;
+
+        var respuesta = await http.Get<List<PedidoDTO>>($"api/Pedido/Comanda/{comandaActual.Id}");
+        if (!respuesta.Error && respuesta.Respuesta != null)
+        {
+            pedidosActuales = respuesta.Respuesta;
+        }
+    }
+
+    private async Task AbrirMesa()
+    {
+        if (mesaSeleccionada == null || idUsuarioActual == null)
+        {
+            Mensaje = "No se pudo identificar al usuario logueado.";
+            return;
+        }
+
+        var dto = new ComandaCrearDTO
+        {
+            IdMesa = mesaSeleccionada.Id,
+            IdUsuario = idUsuarioActual,
+            TipoServicio = EnumTipoServicio.Mesa
+        };
+
+        var respuesta = await http.Post<ComandaCrearDTO, int>("api/Comanda", dto);
+        if (respuesta.Error)
+        {
+            Mensaje = respuesta.ObtenerError();
+            return;
+        }
+
+        var numeroSeleccionado = mesaSeleccionada.NumeroMesa;
+        await CargarMesas();
+        var mesaActualizada = mesas.First(m => m.NumeroMesa == numeroSeleccionado);
+        await SeleccionarMesa(mesaActualizada);
+    }
+
+    private void AgregarAlCarrito()
+    {
+        if (idProductoSeleccionado == 0) return;
+
+        var existente = carrito.FirstOrDefault(c => c.IdProducto == idProductoSeleccionado);
+
+        if (existente != null)
+        {
+            existente.Cantidad++;
+        }
+        else
+        {
+            carrito.Add(new ItemPedidoDTO
+            {
+                IdProducto = idProductoSeleccionado,
+                Cantidad = 1
+            });
+        }
+
+        idProductoSeleccionado = 0;
+    }
+
+    private void QuitarDelCarrito(ItemPedidoDTO item)
+    {
+        carrito.Remove(item);
+    }
+
+    private async Task EnviarPedido()
+    {
+        if (comandaActual == null || !carrito.Any()) return;
+
+        var dto = new CargarPedidoDTO
+        {
+            IdComanda = comandaActual.Id,
+            Items = carrito
+        };
+
+        var respuesta = await http.Post<CargarPedidoDTO, List<int>>("api/Pedido/CargarItems", dto);
+        if (respuesta.Error)
+        {
+            Mensaje = respuesta.ObtenerError();
+            return;
+        }
+
+        carrito = new();
+        await CargarPedidos();
+    }
+
+    private void PedirCancelarMesa()
+    {
+        tituloConfirmacion = "Cancelar mesa";
+        mensajeConfirmacion = $"¿Cancelar la apertura de la mesa {mesaSeleccionada?.NumeroMesa}? Todavía no se cargó ningún pedido.";
+        accionConfirmada = CancelarMesa;
+        confirmacion?.Ver();
+    }
+
+    private void PedirCerrarMesa()
+    {
+        tituloConfirmacion = "Cerrar mesa";
+        mensajeConfirmacion = $"¿Cerrar la mesa {mesaSeleccionada?.NumeroMesa}? Pasa a pendiente de cobro y no se van a poder agregar más pedidos.";
+        accionConfirmada = CerrarMesa;
+        confirmacion?.Ver();
+    }
+
+    private async Task EjecutarConfirmacion()
+    {
+        confirmacion?.Ocultar();
+        if (accionConfirmada != null)
+            await accionConfirmada();
+    }
+
+    private async Task CancelarMesa()
+    {
+        if (comandaActual == null) return;
+
+        var resp = await http.Put($"api/Comanda/{comandaActual.Id}/Cancelar", new { });
+        if (resp.Error)
+        {
+            Mensaje = resp.ObtenerError();
+            return;
+        }
+
+        await CargarMesas();
+        CerrarPanel();
+    }
+
+    private async Task CerrarMesa()
+    {
+        if (comandaActual == null) return;
+
+        var resp = await http.Put($"api/Comanda/{comandaActual.Id}/Cerrar", new { });
+        if (resp.Error)
+        {
+            Mensaje = resp.ObtenerError();
+            return;
+        }
+
+        await CargarMesas();
+        CerrarPanel();
+    }
+
+    private void CerrarPanel()
+    {
+        mesaSeleccionada = null;
+        comandaActual = null;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await Polling.DisposeAsync();
+    }
+}

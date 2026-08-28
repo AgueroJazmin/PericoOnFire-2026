@@ -1,0 +1,7 @@
+﻿@page "/cocina"
+@using Microsoft.AspNetCore.Authorization
+@using PericoOnFire_2026.Shared.ENUM
+@rendermode InteractiveAuto
+@attribute [Authorize(Roles = "Cocina,Administracion")]
+
+<TableroPedidos Sector="EnumSectorDestino.Cocina" TituloSector="Pedidos - Cocina" />

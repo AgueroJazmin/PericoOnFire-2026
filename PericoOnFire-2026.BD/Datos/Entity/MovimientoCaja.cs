@@ -19,7 +19,7 @@ namespace PericoOnFire_2026.BD.Datos.Entity
         [MaxLength(200)]
         public string Motivo { get; set; } = string.Empty;
 
-        public DateTime FechaMovimiento { get; set; } = DateTime.Now;
+        public DateTime FechaMovimiento { get; set; } = DateTime.UtcNow;
 
         [MaxLength(300)]
         public string? Observaciones { get; set; }

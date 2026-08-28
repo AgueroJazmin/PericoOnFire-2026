@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using PericoOnFire_2026.BD.Datos;
 using PericoOnFire_2026.BD.Datos.Entity;
 using PericoOnFire_2026.Shared.DTOs;
+using PericoOnFire_2026.Shared.ENUM;
 
 namespace PericoOnFire_2026.Server.Controllers
 {
@@ -15,13 +16,16 @@ namespace PericoOnFire_2026.Server.Controllers
     {
         private readonly UserManager<ApplicationUser> userManager;
         private readonly RoleManager<IdentityRole> roleManager;
+        private readonly MiDbContext context;
 
         public UsuariosController(
             UserManager<ApplicationUser> userManager,
-            RoleManager<IdentityRole> roleManager)
+            RoleManager<IdentityRole> roleManager,
+            MiDbContext context)
         {
             this.userManager = userManager;
             this.roleManager = roleManager;
+            this.context = context;
         }
         [AllowAnonymous]
         [HttpGet]
@@ -47,6 +51,26 @@ namespace PericoOnFire_2026.Server.Controllers
 
             return Ok(lista);
         }
+
+        //Este endpoint obtiene el usuario actual basado en el token JWT,
+        //lo busca en la base de datos y devuelve su Id.
+        //Esto es útil para que el cliente sepa qué usuario de negocio está logueado.     
+        [HttpGet("Actual")]
+        public async Task<ActionResult<int>> ObtenerUsuarioActual()
+        {
+            var idApplicationUser = userManager.GetUserId(User);
+            if (idApplicationUser == null)
+                return Unauthorized();
+
+            var usuario = await context.Usuarios
+                .FirstOrDefaultAsync(u => u.IdApplicationUser == idApplicationUser);
+
+            if (usuario == null)
+                return NotFound("No se encontró un usuario de negocio asociado a esta cuenta.");
+
+            return Ok(usuario.Id);
+        }
+
         [AllowAnonymous]
         [HttpPost]
         public async Task<ActionResult> Post(UsuarioCrearDTO dto)
@@ -72,6 +96,18 @@ namespace PericoOnFire_2026.Server.Controllers
             var nombreClaim = !string.IsNullOrWhiteSpace(dto.Nombre) ? dto.Nombre : dto.Email;
             await userManager.AddClaimAsync(usuario,
                 new System.Security.Claims.Claim("nombre", nombreClaim));
+
+            // NUEVO: completa el alta creando también la fila de negocio en Usuarios,
+            // así no hace falta vincularla a mano en Neon cada vez.
+            context.Usuarios.Add(new Usuario
+            {
+                IdApplicationUser = usuario.Id,
+                Nombre = nombreClaim,
+                Activo = true,
+                EstadoRegistro = EnumEstadoRegistro.activo
+            });
+            await context.SaveChangesAsync();
+
 
             return Ok();
         }

@@ -18,7 +18,7 @@ namespace PericoOnFire_2026.BD.Datos.Entity
 
         public EnumEstadoComanda Estado { get; set; } = EnumEstadoComanda.Abierta;
 
-        public DateTime FechaApertura { get; set; } = DateTime.Now;
+        public DateTime FechaApertura { get; set; } = DateTime.UtcNow;
 
         public DateTime? FechaCierre { get; set; }
 

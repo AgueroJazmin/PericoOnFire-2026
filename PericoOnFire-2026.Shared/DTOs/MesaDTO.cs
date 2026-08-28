@@ -8,9 +8,8 @@ namespace PericoOnFire_2026.Shared.DTOs
     public class MesaDTO
     {
         public int Id { get; set; }
-
         public int NumeroMesa { get; set; }
-
         public EnumEstadoMesa Estado { get; set; }
+        public bool TienePedidoListo { get; set; }
     }
 }

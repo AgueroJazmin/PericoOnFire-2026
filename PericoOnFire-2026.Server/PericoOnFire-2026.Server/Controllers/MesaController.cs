@@ -13,16 +13,31 @@ namespace PericoOnFire_2026.Server.Controllers
     public class MesasController : ControllerBase
     {
         private readonly IRepositorio<Mesa> repositorio;
+        private readonly MiDbContext context;
 
-        public MesasController(IRepositorio<Mesa> repositorio)
+        public MesasController(IRepositorio<Mesa> repositorio, MiDbContext context)
         {
             this.repositorio = repositorio;
+            this.context = context;
         }
 
         [HttpGet]
-        public async Task<ActionResult<List<Mesa>>> Get()
+        public async Task<ActionResult<List<MesaDTO>>> Get()
         {
-            return await repositorio.Select();
+            var lista = await context.Mesas
+               .Select(m => new MesaDTO
+               {
+                   Id = m.Id,
+                   NumeroMesa = m.NumeroMesa,
+                   Estado = m.Estado,
+                   TienePedidoListo = context.Pedidos.Any(p =>
+                       p.Estado == EnumEstadoPedido.ListoParaRetirar &&
+                       p.Comanda.IdMesa == m.Id &&
+                       p.Comanda.Estado == EnumEstadoComanda.Abierta)
+               })
+               .ToListAsync();
+
+            return Ok(lista);
         }
 
         [HttpGet("{id:int}")]

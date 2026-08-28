@@ -15,7 +15,6 @@ namespace  PericoOnFire_2026.BD.Datos
 {
     public class MiDbContext : IdentityDbContext<ApplicationUser> 
     {
-
         public DbSet<Usuario> Usuarios { get; set; }
         public DbSet<Cliente> Clientes { get; set; } 
         public DbSet<Mesa> Mesas { get; set; }
@@ -27,9 +26,6 @@ namespace  PericoOnFire_2026.BD.Datos
         public DbSet<DetallePedido> DetallesPedido { get; set; }
         public DbSet<Pago> Pagos { get; set; }
         public DbSet<MovimientoCaja> MovimientosCaja { get; set; }
-
-
-
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -137,8 +133,13 @@ namespace  PericoOnFire_2026.BD.Datos
                 .WithMany(p => p.DetallesPedido)
                 .HasForeignKey(d => d.IdProducto)
                 .OnDelete(DeleteBehavior.Restrict);
-        }
 
+            modelBuilder.Entity<Usuario>()
+                .HasOne(u => u.ApplicationUser)
+                .WithMany()
+                .HasForeignKey(u => u.IdApplicationUser)
+                .OnDelete(DeleteBehavior.Restrict);
+        }
         public MiDbContext(DbContextOptions options) : base(options)
         {
         }
