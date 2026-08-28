@@ -8,23 +8,17 @@ namespace PericoOnFire_2026.Shared.DTOs
     public class PedidoDTO
     {
         public int Id { get; set; }
-
         public int IdComanda { get; set; }
-
         public EnumSectorDestino SectorDestino { get; set; }
-
         public EnumEstadoPedido Estado { get; set; }
-
         public DateTime FechaPedido { get; set; }
-
         public DateTime? FechaInicioPreparacion { get; set; }
-
         public DateTime? FechaListo { get; set; }
-
         public DateTime? FechaEntregado { get; set; }
-
         public int? IdDelivery { get; set; }
-
         public string? Observaciones { get; set; }
+        public int? NumeroMesa { get; set; }
+        public EnumTipoServicio? TipoServicio { get; set; }
+        public List<DetallePedidoDTO> DetallesPedido { get; set; } = new();
     }
 }

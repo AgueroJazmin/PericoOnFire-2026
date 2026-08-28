@@ -27,7 +27,7 @@ namespace PericoOnFire_2026.BD.Datos.Entity
 
         public decimal Vuelto { get; set; }
 
-        public DateTime FechaPago { get; set; } = DateTime.Now;
+        public DateTime FechaPago { get; set; } = DateTime.UtcNow;
 
         public Comanda Comanda { get; set; } = null!;
 

@@ -1,0 +1,177 @@
+﻿<!-- Esta page no lleva el page porque es un componente reutilizable para cocina y barra -->
+@using PericoOnFire_2026.Shared.DTOs
+@using PericoOnFire_2026.Shared.ENUM
+@using PericoOnFire_2026.Servicio.ServicioHttp
+@implements IAsyncDisposable
+@inject PericoOnFire_2026.Shared.SerPolling.PollingService Polling
+@inject IHttpServicio http
+@rendermode InteractiveAuto
+
+<div class="tablero">
+    <h4>@TituloSector</h4>
+
+    @if (!string.IsNullOrWhiteSpace(Mensaje))
+    {
+        <div class="alert alert-info">@Mensaje</div>
+    }
+
+    <div class="columnas">
+        <div class="columna">
+            <h6>Pendientes</h6>
+            @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.Pendiente))
+            {
+                <div class="pedido-card">
+                    @RenderCard(pedido)
+                    <button class="btn btn-sm btn-warning w-100"
+                            @onclick="() => Avanzar(pedido, EnumEstadoPedido.EnPreparacion)">
+                        Empezar
+                    </button>
+                </div>
+            }
+        </div>
+
+        <div class="columna">
+            <h6>En preparación</h6>
+            @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.EnPreparacion))
+            {
+                <div class="pedido-card">
+                    @RenderCard(pedido)
+                    <button class="btn btn-sm btn-success w-100"
+                            @onclick="() => Avanzar(pedido, EnumEstadoPedido.ListoParaRetirar)">
+                        Marcar listo
+                    </button>
+                </div>
+            }
+        </div>
+
+        <div class="columna">
+            <h6>Listos</h6>
+            @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.ListoParaRetirar))
+            {
+                <div class="pedido-card pedido-listo">
+                    @RenderCard(pedido)
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .columnas {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1rem;
+    }
+
+    .columna {
+        background: #f4f4f4;
+        border-radius: 6px;
+        padding: 0.5rem;
+        min-height: 200px;
+    }
+
+    .pedido-card {
+        background: white;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .pedido-listo {
+        border-color: #2e7d32;
+    }
+
+    .pedido-mesa {
+        font-weight: bold;
+    }
+
+    .pedido-tiempo {
+        font-size: 0.75rem;
+        color: #888;
+    }
+
+    .pedido-card ul {
+        margin: 0.3rem 0;
+        padding-left: 1.1rem;
+    }
+
+    .tablero h4 {
+        color: white;
+        font-weight: bold;
+        padding: 1rem 1rem 0 1rem;
+        margin: 0;
+    }
+</style>
+
+@code {
+    [Parameter] public EnumSectorDestino Sector { get; set; }
+    [Parameter] public string TituloSector { get; set; } = "";
+
+    private List<PedidoDTO> pedidos = new();
+    private string? Mensaje;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarPedidos();
+        Polling.Iniciar(CargarPedidos, TimeSpan.FromSeconds(3));
+    }
+
+    private async Task CargarPedidos()
+    {
+        var respuesta = await http.Get<List<PedidoDTO>>($"api/Pedido/Sector/{Sector}");
+        if (!respuesta.Error && respuesta.Respuesta != null)
+        {
+            pedidos = respuesta.Respuesta
+                .Where(p => p.Estado != EnumEstadoPedido.Entregado
+                         && p.Estado != EnumEstadoPedido.Cancelado)
+                .ToList();
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task Avanzar(PedidoDTO pedido, EnumEstadoPedido nuevoEstado)
+    {
+        var dto = new CambiarEstadoPedidoDTO { Estado = nuevoEstado };
+        var respuesta = await http.Put($"api/Pedido/{pedido.Id}/Estado", dto);
+
+        if (respuesta.Error)
+        {
+            Mensaje = respuesta.ObtenerError();
+            return;
+        }
+
+        await CargarPedidos();
+    }
+
+    private RenderFragment RenderCard(PedidoDTO pedido) => @<text>
+        <div class="pedido-mesa">
+            @(pedido.NumeroMesa != null ? $"Mesa {pedido.NumeroMesa}" : pedido.TipoServicio?.ToString())
+        </div>
+        <div class="pedido-tiempo">
+            hace @((int)(DateTime.UtcNow - pedido.FechaPedido).TotalMinutes) min
+        </div>
+        <ul>
+            @foreach (var detalle in pedido.DetallesPedido)
+            {
+                <li>
+                    @detalle.Cantidad x @detalle.NombreProducto
+                    @if (!string.IsNullOrWhiteSpace(detalle.Observacion))
+                    {
+                        <em> (@detalle.Observacion)</em>
+                    }
+                </li>
+            }
+        </ul>
+        @if (!string.IsNullOrWhiteSpace(pedido.Observaciones))
+        {
+            <p><em>@pedido.Observaciones</em></p>
+        }
+    </text>;
+
+    public async ValueTask DisposeAsync()
+    {
+        await Polling.DisposeAsync();
+    }
+}

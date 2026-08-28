@@ -14,7 +14,7 @@ namespace PericoOnFire_2026.BD.Datos.Entity
 
             public EnumEstadoPedido Estado { get; set; } = EnumEstadoPedido.Pendiente;
 
-            public DateTime FechaPedido { get; set; } = DateTime.Now;
+            public DateTime FechaPedido { get; set; } = DateTime.UtcNow;
 
             public DateTime? FechaInicioPreparacion { get; set; }
 

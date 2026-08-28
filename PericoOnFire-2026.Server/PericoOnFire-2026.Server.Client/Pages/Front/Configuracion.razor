@@ -625,11 +625,118 @@
         </div>
     }
 
+    <!-- Nuevo de Mesas-->
     @if (tabActiva == "mesas")
     {
         <div class="mesas-config">
-            <h3>Mesas</h3>
-            <p>Acá después configuramos salas y mesas.</p>
+            <div class="section-header">
+                <h3>Mesas</h3>
+            </div>
+
+            <EditForm Model="mesa" OnValidSubmit="GuardarMesa">
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+
+                <div class="form-line categorias-form">
+                    <InputNumber class="form-control"
+                                 placeholder="Número de mesa"
+                                 @bind-Value="mesa.NumeroMesa" />
+
+                    <button class="btn btn-dark" type="submit">
+                        + Nueva Mesa
+                    </button>
+                </div>
+            </EditForm>
+
+            <input class="form-control mt-3 mb-3"
+                   placeholder="Buscar mesa por número..."
+                   @bind="filtroMesa"
+                   @bind:event="oninput" />
+
+            <table class="table tabla-config mt-3">
+                <thead>
+                    <tr>
+                        <th>Número</th>
+                        <th>Estado</th>
+                        <th style="width: 130px;">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (mesas.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="3" class="text-muted">
+                                No hay mesas cargadas.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var m in MesasFiltradas)
+                        {
+                            <tr>
+                                <td>
+                                    @if (editandoMesaId == m.Id)
+                                    {
+                                        <input type="number"
+                                               class="form-control form-control-sm"
+                                               @bind="editandoMesaNumero" />
+                                    }
+                                    else
+                                    {
+                                        @m.NumeroMesa
+                                    }
+                                </td>
+
+                                <td>
+                                    @if (editandoMesaId == m.Id)
+                                    {
+                                        <select class="form-select form-select-sm" @bind="editandoMesaEstado">
+                                            <option value="@EnumEstadoMesa.Libre">Libre</option>
+                                            <option value="@EnumEstadoMesa.Ocupada">Ocupada</option>
+                                            <option value="@EnumEstadoMesa.Reservada">Reservada</option>
+                                            <option value="@EnumEstadoMesa.PendienteCobro">PendienteCobro</option>
+                                        </select>
+                                    }
+                                    else
+                                    {
+                                        @m.Estado
+                                    }
+                                </td>
+
+                                <td class="acciones">
+                                    @if (editandoMesaId == m.Id)
+                                    {
+                                        <button class="btn btn-sm btn-success"
+                                                @onclick="() => GuardarEdicionMesa(m)">
+                                            <i class="bi bi-check-lg"></i>
+                                        </button>
+
+                                        <button class="btn btn-sm btn-secondary"
+                                                @onclick="CancelarEdicion">
+                                            <i class="bi bi-x-lg"></i>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-outline-primary"
+                                                title="Editar"
+                                                @onclick="() => EditarMesa(m)">
+                                            <i class="bi bi-pencil-square"></i>
+                                        </button>
+
+                                        <button class="btn btn-sm btn-outline-danger"
+                                                title="Borrar"
+                                                @onclick="() => EliminarMesa(m.Id)">
+                                            <i class="bi bi-trash3"></i>
+                                        </button>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
         </div>
     }
 
@@ -888,6 +995,14 @@
     private string filtroSubcategoria = "";
     private string filtroProducto = "";
 
+   // Esto es de mesas
+    private List<MesaDTO> mesas = new();
+    private MesaDTO mesa = new() { Estado = EnumEstadoMesa.Libre };
+    private int? editandoMesaId;
+    private int editandoMesaNumero;
+    private EnumEstadoMesa editandoMesaEstado;
+    private string filtroMesa = "";
+
     //Esto es lo que yo agrego para que ande roles con lo que yo hice de mi page
     private List<UsuarioRolDTO>? usuariosRol;
     private List<string> rolesDisponibles2 = Enum.GetNames(typeof(EnumRolSistema)).ToList();
@@ -959,6 +1074,7 @@
         await CargarSubcategorias();
         await CargarProductos();
         await CargarUsuarios();
+        await CargarMesas();
 
         Polling.Iniciar(ActualizarTodo, TimeSpan.FromSeconds(2));
     }
@@ -969,6 +1085,7 @@
         await CargarSubcategorias();
         await CargarProductos();
         await CargarUsuarios();
+        await CargarMesas();
         await InvokeAsync(StateHasChanged);
     }
 
@@ -1111,7 +1228,7 @@
         CancelarEdicion();
         editandoSubcategoriaId = s.Id;
         editandoSubcategoriaNombre = s.NombreSubcategoria;
-    }
+    } 
 
     private async Task GuardarEdicionSubcategoria(SubcategoriaListadoDTO s)
     {
@@ -1203,6 +1320,7 @@
         editandoSubcategoriaId = null;
         editandoProductoId = null;
         editandoProducto = new();
+        editandoMesaId = null; // NUEVO
     }
     private void CambiarSeccion(string seccion)
     {
@@ -1320,4 +1438,87 @@ private IEnumerable<ProductoListadoDTO> ProductosFiltrados =>
             Mensaje = resp.ObtenerError();
         }
     }
+    
+    //Nuevos metodos para mesas
+    private async Task CargarMesas()
+    {
+        var resp = await http.Get<List<MesaDTO>>("api/Mesa");
+
+        if (!resp.Error && resp.Respuesta != null)
+        {
+            mesas = resp.Respuesta;
+        }
+        else
+        {
+            Mensaje = resp.ObtenerError();
+        }
+    }
+
+    private async Task GuardarMesa()
+    {
+        var resp = await http.Post<MesaDTO, int>("api/Mesa", mesa);
+
+        if (!resp.Error)
+        {
+            Mensaje = "Mesa cargada correctamente.";
+            mesa = new() { Estado = EnumEstadoMesa.Libre };
+            await CargarMesas();
+        }
+        else
+        {
+            Mensaje = resp.ObtenerError();
+        }
+    }
+
+    private void EditarMesa(MesaDTO m)
+    {
+        CancelarEdicion();
+        editandoMesaId = m.Id;
+        editandoMesaNumero = m.NumeroMesa;
+        editandoMesaEstado = m.Estado;
+    }
+
+    private async Task GuardarEdicionMesa(MesaDTO m)
+    {
+        var dto = new MesaDTO
+        {
+            NumeroMesa = editandoMesaNumero,
+            Estado = editandoMesaEstado
+        };
+
+        var resp = await http.Put<MesaDTO>($"api/Mesa/{m.Id}", dto);
+
+        if (!resp.Error)
+        {
+            Mensaje = "Mesa actualizada.";
+            CancelarEdicion();
+            await CargarMesas();
+        }
+        else
+        {
+            Mensaje = resp.ObtenerError();
+        }
+    }
+
+    private async Task EliminarMesa(int id)
+    {
+        var resp = await http.Delete($"api/Mesa/{id}");
+
+        if (!resp.Error)
+        {
+            Mensaje = "Mesa eliminada.";
+            await CargarMesas();
+        }
+        else
+        {
+            Mensaje = resp.ObtenerError();
+        }
+    }
+
+    private IEnumerable<MesaDTO> MesasFiltradas =>
+        string.IsNullOrWhiteSpace(filtroMesa)
+            ? mesas.OrderBy(m => m.NumeroMesa)
+            : mesas.Where(m => m.NumeroMesa.ToString().Contains(filtroMesa))
+                   .OrderBy(m => m.NumeroMesa);
+
 }

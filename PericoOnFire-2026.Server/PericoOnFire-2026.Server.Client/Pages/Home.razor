@@ -1,277 +1,29 @@
 ﻿@page "/"
-
-<main class="perico-main">
-
-    <section class="salon salon-izq">
-        <div class="salon-inner">
-            @foreach (var mesa in mesasIzquierda)
-            {
-                <button class="mesa mesa-@mesa.Numero">
-                    <span>@mesa.Numero</span>
-                </button>
-            }
-        </div>
-    </section>
-
-    <section class="salon salon-der">
-        <div class="salon-inner">
-            <img src="img/perico-pizza.jpg" class="perico-img" />
-
-            @foreach (var mesa in mesasDerecha)
-            {
-                <button class="mesa mesa-@mesa.Numero">
-                    <span>@mesa.Numero</span>
-                </button>
-            }
-        </div>
-    </section>
-
-</main>
-
-<style>
-    .perico-main {
-        width: 100%;
-        height: calc(100vh - 64px);
-        background: white;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        border: 2px solid #111;
-        overflow: hidden;
-    }
-
-    .salon {
-        position: relative;
-        height: 100%;
-        overflow: hidden;
-    }
-
-    .salon-izq {
-        border-right: 4px solid #111;
-    }
-
-    .salon-inner {
-        position: absolute;
-        width: 520px;
-        height: 700px;
-        top: 0;
-        left: 0;
-        transform-origin: top left;
-    }
-
-    .mesa {
-        position: absolute;
-        width: 68px;
-        height: 46px;
-        background: white;
-        border: 2px solid #888;
-        font-weight: bold;
-        cursor: pointer;
-        z-index: 2;
-        font-size: 0.95rem;
-    }
-
-        .mesa span {
-            position: relative;
-            z-index: 3;
-        }
-
-        .mesa::before,
-        .mesa::after {
-            content: "";
-            position: absolute;
-            background: white;
-            border: 2px solid #888;
-            width: 16px;
-            height: 22px;
-            top: 10px;
-        }
-
-        .mesa::before {
-            left: -20px;
-        }
-
-        .mesa::after {
-            right: -20px;
-        }
-
-        .mesa span::before,
-        .mesa span::after {
-            content: "";
-            position: absolute;
-            background: white;
-            border: 2px solid #888;
-            width: 18px;
-            height: 14px;
-            left: 50%;
-            transform: translateX(-50%);
-        }
-
-        .mesa span::before {
-            top: -30px;
-        }
-
-        .mesa span::after {
-            bottom: -30px;
-        }
-
-        .mesa:hover {
-            background: #ffecec;
-            border-color: #cc0000;
-        }
-
-            .mesa:hover::before,
-            .mesa:hover::after {
-                border-color: #cc0000;
-            }
-
-            .mesa:hover span::before,
-            .mesa:hover span::after {
-                border-color: #cc0000;
-            }
-
-    .mesa-12 {
-        top: 35px;
-        left: 135px;
-    }
-
-    .mesa-11 {
-        top: 150px;
-        left: 70px;
-    }
-
-    .mesa-10 {
-        top: 145px;
-        left: 220px;
-    }
-
-    .mesa-9 {
-        top: 145px;
-        left: 370px;
-    }
-
-    .mesa-8 {
-        top: 270px;
-        left: 70px;
-    }
-
-    .mesa-7 {
-        top: 265px;
-        left: 220px;
-    }
-
-    .mesa-6 {
-        top: 265px;
-        left: 370px;
-    }
-
-    .mesa-5 {
-        top: 390px;
-        left: 70px;
-    }
-
-    .mesa-4 {
-        top: 385px;
-        left: 220px;
-    }
-
-    .mesa-3 {
-        top: 385px;
-        left: 370px;
-    }
-
-    .mesa-2 {
-        top: 515px;
-        left: 220px;
-    }
-
-    .mesa-1 {
-        top: 515px;
-        left: 370px;
-    }
-
-    .mesa-13 {
-        top: 260px;
-        left: 120px;
-    }
-
-    .mesa-14 {
-        top: 390px;
-        left: 120px;
-    }
-
-    .mesa-15 {
-        top: 520px;
-        left: 120px;
-    }
-
-    .perico-img {
-        position: absolute;
-        top: 180px;
-        left: 300px;
-        width: 260px;
-        height: 260px;
-        object-fit: cover;
-        border-radius: 4px;
-    }
-</style>
-
-<script>
-    function escalarSalones() {
-        const salones = document.querySelectorAll('.salon-inner');
-        salones.forEach(inner => {
-            const parent = inner.parentElement;
-            const anchoDisponible = parent.clientWidth;
-            const altoDisponible = parent.clientHeight;
-            const escalaX = anchoDisponible / 520;
-            const escalaY = altoDisponible / 700;
-            const escala = Math.min(escalaX, escalaY);
-            inner.style.transform = `scale(${escala})`;
-        });
-    }
-
-    // Ejecutar al cargar y al redimensionar
-    document.addEventListener('DOMContentLoaded', escalarSalones);
-    window.addEventListener('resize', escalarSalones);
-
-    // Para Blazor que renderiza después del DOM
-    setTimeout(escalarSalones, 100);
-    setTimeout(escalarSalones, 500);
-</script>
+@using Microsoft.AspNetCore.Components.Authorization
+@inject NavigationManager NavigationManager
 
 @code {
-    private List<MesaHome> mesasIzquierda = new()
-    {
-        new MesaHome { Numero = 12 },
-        new MesaHome { Numero = 11 },
-        new MesaHome { Numero = 10 },
-        new MesaHome { Numero = 9 },
-        new MesaHome { Numero = 8 },
-        new MesaHome { Numero = 7 },
-        new MesaHome { Numero = 6 },
-        new MesaHome { Numero = 5 },
-        new MesaHome { Numero = 4 },
-        new MesaHome { Numero = 3 },
-        new MesaHome { Numero = 2 },
-        new MesaHome { Numero = 1 }
-    };
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthStateTask { get; set; }
 
-    private List<MesaHome> mesasDerecha = new()
+    protected override async Task OnInitializedAsync()
     {
-        new MesaHome { Numero = 13 },
-        new MesaHome { Numero = 14 },
-        new MesaHome { Numero = 15 }
-    };
+        if (AuthStateTask == null) return;
 
-    private class MesaHome
-    {
-        public int Numero { get; set; }
-    }
+        var authState = await AuthStateTask;
+        var user = authState.User;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender)
+        if (user.Identity == null || !user.Identity.IsAuthenticated)
         {
-            await Task.Delay(150);
+            NavigationManager.NavigateTo("Account/Login", forceLoad: true);
+            return;
         }
+
+        if (user.IsInRole("Mozo") || user.IsInRole("Administracion"))
+            NavigationManager.NavigateTo("comandas");
+        else if (user.IsInRole("Cocina"))
+            NavigationManager.NavigateTo("cocina");
+        else if (user.IsInRole("Delivery"))
+            NavigationManager.NavigateTo("pedidos");
     }
 }

@@ -1,40 +1,127 @@
 ﻿@if (Mostrar)
 {
-    <div class="modal-backdrop show"></div>
-    <div class="modal fade show" id="exampleModal" tabindex="-1"
-         role="dialog" aria-labelledby="exampleModalLabel"
-         aria-hidden="true" style="display: block;">
-        <div class="modal-dialog" role="document">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="exampleModalLabel">@Titulo</h5>
-                    <button @onclick="onCancel" type="button" class="close" data-dismiss="modal"
-                            aria-label="Close">
-                        <span aria-hidden="true">&times;</span>
-                    </button>
-                </div>
-                <div class="modal-body">
-                    @ChildContent
-                </div>
-                <div class="modal-footer">
-                    @if (verCancelar)
-                    {
-                        <button @onclick="onCancel" type="button" class="btn btn-secondary"
-                                data-dismiss="modal">
-                            @textCancelar
-                        </button>
-                    }
-                    @if (verOk)
-                    {
-                        <button @onclick="onConfirm" type="button" class="btn btn-primary">
-                            @textOk
-                        </button>
-                    }
-                </div>
-            </div>
+    <div class="conf-backdrop" @onclick="onCancel"></div>
+    <div class="conf-modal" role="dialog" aria-modal="true">
+        <div class="conf-header">
+            <h5 class="conf-title">@Titulo</h5>
+            <button @onclick="onCancel" type="button" class="conf-close" aria-label="Cerrar">&times;</button>
+        </div>
+        <div class="conf-body">
+            @ChildContent
+        </div>
+        <div class="conf-footer">
+            @if (verCancelar)
+            {
+                <button @onclick="onCancel" type="button" class="conf-btn conf-btn-secondary">
+                    @textCancelar
+                </button>
+            }
+            @if (verOk)
+            {
+                <button @onclick="onConfirm" type="button" class="conf-btn conf-btn-primary">
+                    @textOk
+                </button>
+            }
         </div>
     </div>
 }
+
+<style>
+    .conf-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 1040;
+        animation: confFadeIn 0.15s ease-out;
+    }
+
+    .conf-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+        z-index: 1050;
+        width: min(420px, 90vw);
+        max-height: 85vh;
+        overflow-y: auto;
+        animation: confPopIn 0.18s ease-out;
+    }
+
+    .conf-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #eee;
+    }
+
+    .conf-title {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 600;
+        color: #222;
+    }
+
+    .conf-close {
+        border: none;
+        background: none;
+        font-size: 1.5rem;
+        line-height: 1;
+        color: #888;
+        cursor: pointer;
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        transition: background 0.15s, color 0.15s;
+    }
+
+        .conf-close:hover {
+            background: #f2f2f2;
+            color: #333;
+        }
+
+    .conf-body {
+        padding: 1.1rem 1.25rem;
+        color: #444;
+        font-size: 0.95rem;
+        line-height: 1.4;
+    }
+
+    .conf-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.6rem;
+        padding: 0.9rem 1.25rem;
+        border-top: 1px solid #eee;
+    }
+
+    .conf-btn {
+        border: none;
+        border-radius: 6px;
+        padding: 0.5rem 1.1rem;
+        font-size: 0.9rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: filter 0.15s;
+    }
+
+        .conf-btn:hover {
+            filter: brightness(0.92);
+        }
+
+    .conf-btn-secondary {
+        background: #eee;
+        color: #333;
+    }
+
+    .conf-btn-primary {
+        background: #1f6feb;
+        color: white;
+    }
+
+</style>
 
 @code {
     private bool Mostrar = false;
@@ -62,4 +149,3 @@
         StateHasChanged();
     }
 }
-
