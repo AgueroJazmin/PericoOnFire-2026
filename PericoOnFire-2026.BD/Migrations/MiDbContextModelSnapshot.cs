@@ -291,8 +291,41 @@ namespace PericoOnFire_2026.BD.Migrations
                     b.ToTable("Clientes");
                 });
 
+            modelBuilder.Entity("PericoOnFire_2026.BD.Datos.Entity.ConfiguracionSalon", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("EstadoRegistro")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("Foto")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("MimeType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("NombreArchivo")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ConfiguracionesSalon");
+                });
+
             modelBuilder.Entity("PericoOnFire_2026.BD.Datos.Entity.Comanda", b =>
                 {
+                    b.Property<int>("CantidadComensales")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer");

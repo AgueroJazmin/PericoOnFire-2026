@@ -25,6 +25,10 @@ namespace PericoOnFire_2026.Shared.DTOs
 
         public decimal Total { get; set; }
 
+        public int CantidadComensales { get; set; }
+
+        public string NumeroComanda => $"COM-{Id:D6}";
+
         public string? Observaciones { get; set; }
     }
 }

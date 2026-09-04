@@ -11,6 +11,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Content Remove="appsettings.Development.json" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="appsettings.Development.json" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\PericoOnFire-2026.BD\PericoOnFire-2026.BD.csproj" />
     <ProjectReference Include="..\..\PericoOnFire-2026.Repositorio\PericoOnFire-2026.Repositorio.csproj" />
     <ProjectReference Include="..\..\PericoOnFire-2026.Shared\PericoOnFire-2026.Shared.csproj" />

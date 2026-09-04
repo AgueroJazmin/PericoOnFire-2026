@@ -15,6 +15,8 @@ namespace PericoOnFire_2026.Shared.DTOs
 
         public EnumTipoServicio TipoServicio { get; set; }
 
+        public int CantidadComensales { get; set; }
+
         public string? Observaciones { get; set; }
     }
 }

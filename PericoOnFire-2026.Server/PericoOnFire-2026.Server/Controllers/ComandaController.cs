@@ -65,6 +65,7 @@ namespace PericoOnFire_2026.Server.Controllers
                        FechaApertura = c.FechaApertura,
                        FechaCierre = c.FechaCierre,
                        Total = c.Total,
+                       CantidadComensales = c.CantidadComensales,
                        Observaciones = c.Observaciones
                    }) 
                    .FirstOrDefaultAsync();
@@ -84,6 +85,7 @@ namespace PericoOnFire_2026.Server.Controllers
                 IdCliente = dto.IdCliente,
                 IdUsuario = dto.IdUsuario,
                 TipoServicio = dto.TipoServicio,
+                CantidadComensales = dto.CantidadComensales,
                 Observaciones = dto.Observaciones,
                 Estado = EnumEstadoComanda.Abierta,
                 EstadoRegistro = EnumEstadoRegistro.activo
@@ -102,6 +104,118 @@ namespace PericoOnFire_2026.Server.Controllers
             }
 
             return Ok(id);
+        }
+
+        // Crea la comanda y sus pedidos recién cuando el mozo confirma el primer envío.
+        // Toda la operación es atómica: si algo falla, la mesa continúa libre.
+        [HttpPost("Confirmar")]
+        public async Task<ActionResult<ComandaConfirmadaDTO>> Confirmar(ConfirmarComandaDTO dto)
+        {
+            if (dto.Items == null || !dto.Items.Any())
+                return BadRequest("Agregá al menos un producto antes de enviar la comanda.");
+
+            if (dto.Items.Any(i => i.Cantidad <= 0))
+                return BadRequest("La cantidad de cada producto debe ser mayor que cero.");
+
+            var idsProducto = dto.Items.Select(i => i.IdProducto).Distinct().ToList();
+            var productos = await context.Productos
+                .Where(p => idsProducto.Contains(p.Id) && p.Activo)
+                .ToListAsync();
+
+            var faltantes = idsProducto.Except(productos.Select(p => p.Id)).ToList();
+            if (faltantes.Any())
+                return Conflict($"No existen o están inactivos los productos con id: {string.Join(", ", faltantes)}.");
+
+            ComandaConfirmadaDTO? resultado = null;
+            var estrategia = context.Database.CreateExecutionStrategy();
+
+            try
+            {
+                await estrategia.ExecuteAsync(async () =>
+                {
+                    await using var transaccion = await context.Database.BeginTransactionAsync();
+
+                    var mesa = await context.Mesas.FirstOrDefaultAsync(m => m.Id == dto.IdMesa);
+                    if (mesa == null)
+                        throw new InvalidOperationException("La mesa seleccionada no existe.");
+
+                    var tieneComandaAbierta = await context.Comandas.AnyAsync(c =>
+                        c.IdMesa == dto.IdMesa &&
+                        (c.Estado == EnumEstadoComanda.Abierta || c.Estado == EnumEstadoComanda.PendienteCobro));
+
+                    if (mesa.Estado != EnumEstadoMesa.Libre || tieneComandaAbierta)
+                        throw new InvalidOperationException("La mesa ya fue abierta por otro usuario.");
+
+                    var comanda = new Comanda
+                    {
+                        IdMesa = dto.IdMesa,
+                        IdUsuario = dto.IdUsuario,
+                        TipoServicio = EnumTipoServicio.Mesa,
+                        CantidadComensales = dto.CantidadComensales,
+                        Observaciones = dto.Observaciones,
+                        Estado = EnumEstadoComanda.Abierta,
+                        EstadoRegistro = EnumEstadoRegistro.activo,
+                        FechaApertura = DateTime.UtcNow,
+                        Total = dto.Items.Sum(i =>
+                            productos.First(p => p.Id == i.IdProducto).Precio * i.Cantidad)
+                    };
+
+                    context.Comandas.Add(comanda);
+                    await context.SaveChangesAsync();
+
+                    var idsPedidos = new List<int>();
+                    var grupos = dto.Items.GroupBy(i =>
+                        productos.First(p => p.Id == i.IdProducto).SectorDestino);
+
+                    foreach (var grupo in grupos)
+                    {
+                        var pedido = new Pedido
+                        {
+                            IdComanda = comanda.Id,
+                            SectorDestino = grupo.Key,
+                            Estado = EnumEstadoPedido.Pendiente,
+                            FechaPedido = DateTime.UtcNow,
+                            EstadoRegistro = EnumEstadoRegistro.activo
+                        };
+
+                        context.Pedidos.Add(pedido);
+                        await context.SaveChangesAsync();
+
+                        foreach (var item in grupo)
+                        {
+                            var producto = productos.First(p => p.Id == item.IdProducto);
+                            context.DetallesPedido.Add(new DetallePedido
+                            {
+                                IdPedido = pedido.Id,
+                                IdProducto = item.IdProducto,
+                                Cantidad = item.Cantidad,
+                                PrecioUnitario = producto.Precio,
+                                Observacion = item.Observacion,
+                                EstadoRegistro = EnumEstadoRegistro.activo
+                            });
+                        }
+
+                        await context.SaveChangesAsync();
+                        idsPedidos.Add(pedido.Id);
+                    }
+
+                    mesa.Estado = EnumEstadoMesa.Ocupada;
+                    await context.SaveChangesAsync();
+                    await transaccion.CommitAsync();
+
+                    resultado = new ComandaConfirmadaDTO
+                    {
+                        IdComanda = comanda.Id,
+                        IdsPedidos = idsPedidos
+                    };
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(ex.Message);
+            }
+
+            return Ok(resultado);
         }
 
         //Este Cancelar sirve en el caso de que se haya abierto una comanda por error,

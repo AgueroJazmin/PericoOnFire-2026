@@ -24,6 +24,8 @@ namespace PericoOnFire_2026.BD.Datos.Entity
 
         public decimal Total { get; set; } = 0;
 
+        public int CantidadComensales { get; set; }
+
         [MaxLength(300)]
         public string? Observaciones { get; set; }
 
