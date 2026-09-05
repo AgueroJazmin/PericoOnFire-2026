@@ -99,7 +99,7 @@
                             <strong>@grupo.Key</strong>
                             @foreach (var pedido in grupo)
                             {
-                                <div class="pedido-card">
+                                <div class="pedido-card @(pedido.Estado == EnumEstadoPedido.Cancelado ? "pedido-card-cancelado" : "")">
                                     <span class="pedido-estado">@pedido.Estado</span>
                                     <ul>
                                         @foreach (var detalle in pedido.DetallesPedido)
@@ -107,6 +107,24 @@
                                             <li>@detalle.Cantidad x @detalle.NombreProducto</li>
                                         }
                                     </ul>
+
+                                    @if (pedido.Estado == EnumEstadoPedido.Cancelado)
+                                    {
+                                        <div class="motivo-cancelacion">
+                                            ⚠ Cancelado por @grupo.Key.ToString().ToLower(): @pedido.MotivoCancelacion
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-danger w-100 mt-1"
+                                                @onclick="() => EliminarPedidoCancelado(pedido)">
+                                            Quitar de la comanda
+                                        </button>
+                                    }
+                                    else if (pedido.Estado == EnumEstadoPedido.ListoParaRetirar)
+                                    {
+                                        <button class="btn btn-sm btn-success w-100 mt-1"
+                                                @onclick="() => MarcarEntregado(pedido)">
+                                            Marcar como entregado
+                                        </button>
+                                    }
                                 </div>
                             }
                         </div>
@@ -214,11 +232,15 @@
                                             <button class="btn-observacion"
                                                     title="Agregar observación"
                                                     aria-label="Agregar observación"
-                                                    @onclick="() => EditarObservacion(item)">✎</button>
+                                                    @onclick="() => EditarObservacion(item)">
+                                                ✎
+                                            </button>
                                             <button class="btn-eliminar"
                                                     title="Quitar producto"
                                                     aria-label="Quitar producto"
-                                                    @onclick="() => QuitarDelCarrito(item)">×</button>
+                                                    @onclick="() => QuitarDelCarrito(item)">
+                                                ×
+                                            </button>
                                         </div>
                                     </div>
 
@@ -409,6 +431,7 @@
             left: 50%;
             transform: translateX(-50%);
         }
+
     .estado-Libre {
         border-color: #1b7f3a;
         background: linear-gradient(145deg, #dff6e5, #9edbb0);
@@ -448,6 +471,39 @@
         border-radius: 50%;
         z-index: 5;
         animation: pulso 1.2s infinite;
+    }
+
+    .badge-cancelado {
+        position: absolute;
+        top: -6px;
+        left: -6px;
+        width: 14px;
+        height: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #ff8f00;
+        border: 2px solid white;
+        border-radius: 50%;
+        font-size: 9px;
+        color: white;
+        z-index: 5;
+        animation: pulso 1.2s infinite;
+    }
+
+    .pedido-card-cancelado {
+        border-color: #ff8f00;
+    }
+
+    .motivo-cancelacion {
+        margin-top: 0.35rem;
+        padding: 0.4rem 0.5rem;
+        border-left: 4px solid #ff8f00;
+        border-radius: 4px;
+        background: #fff3e0;
+        color: #7a4a00;
+        font-size: 0.82rem;
+        font-weight: 600;
     }
 
     .mesa-12 {
@@ -560,9 +616,9 @@
         box-shadow: 0 3px 9px rgba(0,0,0,.25);
     }
 
-    .editar-foto:hover {
-        background: #e31212;
-    }
+        .editar-foto:hover {
+            background: #e31212;
+        }
 
     .input-foto-oculto {
         position: absolute;
@@ -683,16 +739,16 @@
         border-bottom: 1px solid #ddd;
     }
 
-    .modal-pedido-header h4 {
-        margin: 0;
-        font-weight: 800;
-    }
+        .modal-pedido-header h4 {
+            margin: 0;
+            font-weight: 800;
+        }
 
-    .modal-pedido-header span {
-        color: #666;
-        font-size: .85rem;
-        font-weight: 700;
-    }
+        .modal-pedido-header span {
+            color: #666;
+            font-size: .85rem;
+            font-weight: 700;
+        }
 
     .selector-productos {
         min-height: 420px;
@@ -719,27 +775,27 @@
         gap: .45rem;
     }
 
-    .control-cantidad button {
-        width: 28px;
-        height: 28px;
-        display: grid;
-        place-items: center;
-        padding: 0;
-        border: 1px solid #aaa;
-        border-radius: 50%;
-        background: white;
-        font-weight: 800;
-    }
+        .control-cantidad button {
+            width: 28px;
+            height: 28px;
+            display: grid;
+            place-items: center;
+            padding: 0;
+            border: 1px solid #aaa;
+            border-radius: 50%;
+            background: white;
+            font-weight: 800;
+        }
 
-    .control-cantidad button:disabled {
-        opacity: .35;
-    }
+            .control-cantidad button:disabled {
+                opacity: .35;
+            }
 
-    .control-cantidad span {
-        min-width: 22px;
-        text-align: center;
-        font-weight: 700;
-    }
+        .control-cantidad span {
+            min-width: 22px;
+            text-align: center;
+            font-weight: 700;
+        }
 
     .comensales {
         display: flex;
@@ -754,26 +810,26 @@
         gap: .5rem;
     }
 
-    .categorias button,
-    .subcategorias button {
-        padding: .7rem .75rem;
-        border: 1px solid #aaa;
-        border-radius: 7px;
-        background: white;
-        text-align: left;
-    }
+        .categorias button,
+        .subcategorias button {
+            padding: .7rem .75rem;
+            border: 1px solid #aaa;
+            border-radius: 7px;
+            background: white;
+            text-align: left;
+        }
 
-    .categorias button span {
-        margin-right: .5rem;
-    }
+            .categorias button span {
+                margin-right: .5rem;
+            }
 
-    .categorias button.activo,
-    .subcategorias button.activo {
-        border-color: #ef1111;
-        background: #fff0f0;
-        color: #b60000;
-        font-weight: 700;
-    }
+            .categorias button.activo,
+            .subcategorias button.activo {
+                border-color: #ef1111;
+                background: #fff0f0;
+                color: #b60000;
+                font-weight: 700;
+            }
 
     .subcategorias {
         padding: 1rem;
@@ -789,13 +845,13 @@
         border-top: 1px solid #ddd;
     }
 
-    .resumen-carrito small {
-        color: #777;
-    }
+        .resumen-carrito small {
+            color: #777;
+        }
 
-    .resumen-carrito div {
-        font-size: .82rem;
-    }
+        .resumen-carrito div {
+            font-size: .82rem;
+        }
 
     .carrito-item {
         padding: .35rem 0;
@@ -815,13 +871,13 @@
         flex-shrink: 0;
     }
 
-    .carrito-acciones button {
-        border: 0;
-        background: transparent;
-        padding: .1rem .25rem;
-        font-size: 1rem;
-        line-height: 1;
-    }
+        .carrito-acciones button {
+            border: 0;
+            background: transparent;
+            padding: .1rem .25rem;
+            font-size: 1rem;
+            line-height: 1;
+        }
 
     .btn-observacion {
         color: #1f6fb2;
@@ -851,20 +907,20 @@
         background: #f4f9fd;
     }
 
-    .editor-observacion label {
-        display: block;
-        margin-bottom: .3rem;
-        font-size: .72rem;
-        font-weight: 700;
-    }
+        .editor-observacion label {
+            display: block;
+            margin-bottom: .3rem;
+            font-size: .72rem;
+            font-weight: 700;
+        }
 
-    .editor-observacion input {
-        width: 100%;
-        padding: .4rem .5rem;
-        border: 1px solid #aaa;
-        border-radius: 4px;
-        font-size: .8rem;
-    }
+        .editor-observacion input {
+            width: 100%;
+            padding: .4rem .5rem;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            font-size: .8rem;
+        }
 
     .editor-observacion-acciones {
         display: flex;
@@ -873,13 +929,13 @@
         margin-top: .4rem;
     }
 
-    .editor-observacion-acciones button {
-        padding: .3rem .5rem;
-        border: 0;
-        border-radius: 4px;
-        font-size: .72rem;
-        font-weight: 700;
-    }
+        .editor-observacion-acciones button {
+            padding: .3rem .5rem;
+            border: 0;
+            border-radius: 4px;
+            font-size: .72rem;
+            font-weight: 700;
+        }
 
     .btn-cancelar-observacion {
         background: #ddd;
@@ -913,15 +969,15 @@
         border-bottom: 1px solid #eee;
     }
 
-    .producto-fila > div:first-child {
-        display: flex;
-        flex-direction: column;
-    }
+        .producto-fila > div:first-child {
+            display: flex;
+            flex-direction: column;
+        }
 
-    .producto-fila small {
-        color: #777;
-        font-size: .72rem;
-    }
+        .producto-fila small {
+            color: #777;
+            font-size: .72rem;
+        }
 
     .producto-precio {
         white-space: nowrap;
@@ -936,11 +992,11 @@
         border-top: 1px solid #ddd;
     }
 
-    .modal-pedido-footer > div {
-        display: flex;
-        flex-direction: column;
-        margin-right: auto;
-    }
+        .modal-pedido-footer > div {
+            display: flex;
+            flex-direction: column;
+            margin-right: auto;
+        }
 
     @@media (max-width: 780px) {
         .selector-productos {
@@ -970,10 +1026,10 @@
             grid-template-columns: 1fr auto;
         }
 
-        .producto-fila .control-cantidad {
-            grid-column: 1 / -1;
-            justify-self: end;
-        }
+            .producto-fila .control-cantidad {
+                grid-column: 1 / -1;
+                justify-self: end;
+            }
 
         .modal-pedido-footer {
             flex-wrap: wrap;
@@ -1041,7 +1097,19 @@
         await CargarProductos();
         await CargarUsuarioActual();
 
-        Polling.Iniciar(CargarMesas, TimeSpan.FromSeconds(2));
+        Polling.Iniciar(ActualizarPanel, TimeSpan.FromSeconds(2));
+    }
+
+    // Refresca el estado de las mesas y, si hay un panel abierto, también sus pedidos,
+    // para que el mozo vea al toque si cocina/barra cancela o termina algo.
+    private async Task ActualizarPanel()
+    {
+        await CargarMesas();
+        if (comandaActual != null)
+        {
+            await CargarPedidos();
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private RenderFragment RenderMesa(int numero) => @<text>
@@ -1057,6 +1125,10 @@
             @if (mesa != null && mesa.TienePedidoListo)
             {
                 <span class="badge-notif"></span>
+            }
+            @if (mesa != null && mesa.TienePedidoCancelado)
+            {
+                <span class="badge-cancelado" title="Hay un pedido cancelado por cocina/barra">!</span>
             }
         </button>
     </text>;
@@ -1148,6 +1220,35 @@
         {
             pedidosActuales = respuesta.Respuesta;
         }
+    }
+
+    private async Task MarcarEntregado(PedidoDTO pedido)
+    {
+        var dto = new CambiarEstadoPedidoDTO { Estado = EnumEstadoPedido.Entregado };
+        var respuesta = await http.Put($"api/Pedido/{pedido.Id}/Estado", dto);
+
+        if (respuesta.Error)
+        {
+            Mensaje = respuesta.ObtenerError();
+            return;
+        }
+
+        await CargarPedidos();
+        await CargarMesas();
+    }
+
+    private async Task EliminarPedidoCancelado(PedidoDTO pedido)
+    {
+        var respuesta = await http.Delete($"api/Pedido/{pedido.Id}");
+
+        if (respuesta.Error)
+        {
+            Mensaje = respuesta.ObtenerError();
+            return;
+        }
+
+        await CargarPedidos();
+        await CargarMesas();
     }
 
     private void AbrirModalNuevaComanda()

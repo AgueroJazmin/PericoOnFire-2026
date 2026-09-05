@@ -11,5 +11,6 @@ namespace PericoOnFire_2026.Shared.DTOs
         public int NumeroMesa { get; set; }
         public EnumEstadoMesa Estado { get; set; }
         public bool TienePedidoListo { get; set; }
+        public bool TienePedidoCancelado { get; set; }
     }
 }

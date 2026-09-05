@@ -8,5 +8,6 @@ namespace PericoOnFire_2026.Shared.DTOs
     public class CambiarEstadoPedidoDTO
     {
         public EnumEstadoPedido Estado { get; set; }
+        public string? MotivoCancelacion { get; set; }
     }
 }

@@ -19,6 +19,9 @@ namespace PericoOnFire_2026.Shared.DTOs
         public string? Observaciones { get; set; }
         public int? NumeroMesa { get; set; }
         public EnumTipoServicio? TipoServicio { get; set; }
+        public string? MotivoCancelacion { get; set; }
+        public DateTime? FechaCancelado { get; set; }
+        public string NumeroComanda => $"COM-{IdComanda:D6}";
         public List<DetallePedidoDTO> DetallesPedido { get; set; } = new();
     }
 }

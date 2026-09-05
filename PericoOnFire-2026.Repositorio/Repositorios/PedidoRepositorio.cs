@@ -42,6 +42,7 @@ namespace PericoOnFire_2026.Repositorio.Repositorios
                 .Include(p => p.DetallesPedido)
                    .ThenInclude(d => d.Producto)
                 .Where(p => p.SectorDestino == sector)
+                .OrderBy(p => p.FechaPedido)
                 .ToListAsync();
         }
 
@@ -137,17 +138,19 @@ namespace PericoOnFire_2026.Repositorio.Repositorios
                 .Include(p => p.DetallesPedido)
                        .ThenInclude(d => d.Producto)
                 .Where(p => p.IdComanda == idComanda)
+                .OrderBy(p => p.FechaPedido)
                 .ToListAsync();
         }
 
         //Este método permite cambiar el estado de un pedido y actualizar las fechas correspondientes
         //Va a ser util para que el sector de cocina o barra pueda marcar un pedido como "En Preparación", "Listo para Retirar" o "Entregado".
-        public async Task<bool> CambiarEstado(int id, EnumEstadoPedido nuevoEstado)
+        public async Task<bool> CambiarEstado(int id, EnumEstadoPedido nuevoEstado, string? motivoCancelacion)
         {
             var pedido = await context.Pedidos.FindAsync(id);
             if (pedido == null) return false;
 
             pedido.Estado = nuevoEstado;
+            pedido.MotivoCancelacion = motivoCancelacion;
 
             switch (nuevoEstado)
             {
@@ -160,8 +163,49 @@ namespace PericoOnFire_2026.Repositorio.Repositorios
                 case EnumEstadoPedido.Entregado:
                     pedido.FechaEntregado = DateTime.UtcNow;
                     break;
+                case EnumEstadoPedido.Cancelado:
+                    pedido.MotivoCancelacion = motivoCancelacion;
+                    pedido.FechaCancelado = DateTime.UtcNow;
+                    break;
             }
 
+            await context.SaveChangesAsync();
+            return true;
+        }
+
+        //Este método permite vaciar de un solo golpe los pedidos ya entregados de un sector,
+        //para el botón "tacho" que aparece al lado de la columna Listos en cocina/barra.
+        public async Task<int> EliminarEntregadosPorSector(EnumSectorDestino sector)
+        {
+            var pedidos = await context.Pedidos
+               .Include(p => p.DetallesPedido)
+               .Where(p => p.SectorDestino == sector && p.Estado == EnumEstadoPedido.Entregado)
+               .ToListAsync();
+
+            foreach (var pedido in pedidos)
+            {
+                context.DetallesPedido.RemoveRange(pedido.DetallesPedido);
+            }
+
+            context.Pedidos.RemoveRange(pedidos);
+            await context.SaveChangesAsync();
+            return pedidos.Count;
+        }
+
+        //La FK de DetallesPedido hacia Pedidos es RESTRICT (no ON DELETE CASCADE), así que
+        //Postgres rechaza borrar un Pedido mientras le queden DetallesPedido colgando.
+        //Es parecido a lo que hace EliminarEntregadosPorSector, pero para un solo pedido.
+        //De esta manera, si un pedido tiene detalles, se borran todos los detalles y luego el pedido.
+        public async Task<bool> EliminarConDetalles(int id)
+        {
+            var pedido = await context.Pedidos
+                .Include(p => p.DetallesPedido)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (pedido == null) return false;
+
+            context.DetallesPedido.RemoveRange(pedido.DetallesPedido);
+            context.Pedidos.Remove(pedido);
             await context.SaveChangesAsync();
             return true;
         }

@@ -66,12 +66,24 @@ namespace PericoOnFire_2026.Server.Controllers
         [HttpPut("{id:int}/Estado")]
         public async Task<ActionResult> CambiarEstado(int id, CambiarEstadoPedidoDTO dto)
         {
-            var resultado = await repositorio.CambiarEstado(id, dto.Estado);
+            if (dto.Estado == EnumEstadoPedido.Cancelado && string.IsNullOrWhiteSpace(dto.MotivoCancelacion))
+                return BadRequest("Para cancelar un pedido es obligatorio indicar el motivo.");
+
+            var resultado = await repositorio.CambiarEstado(id, dto.Estado, dto.MotivoCancelacion);
 
             if (!resultado)
                 return NotFound();
 
             return Ok();
+        }
+
+        //Este endpoint borra en lote los pedidos ya entregados de un sector,
+        //lo usa el tacho que aparece al lado de la columna "Listos" en cocina/barra.
+        [HttpDelete("Entregados/Sector/{sector}")]
+        public async Task<ActionResult<int>> BorrarEntregadosPorSector(EnumSectorDestino sector)
+        {
+            var cantidad = await repositorio.EliminarEntregadosPorSector(sector);
+            return Ok(cantidad);
         }
 
         [HttpPost]
@@ -130,10 +142,17 @@ namespace PericoOnFire_2026.Server.Controllers
         [HttpDelete("{id:int}")]
         public async Task<ActionResult> Delete(int id)
         {
-            var resultado = await repositorio.Delete(id);
+            var pedido = await repositorio.SelectById(id);
+            if (pedido == null)
+                return NotFound();
+
+            if (pedido.Estado != EnumEstadoPedido.Entregado && pedido.Estado != EnumEstadoPedido.Cancelado)
+                return Conflict("Solo se pueden eliminar pedidos entregados o cancelados.");
+
+            var resultado = await repositorio.EliminarConDetalles(id);
 
             if (!resultado)
-                return NotFound();
+                return BadRequest();
 
             return Ok();
         }
@@ -153,6 +172,8 @@ namespace PericoOnFire_2026.Server.Controllers
                 FechaEntregado = p.FechaEntregado,
                 IdDelivery = p.IdDelivery,
                 Observaciones = p.Observaciones,
+                MotivoCancelacion = p.MotivoCancelacion,
+                FechaCancelado = p.FechaCancelado,
                 NumeroMesa = p.Comanda != null ? p.Comanda.Mesa?.NumeroMesa : null,
                 TipoServicio = p.Comanda?.TipoServicio,
                 DetallesPedido = p.DetallesPedido.Select(d => new DetallePedidoDTO
