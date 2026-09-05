@@ -26,6 +26,7 @@ namespace  PericoOnFire_2026.BD.Datos
         public DbSet<DetallePedido> DetallesPedido { get; set; }
         public DbSet<Pago> Pagos { get; set; }
         public DbSet<MovimientoCaja> MovimientosCaja { get; set; }
+        public DbSet<ConfiguracionSalon> ConfiguracionesSalon { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

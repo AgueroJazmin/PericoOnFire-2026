@@ -1,5 +1,6 @@
 ﻿@page "/comandas"
 @using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components.Forms
 @using PericoOnFire_2026.Shared.DTOs
 @using PericoOnFire_2026.Shared.ENUM
 @using PericoOnFire_2026.Servicio.ServicioHttp
@@ -23,7 +24,28 @@
 
     <section class="salon salon-der">
         <div class="salon-inner">
-            <img src="img/perico-pizza.jpg" class="perico-img" />
+            <div class="foto-salon-wrapper">
+                <img src="@UrlFotoSalon"
+                     class="perico-img"
+                     alt="Imagen decorativa del salón"
+                     onerror="this.onerror=null;this.src='img/perico-pizza.jpg';" />
+
+                <AuthorizeView Roles="Administracion">
+                    <Authorized>
+                        <label class="editar-foto" title="Cambiar imagen del salón">
+                            <span>✎</span> Cambiar foto
+                            <InputFile OnChange="CambiarFotoSalon"
+                                       accept="image/jpeg,image/png,image/webp"
+                                       class="input-foto-oculto" />
+                        </label>
+                    </Authorized>
+                </AuthorizeView>
+
+                @if (!string.IsNullOrWhiteSpace(MensajeFoto))
+                {
+                    <div class="mensaje-foto">@MensajeFoto</div>
+                }
+            </div>
 
             @foreach (var numero in numerosDerecha)
             {
@@ -55,7 +77,7 @@
         {
             <div class="panel-body">
                 <p>La mesa está libre.</p>
-                <button class="btn btn-primary" @onclick="AbrirMesa">
+                <button class="btn btn-primary" @onclick="AbrirModalNuevaComanda">
                     Abrir mesa
                 </button>
             </div>
@@ -100,39 +122,9 @@
                 {
                     <hr />
 
-                    <h6>Agregar ítems</h6>
-                    <select class="form-select" @bind="idProductoSeleccionado">
-                        <option value="0">Seleccioná un producto...</option>
-                        @foreach (var cat in productos.GroupBy(p => p.NombreCategoria))
-                        {
-                            <optgroup label="@cat.Key">
-                                @foreach (var prod in cat)
-                                {
-                                    <option value="@prod.Id">@prod.Nombre - $@prod.Precio</option>
-                                }
-                            </optgroup>
-                        }
-                    </select>
-                    <button class="btn btn-sm btn-secondary mt-2" @onclick="AgregarAlCarrito">
-                        Agregar
+                    <button class="btn btn-primary w-100" @onclick="AbrirModalPedidoAdicional">
+                        Agregar productos
                     </button>
-
-                    @if (carrito.Any())
-                    {
-                        <ul class="carrito-lista">
-                            @foreach (var item in carrito)
-                            {
-                                <li>
-                                    @item.Cantidad x @NombreProducto(item.IdProducto)
-                                    <button class="btn-quitar" @onclick="() => QuitarDelCarrito(item)">x</button>
-                                </li>
-                            }
-                        </ul>
-
-                        <button class="btn btn-success w-100 mb-2" @onclick="EnviarPedido">
-                            Enviar a cocina/barra
-                        </button>
-                    }
 
                     <hr />
 
@@ -161,6 +153,153 @@
             <p>@mensajeConfirmacion</p>
         </Confirmacion>
     </aside>
+}
+
+@if (mostrarModalPedido && mesaSeleccionada != null)
+{
+    <div class="modal-pedido-fondo" @onclick="CerrarModalPedido">
+        <section class="modal-pedido" role="dialog" aria-modal="true" aria-label="Seleccionar productos" @onclick:stopPropagation="true">
+            <header class="modal-pedido-header">
+                <div>
+                    <h4>Mesa @mesaSeleccionada.NumeroMesa</h4>
+                    @if (comandaActual != null)
+                    {
+                        <span>@comandaActual.NumeroComanda</span>
+                    }
+                </div>
+                <button class="btn-cerrar" aria-label="Cerrar" @onclick="CerrarModalPedido">&times;</button>
+            </header>
+
+            @if (!string.IsNullOrWhiteSpace(MensajeModal))
+            {
+                <div class="alert alert-danger py-2">@MensajeModal</div>
+            }
+
+            <div class="selector-productos">
+                <aside class="selector-resumen">
+                    @if (esNuevaComanda)
+                    {
+                        <strong>Cant. de comensales</strong>
+                        <div class="control-cantidad comensales">
+                            <button @onclick="DisminuirComensales" disabled="@(cantidadComensales <= 1)">−</button>
+                            <span>@cantidadComensales</span>
+                            <button @onclick="AumentarComensales">+</button>
+                        </div>
+                    }
+
+                    <nav class="categorias" aria-label="Categorías">
+                        @foreach (var categoria in CategoriasDisponibles)
+                        {
+                            <button class="@(categoria == categoriaSeleccionada ? "activo" : "")"
+                                    @onclick="() => SeleccionarCategoria(categoria)">
+                                <span>@IconoCategoria(categoria)</span>@categoria
+                            </button>
+                        }
+                    </nav>
+
+                    <div class="resumen-carrito">
+                        <strong>Pedido (@CantidadTotalItems)</strong>
+                        @if (!carrito.Any())
+                        {
+                            <small>Todavía no agregaste productos.</small>
+                        }
+                        else
+                        {
+                            @foreach (var item in carrito)
+                            {
+                                <div class="carrito-item">
+                                    <div class="carrito-item-linea">
+                                        <span>@item.Cantidad × @NombreProducto(item.IdProducto)</span>
+                                        <div class="carrito-acciones">
+                                            <button class="btn-observacion"
+                                                    title="Agregar observación"
+                                                    aria-label="Agregar observación"
+                                                    @onclick="() => EditarObservacion(item)">✎</button>
+                                            <button class="btn-eliminar"
+                                                    title="Quitar producto"
+                                                    aria-label="Quitar producto"
+                                                    @onclick="() => QuitarDelCarrito(item)">×</button>
+                                        </div>
+                                    </div>
+
+                                    @if (!string.IsNullOrWhiteSpace(item.Observacion))
+                                    {
+                                        <small class="observacion-carrito">⚠ @item.Observacion</small>
+                                    }
+
+                                    @if (ReferenceEquals(itemEditandoObservacion, item))
+                                    {
+                                        <div class="editor-observacion">
+                                            <label>Observación para cocina/barra</label>
+                                            <input type="text"
+                                                   maxlength="300"
+                                                   placeholder="Ej.: sin aceitunas"
+                                                   @bind="textoObservacion"
+                                                   @bind:event="oninput" />
+                                            <div class="editor-observacion-acciones">
+                                                <button class="btn-cancelar-observacion" @onclick="CancelarObservacion">Cancelar</button>
+                                                <button class="btn-guardar-observacion" @onclick="GuardarObservacion">Guardar</button>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        }
+                    </div>
+                </aside>
+
+                <nav class="subcategorias" aria-label="Subcategorías">
+                    @foreach (var subcategoria in SubcategoriasDisponibles)
+                    {
+                        <button class="@(subcategoria == subcategoriaSeleccionada ? "activo" : "")"
+                                @onclick="() => subcategoriaSeleccionada = subcategoria">
+                            @subcategoria
+                        </button>
+                    }
+                </nav>
+
+                <div class="productos-modal">
+                    <div class="productos-titulo">
+                        <strong>@subcategoriaSeleccionada</strong>
+                        <span>@categoriaSeleccionada</span>
+                    </div>
+
+                    @foreach (var producto in ProductosVisibles)
+                    {
+                        var cantidad = CantidadProducto(producto.Id);
+                        <article class="producto-fila">
+                            <div>
+                                <strong>@producto.Nombre</strong>
+                                <small>@producto.SectorDestino</small>
+                            </div>
+                            <span class="producto-precio">$@producto.Precio.ToString("N2")</span>
+                            <div class="control-cantidad">
+                                <button @onclick="() => DisminuirProducto(producto.Id)" disabled="@(cantidad == 0)">−</button>
+                                <span>@cantidad</span>
+                                <button @onclick="() => AumentarProducto(producto.Id)">+</button>
+                            </div>
+                        </article>
+                    }
+
+                    @if (!ProductosVisibles.Any())
+                    {
+                        <p class="texto-vacio p-3">No hay productos activos en esta subcategoría.</p>
+                    }
+                </div>
+            </div>
+
+            <footer class="modal-pedido-footer">
+                <div>
+                    <span>Total</span>
+                    <strong>$@TotalCarrito.ToString("N2")</strong>
+                </div>
+                <button class="btn btn-outline-secondary" @onclick="CerrarModalPedido" disabled="@enviandoPedido">Cancelar</button>
+                <button class="btn btn-success" @onclick="ConfirmarPedido" disabled="@(!carrito.Any() || enviandoPedido)">
+                    @(enviandoPedido ? "Enviando..." : "Enviar a cocina/barra")
+                </button>
+            </footer>
+        </section>
+    </div>
 }
 
 <style>
@@ -197,83 +336,105 @@
         position: absolute;
         width: 68px;
         height: 46px;
-        background: white;
-        border: 2px solid #888;
+        background: linear-gradient(145deg, #f3d39a, #c9934c);
+        border: 2px solid #82551f;
+        border-radius: 7px;
+        box-shadow: 0 5px 10px rgba(65, 39, 10, 0.22), inset 0 1px rgba(255, 255, 255, 0.55);
         font-weight: bold;
         cursor: pointer;
         z-index: 2;
         font-size: 0.95rem;
+        transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
     }
 
-        .mesa span {
-            position: relative;
+        .mesa:not(:disabled):hover {
+            transform: translateY(-3px) scale(1.04);
+            box-shadow: 0 8px 15px rgba(65, 39, 10, 0.3), inset 0 1px rgba(255, 255, 255, 0.6);
+            filter: brightness(1.04);
+        }
+
+        /* Número de la mesa */
+        .mesa .numero-mesa {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             z-index: 3;
         }
 
-        .mesa::before,
-        .mesa::after {
-            content: "";
-            position: absolute;
-            background: white;
-            border: 2px solid #888;
+            /* Estilo común de las cuatro sillas */
+            .mesa::before,
+            .mesa::after,
+            .mesa .numero-mesa::before,
+            .mesa .numero-mesa::after {
+                content: "";
+                position: absolute;
+                background: linear-gradient(#f4f4f4, #d9d9d9);
+                border: 2px solid #777;
+                border-radius: 4px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.16);
+            }
+
+        /* Silla izquierda */
+        .mesa::before {
             width: 16px;
             height: 22px;
             top: 10px;
-        }
-
-        .mesa::before {
             left: -20px;
         }
 
+        /* Silla derecha */
         .mesa::after {
+            width: 16px;
+            height: 22px;
+            top: 10px;
             right: -20px;
         }
 
-        .mesa span::before,
-        .mesa span::after {
-            content: "";
-            position: absolute;
-            background: white;
-            border: 2px solid #888;
+        /* Silla superior */
+        .mesa .numero-mesa::before {
             width: 18px;
             height: 14px;
+            top: -18px;
             left: 50%;
             transform: translateX(-50%);
         }
 
-        .mesa span::before {
-            top: -30px;
+        /* Silla inferior */
+        .mesa .numero-mesa::after {
+            width: 18px;
+            height: 14px;
+            bottom: -18px;
+            left: 50%;
+            transform: translateX(-50%);
         }
-
-        .mesa span::after {
-            bottom: -30px;
-        }
-
     .estado-Libre {
-        border-color: #2e7d32;
-        background: #eafaf0;
+        border-color: #1b7f3a;
+        background: linear-gradient(145deg, #dff6e5, #9edbb0);
     }
 
     .estado-Ocupada {
-        border-color: #c62828;
-        background: #fdecea;
+        border-color: #bd2020;
+        background: linear-gradient(145deg, #ffe2df, #f2a29a);
     }
 
     .estado-Reservada {
-        border-color: #f9a825;
-        background: #fff8e1;
+        border-color: #e98613;
+        background: linear-gradient(145deg, #fff1ce, #f6c36f);
     }
 
     .estado-PendienteCobro {
-        border-color: #ef6c00;
-        background: #fff3e0;
+        border-color: #d86a08;
+        background: linear-gradient(145deg, #ffead1, #efac68);
     }
 
     .sin-configurar {
-        border-color: #ccc;
-        background: #f5f5f5;
+        border-color: #bbb;
+        background: #ededed;
         color: #aaa;
         cursor: not-allowed;
+        box-shadow: none;
     }
 
     .badge-notif {
@@ -364,14 +525,64 @@
         left: 120px;
     }
 
-    .perico-img {
+    .foto-salon-wrapper {
         position: absolute;
-        top: 180px;
-        left: 300px;
+        top: 10px;
+        left: 430px;
         width: 260px;
         height: 260px;
+        z-index: 4;
+    }
+
+    .perico-img {
+        width: 100%;
+        height: 100%;
         object-fit: cover;
-        border-radius: 4px;
+        border-radius: 14px;
+        border: 4px solid white;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, .24);
+    }
+
+    .editar-foto {
+        position: absolute;
+        right: 10px;
+        bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: .35rem;
+        padding: .45rem .7rem;
+        border-radius: 999px;
+        background: rgba(20, 20, 20, .88);
+        color: white;
+        font-size: .78rem;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 3px 9px rgba(0,0,0,.25);
+    }
+
+    .editar-foto:hover {
+        background: #e31212;
+    }
+
+    .input-foto-oculto {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .mensaje-foto {
+        position: absolute;
+        left: 8px;
+        right: 8px;
+        top: calc(100% + 6px);
+        padding: .35rem .5rem;
+        border-radius: 5px;
+        background: #222;
+        color: white;
+        font-size: .72rem;
+        text-align: center;
     }
 
     .panel-mesa {
@@ -441,6 +652,333 @@
         color: #888;
         font-size: 0.85rem;
     }
+
+    .modal-pedido-fondo {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        display: grid;
+        place-items: center;
+        padding: 1rem;
+        background: rgba(0, 0, 0, 0.58);
+    }
+
+    .modal-pedido {
+        width: min(1000px, 96vw);
+        max-height: calc(100vh - 2rem);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: white;
+        border: 4px solid #ef1111;
+        border-radius: 10px;
+        box-shadow: 0 18px 60px rgba(0, 0, 0, .35);
+    }
+
+    .modal-pedido-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: .8rem 1rem;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .modal-pedido-header h4 {
+        margin: 0;
+        font-weight: 800;
+    }
+
+    .modal-pedido-header span {
+        color: #666;
+        font-size: .85rem;
+        font-weight: 700;
+    }
+
+    .selector-productos {
+        min-height: 420px;
+        display: grid;
+        grid-template-columns: 230px 210px 1fr;
+        overflow: hidden;
+    }
+
+    .selector-resumen,
+    .subcategorias,
+    .productos-modal {
+        min-height: 0;
+        overflow-y: auto;
+    }
+
+    .selector-resumen {
+        padding: 1rem;
+        border-right: 1px solid #ddd;
+    }
+
+    .control-cantidad {
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
+    }
+
+    .control-cantidad button {
+        width: 28px;
+        height: 28px;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        border: 1px solid #aaa;
+        border-radius: 50%;
+        background: white;
+        font-weight: 800;
+    }
+
+    .control-cantidad button:disabled {
+        opacity: .35;
+    }
+
+    .control-cantidad span {
+        min-width: 22px;
+        text-align: center;
+        font-weight: 700;
+    }
+
+    .comensales {
+        display: flex;
+        justify-content: center;
+        margin: .75rem 0 1rem;
+    }
+
+    .categorias,
+    .subcategorias {
+        display: flex;
+        flex-direction: column;
+        gap: .5rem;
+    }
+
+    .categorias button,
+    .subcategorias button {
+        padding: .7rem .75rem;
+        border: 1px solid #aaa;
+        border-radius: 7px;
+        background: white;
+        text-align: left;
+    }
+
+    .categorias button span {
+        margin-right: .5rem;
+    }
+
+    .categorias button.activo,
+    .subcategorias button.activo {
+        border-color: #ef1111;
+        background: #fff0f0;
+        color: #b60000;
+        font-weight: 700;
+    }
+
+    .subcategorias {
+        padding: 1rem;
+        border-right: 1px solid #ddd;
+    }
+
+    .resumen-carrito {
+        display: flex;
+        flex-direction: column;
+        gap: .45rem;
+        margin-top: 1rem;
+        padding-top: 1rem;
+        border-top: 1px solid #ddd;
+    }
+
+    .resumen-carrito small {
+        color: #777;
+    }
+
+    .resumen-carrito div {
+        font-size: .82rem;
+    }
+
+    .carrito-item {
+        padding: .35rem 0;
+        border-bottom: 1px solid #eee;
+    }
+
+    .carrito-item-linea {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .4rem;
+    }
+
+    .carrito-acciones {
+        display: flex;
+        gap: .15rem;
+        flex-shrink: 0;
+    }
+
+    .carrito-acciones button {
+        border: 0;
+        background: transparent;
+        padding: .1rem .25rem;
+        font-size: 1rem;
+        line-height: 1;
+    }
+
+    .btn-observacion {
+        color: #1f6fb2;
+    }
+
+    .btn-eliminar {
+        color: #c62828;
+    }
+
+    .observacion-carrito {
+        display: block;
+        margin-top: .25rem;
+        padding: .28rem .4rem;
+        border-left: 3px solid #f0a000;
+        border-radius: 3px;
+        background: #fff5d9;
+        color: #6e4b00 !important;
+        font-weight: 600;
+    }
+
+    .editor-observacion {
+        display: block;
+        margin-top: .4rem;
+        padding: .5rem;
+        border: 1px solid #c9d9e8;
+        border-radius: 6px;
+        background: #f4f9fd;
+    }
+
+    .editor-observacion label {
+        display: block;
+        margin-bottom: .3rem;
+        font-size: .72rem;
+        font-weight: 700;
+    }
+
+    .editor-observacion input {
+        width: 100%;
+        padding: .4rem .5rem;
+        border: 1px solid #aaa;
+        border-radius: 4px;
+        font-size: .8rem;
+    }
+
+    .editor-observacion-acciones {
+        display: flex;
+        justify-content: flex-end;
+        gap: .35rem;
+        margin-top: .4rem;
+    }
+
+    .editor-observacion-acciones button {
+        padding: .3rem .5rem;
+        border: 0;
+        border-radius: 4px;
+        font-size: .72rem;
+        font-weight: 700;
+    }
+
+    .btn-cancelar-observacion {
+        background: #ddd;
+        color: #333;
+    }
+
+    .btn-guardar-observacion {
+        background: #1687e8;
+        color: white;
+    }
+
+    .productos-modal {
+        border: 2px solid #1687e8;
+        margin: 1rem;
+    }
+
+    .productos-titulo {
+        display: flex;
+        justify-content: space-between;
+        padding: .75rem;
+        background: #1687e8;
+        color: white;
+    }
+
+    .producto-fila {
+        display: grid;
+        grid-template-columns: minmax(120px, 1fr) auto 110px;
+        align-items: center;
+        gap: .75rem;
+        padding: .7rem .8rem;
+        border-bottom: 1px solid #eee;
+    }
+
+    .producto-fila > div:first-child {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .producto-fila small {
+        color: #777;
+        font-size: .72rem;
+    }
+
+    .producto-precio {
+        white-space: nowrap;
+    }
+
+    .modal-pedido-footer {
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: .7rem;
+        padding: .8rem 1rem;
+        border-top: 1px solid #ddd;
+    }
+
+    .modal-pedido-footer > div {
+        display: flex;
+        flex-direction: column;
+        margin-right: auto;
+    }
+
+    @@media (max-width: 780px) {
+        .selector-productos {
+            grid-template-columns: 1fr;
+            overflow-y: auto;
+        }
+
+        .selector-resumen,
+        .subcategorias,
+        .productos-modal {
+            overflow: visible;
+        }
+
+        .categorias,
+        .subcategorias {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .selector-resumen,
+        .subcategorias {
+            border-right: 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .producto-fila {
+            grid-template-columns: 1fr auto;
+        }
+
+        .producto-fila .control-cantidad {
+            grid-column: 1 / -1;
+            justify-self: end;
+        }
+
+        .modal-pedido-footer {
+            flex-wrap: wrap;
+        }
+    }
 </style>
 
 <script>
@@ -475,10 +1013,22 @@
     private List<PedidoDTO> pedidosActuales = new();
     private List<ItemPedidoDTO> carrito = new();
 
-    private int idProductoSeleccionado;
     private int? idUsuarioActual;
     private bool cargandoPanel;
     private string? Mensaje;
+    private string? MensajeModal;
+    private bool mostrarModalPedido;
+    private bool esNuevaComanda;
+    private bool enviandoPedido;
+    private int cantidadComensales = 1;
+    private string categoriaSeleccionada = "";
+    private string subcategoriaSeleccionada = "";
+    private string? MensajeFoto;
+    private long versionFoto = DateTime.UtcNow.Ticks;
+    private ItemPedidoDTO? itemEditandoObservacion;
+    private string textoObservacion = "";
+
+    private string UrlFotoSalon => $"api/ConfiguracionSalon/Foto?v={versionFoto}";
 
     private Confirmacion? confirmacion;
     private string tituloConfirmacion = "";
@@ -503,7 +1053,7 @@
                 disabled="@(mesa == null)"
                 title="@(mesa == null ? "Mesa no configurada en Configuración > Mesas" : mesa.Estado.ToString())"
                 @onclick="@(() => SeleccionarMesa(mesa!))">
-            <span>@numero</span>
+            <span class="numero-mesa">@numero</span>
             @if (mesa != null && mesa.TienePedidoListo)
             {
                 <span class="badge-notif"></span>
@@ -515,6 +1065,29 @@
 
     private string NombreProducto(int idProducto) =>
         productos.FirstOrDefault(p => p.Id == idProducto)?.Nombre ?? "";
+
+    private IEnumerable<string> CategoriasDisponibles => productos
+        .Select(p => p.NombreCategoria)
+        .Where(n => !string.IsNullOrWhiteSpace(n))
+        .Distinct()
+        .OrderBy(n => n);
+
+    private IEnumerable<string> SubcategoriasDisponibles => productos
+        .Where(p => p.NombreCategoria == categoriaSeleccionada)
+        .Select(p => p.NombreSubcategoria)
+        .Where(n => !string.IsNullOrWhiteSpace(n))
+        .Distinct()
+        .OrderBy(n => n);
+
+    private IEnumerable<ProductoListadoDTO> ProductosVisibles => productos
+        .Where(p => p.NombreCategoria == categoriaSeleccionada &&
+                    p.NombreSubcategoria == subcategoriaSeleccionada)
+        .OrderBy(p => p.Nombre);
+
+    private int CantidadTotalItems => carrito.Sum(i => i.Cantidad);
+
+    private decimal TotalCarrito => carrito.Sum(i =>
+        (productos.FirstOrDefault(p => p.Id == i.IdProducto)?.Precio ?? 0) * i.Cantidad);
 
     private async Task CargarMesas()
     {
@@ -577,7 +1150,7 @@
         }
     }
 
-    private async Task AbrirMesa()
+    private void AbrirModalNuevaComanda()
     {
         if (mesaSeleccionada == null || idUsuarioActual == null)
         {
@@ -585,31 +1158,104 @@
             return;
         }
 
-        var dto = new ComandaCrearDTO
-        {
-            IdMesa = mesaSeleccionada.Id,
-            IdUsuario = idUsuarioActual,
-            TipoServicio = EnumTipoServicio.Mesa
-        };
+        esNuevaComanda = true;
+        cantidadComensales = 1;
+        AbrirModalPedido();
+    }
 
-        var respuesta = await http.Post<ComandaCrearDTO, int>("api/Comanda", dto);
-        if (respuesta.Error)
+    private async Task CambiarFotoSalon(InputFileChangeEventArgs evento)
+    {
+        const long tamanioMaximo = 5 * 1024 * 1024;
+        var archivo = evento.File;
+        var tiposPermitidos = new[] { "image/jpeg", "image/png", "image/webp" };
+
+        if (!tiposPermitidos.Contains(archivo.ContentType.ToLowerInvariant()))
         {
-            Mensaje = respuesta.ObtenerError();
+            MensajeFoto = "Elegí una imagen JPG, PNG o WebP.";
             return;
         }
 
-        var numeroSeleccionado = mesaSeleccionada.NumeroMesa;
-        await CargarMesas();
-        var mesaActualizada = mesas.First(m => m.NumeroMesa == numeroSeleccionado);
-        await SeleccionarMesa(mesaActualizada);
+        if (archivo.Size > tamanioMaximo)
+        {
+            MensajeFoto = "La imagen debe pesar menos de 5 MB.";
+            return;
+        }
+
+        try
+        {
+            await using var stream = archivo.OpenReadStream(tamanioMaximo);
+            using var memoria = new MemoryStream();
+            await stream.CopyToAsync(memoria);
+
+            var dto = new FotoSalonDTO
+            {
+                ContenidoBase64 = Convert.ToBase64String(memoria.ToArray()),
+                MimeType = archivo.ContentType,
+                NombreArchivo = archivo.Name
+            };
+
+            var respuesta = await http.Put("api/ConfiguracionSalon/Foto", dto);
+            if (respuesta.Error)
+            {
+                MensajeFoto = respuesta.ObtenerError();
+                return;
+            }
+
+            versionFoto = DateTime.UtcNow.Ticks;
+            MensajeFoto = "Foto actualizada correctamente.";
+        }
+        catch (IOException)
+        {
+            MensajeFoto = "No se pudo leer la imagen seleccionada.";
+        }
     }
 
-    private void AgregarAlCarrito()
+    private void AbrirModalPedidoAdicional()
     {
-        if (idProductoSeleccionado == 0) return;
+        esNuevaComanda = false;
+        AbrirModalPedido();
+    }
 
-        var existente = carrito.FirstOrDefault(c => c.IdProducto == idProductoSeleccionado);
+    private void AbrirModalPedido()
+    {
+        carrito = new();
+        CancelarObservacion();
+        MensajeModal = null;
+        categoriaSeleccionada = CategoriasDisponibles.FirstOrDefault() ?? "";
+        subcategoriaSeleccionada = SubcategoriasDisponibles.FirstOrDefault() ?? "";
+        mostrarModalPedido = true;
+    }
+
+    private void CerrarModalPedido()
+    {
+        if (enviandoPedido) return;
+        mostrarModalPedido = false;
+        carrito = new();
+        CancelarObservacion();
+        MensajeModal = null;
+    }
+
+    private void SeleccionarCategoria(string categoria)
+    {
+        categoriaSeleccionada = categoria;
+        subcategoriaSeleccionada = SubcategoriasDisponibles.FirstOrDefault() ?? "";
+    }
+
+    private string IconoCategoria(string categoria)
+    {
+        var nombre = categoria.ToLowerInvariant();
+        if (nombre.Contains("bebida")) return "🥤";
+        if (nombre.Contains("postre")) return "🍰";
+        if (nombre.Contains("café") || nombre.Contains("cafe")) return "☕";
+        return "🍔";
+    }
+
+    private int CantidadProducto(int idProducto) =>
+        carrito.Where(c => c.IdProducto == idProducto).Sum(c => c.Cantidad);
+
+    private void AumentarProducto(int idProducto)
+    {
+        var existente = carrito.FirstOrDefault(c => c.IdProducto == idProducto);
 
         if (existente != null)
         {
@@ -619,20 +1265,132 @@
         {
             carrito.Add(new ItemPedidoDTO
             {
-                IdProducto = idProductoSeleccionado,
+                IdProducto = idProducto,
                 Cantidad = 1
             });
         }
+    }
 
-        idProductoSeleccionado = 0;
+    private void DisminuirProducto(int idProducto)
+    {
+        var existente = carrito.FirstOrDefault(c => c.IdProducto == idProducto);
+        if (existente == null) return;
+
+        existente.Cantidad--;
+        if (existente.Cantidad <= 0)
+            carrito.Remove(existente);
     }
 
     private void QuitarDelCarrito(ItemPedidoDTO item)
     {
+        if (ReferenceEquals(itemEditandoObservacion, item))
+            CancelarObservacion();
+
         carrito.Remove(item);
     }
 
-    private async Task EnviarPedido()
+    private void EditarObservacion(ItemPedidoDTO item)
+    {
+        itemEditandoObservacion = item;
+        textoObservacion = item.Observacion ?? "";
+    }
+
+    private void GuardarObservacion()
+    {
+        if (itemEditandoObservacion == null) return;
+
+        var texto = textoObservacion.Trim();
+        if (!string.IsNullOrWhiteSpace(texto) &&
+            string.IsNullOrWhiteSpace(itemEditandoObservacion.Observacion) &&
+            itemEditandoObservacion.Cantidad > 1)
+        {
+            // Separa una unidad: permite una pizza sin aceitunas y otra normal.
+            itemEditandoObservacion.Cantidad--;
+            carrito.Add(new ItemPedidoDTO
+            {
+                IdProducto = itemEditandoObservacion.IdProducto,
+                Cantidad = 1,
+                Observacion = texto
+            });
+        }
+        else
+        {
+            itemEditandoObservacion.Observacion = string.IsNullOrWhiteSpace(texto)
+                ? null
+                : texto;
+        }
+
+        itemEditandoObservacion = null;
+        textoObservacion = "";
+    }
+
+    private void CancelarObservacion()
+    {
+        itemEditandoObservacion = null;
+        textoObservacion = "";
+    }
+
+    private void AumentarComensales()
+    {
+        if (cantidadComensales < 50) cantidadComensales++;
+    }
+
+    private void DisminuirComensales()
+    {
+        if (cantidadComensales > 1) cantidadComensales--;
+    }
+
+    private async Task ConfirmarPedido()
+    {
+        if (!carrito.Any() || enviandoPedido) return;
+
+        enviandoPedido = true;
+        MensajeModal = null;
+
+        try
+        {
+            if (esNuevaComanda)
+                await ConfirmarNuevaComanda();
+            else
+                await EnviarPedidoAdicional();
+        }
+        finally
+        {
+            enviandoPedido = false;
+        }
+    }
+
+    private async Task ConfirmarNuevaComanda()
+    {
+        if (mesaSeleccionada == null || idUsuarioActual == null) return;
+
+        var numeroMesa = mesaSeleccionada.NumeroMesa;
+        var dto = new ConfirmarComandaDTO
+        {
+            IdMesa = mesaSeleccionada.Id,
+            IdUsuario = idUsuarioActual.Value,
+            CantidadComensales = cantidadComensales,
+            Items = carrito
+        };
+
+        var respuesta = await http.Post<ConfirmarComandaDTO, ComandaConfirmadaDTO>("api/Comanda/Confirmar", dto);
+        if (respuesta.Error || respuesta.Respuesta == null)
+        {
+            MensajeModal = respuesta.ObtenerError();
+            return;
+        }
+
+        mostrarModalPedido = false;
+        carrito = new();
+        await CargarMesas();
+        var mesaActualizada = mesas.FirstOrDefault(m => m.NumeroMesa == numeroMesa);
+        if (mesaActualizada != null)
+            await SeleccionarMesa(mesaActualizada);
+
+        Mensaje = $"Comanda {respuesta.Respuesta.NumeroComanda} enviada correctamente a cocina/barra.";
+    }
+
+    private async Task EnviarPedidoAdicional()
     {
         if (comandaActual == null || !carrito.Any()) return;
 
@@ -645,12 +1403,14 @@
         var respuesta = await http.Post<CargarPedidoDTO, List<int>>("api/Pedido/CargarItems", dto);
         if (respuesta.Error)
         {
-            Mensaje = respuesta.ObtenerError();
+            MensajeModal = respuesta.ObtenerError();
             return;
         }
 
+        mostrarModalPedido = false;
         carrito = new();
         await CargarPedidos();
+        Mensaje = $"Pedido agregado a la comanda {comandaActual.NumeroComanda}.";
     }
 
     private void PedirCancelarMesa()
@@ -708,6 +1468,7 @@
 
     private void CerrarPanel()
     {
+        mostrarModalPedido = false;
         mesaSeleccionada = null;
         comandaActual = null;
     }

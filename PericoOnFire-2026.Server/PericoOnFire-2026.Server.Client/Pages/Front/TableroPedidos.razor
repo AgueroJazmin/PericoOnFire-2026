@@ -96,6 +96,21 @@
         padding-left: 1.1rem;
     }
 
+    .detalle-producto {
+        margin-bottom: .35rem;
+    }
+
+    .observacion-producto {
+        margin-top: .2rem;
+        padding: .4rem .5rem;
+        border-left: 4px solid #f0a000;
+        border-radius: 4px;
+        background: #fff1c7;
+        color: #5d3d00;
+        font-size: .85rem;
+        font-weight: 700;
+    }
+
     .tablero h4 {
         color: white;
         font-weight: bold;
@@ -155,11 +170,11 @@
         <ul>
             @foreach (var detalle in pedido.DetallesPedido)
             {
-                <li>
-                    @detalle.Cantidad x @detalle.NombreProducto
+                <li class="detalle-producto">
+                    <strong>@detalle.Cantidad x @detalle.NombreProducto</strong>
                     @if (!string.IsNullOrWhiteSpace(detalle.Observacion))
                     {
-                        <em> (@detalle.Observacion)</em>
+                        <div class="observacion-producto">⚠ @detalle.Observacion</div>
                     }
                 </li>
             }
