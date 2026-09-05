@@ -33,6 +33,10 @@ namespace PericoOnFire_2026.Server.Controllers
                    TienePedidoListo = context.Pedidos.Any(p =>
                        p.Estado == EnumEstadoPedido.ListoParaRetirar &&
                        p.Comanda.IdMesa == m.Id &&
+                       p.Comanda.Estado == EnumEstadoComanda.Abierta),
+                   TienePedidoCancelado = context.Pedidos.Any(p =>
+                       p.Estado == EnumEstadoPedido.Cancelado &&
+                       p.Comanda.IdMesa == m.Id &&
                        p.Comanda.Estado == EnumEstadoComanda.Abierta)
                })
                .ToListAsync();

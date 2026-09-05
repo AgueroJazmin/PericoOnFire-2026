@@ -2,6 +2,7 @@
 @using PericoOnFire_2026.Shared.DTOs
 @using PericoOnFire_2026.Shared.ENUM
 @using PericoOnFire_2026.Servicio.ServicioHttp
+@using PericoOnFire_2026.Server.Client.Shared
 @implements IAsyncDisposable
 @inject PericoOnFire_2026.Shared.SerPolling.PollingService Polling
 @inject IHttpServicio http
@@ -20,11 +21,15 @@
             <h6>Pendientes</h6>
             @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.Pendiente))
             {
-                <div class="pedido-card">
+                <div class="pedido-card @ClaseAlerta(pedido)">
                     @RenderCard(pedido)
                     <button class="btn btn-sm btn-warning w-100"
                             @onclick="() => Avanzar(pedido, EnumEstadoPedido.EnPreparacion)">
                         Empezar
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger w-100 mt-1"
+                            @onclick="() => PedirCancelar(pedido)">
+                        Cancelar pedido
                     </button>
                 </div>
             }
@@ -34,27 +39,59 @@
             <h6>En preparación</h6>
             @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.EnPreparacion))
             {
-                <div class="pedido-card">
+                <div class="pedido-card @ClaseAlerta(pedido)">
                     @RenderCard(pedido)
                     <button class="btn btn-sm btn-success w-100"
                             @onclick="() => Avanzar(pedido, EnumEstadoPedido.ListoParaRetirar)">
                         Marcar listo
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger w-100 mt-1"
+                            @onclick="() => PedirCancelar(pedido)">
+                        Cancelar pedido
                     </button>
                 </div>
             }
         </div>
 
         <div class="columna">
-            <h6>Listos</h6>
-            @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.ListoParaRetirar))
+            <div class="columna-header">
+                <h6>Listos</h6>
+                @if (pedidos.Any(p => p.Estado == EnumEstadoPedido.Entregado))
+                {
+                    <button class="btn-tacho" title="Borrar pedidos ya entregados" @onclick="VaciarEntregados">
+                        🗑
+                    </button>
+                }
+            </div>
+            @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.ListoParaRetirar
+                                                     || p.Estado == EnumEstadoPedido.Entregado))
             {
-                <div class="pedido-card pedido-listo">
+                <div class="pedido-card @(pedido.Estado == EnumEstadoPedido.Entregado ? "pedido-entregado" : "pedido-listo")">
                     @RenderCard(pedido)
+                    @if (pedido.Estado == EnumEstadoPedido.Entregado)
+                    {
+                        <span class="etiqueta-entregado">Entregado ✓</span>
+                    }
                 </div>
             }
         </div>
     </div>
 </div>
+
+<Confirmacion @ref="confirmacionCancelacion"
+              Titulo="Cancelar pedido"
+              textOk="Confirmar cancelación"
+              textCancelar="Volver"
+              onConfirm="ConfirmarCancelacion"
+              onCancel="() => confirmacionCancelacion!.Ocultar()">
+    <p>Contale al mozo por qué no se puede preparar este pedido (obligatorio):</p>
+    <input type="text"
+           class="form-control"
+           maxlength="300"
+           placeholder="Ej.: no queda pan de masa madre"
+           @bind="motivoCancelacion"
+           @bind:event="oninput" />
+</Confirmacion>
 
 <style>
     .columnas {
@@ -70,6 +107,27 @@
         min-height: 200px;
     }
 
+    .columna-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 0.25rem;
+    }
+
+    .btn-tacho {
+        border: none;
+        background: transparent;
+        font-size: 1.1rem;
+        cursor: pointer;
+        line-height: 1;
+        padding: 0.15rem 0.35rem;
+        border-radius: 5px;
+    }
+
+        .btn-tacho:hover {
+            background: #e0e0e0;
+        }
+
     .pedido-card {
         background: white;
         border: 1px solid #ccc;
@@ -82,8 +140,33 @@
         border-color: #2e7d32;
     }
 
+    .pedido-entregado {
+        border-color: #9e9e9e;
+        opacity: 0.75;
+    }
+
+    .pedido-alerta {
+        border: 2px solid #d32f2f;
+        box-shadow: 0 0 0 2px rgba(211, 47, 47, .15);
+    }
+
+    .etiqueta-entregado {
+        display: inline-block;
+        margin-top: 0.35rem;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: #616161;
+    }
+
     .pedido-mesa {
         font-weight: bold;
+    }
+
+    .pedido-comanda {
+        font-weight: 400;
+        font-size: 0.8rem;
+        color: #666;
+        margin-left: 0.3rem;
     }
 
     .pedido-tiempo {
@@ -122,9 +205,15 @@
 @code {
     [Parameter] public EnumSectorDestino Sector { get; set; }
     [Parameter] public string TituloSector { get; set; } = "";
+    [Parameter] public int MinutosAlertaPendiente { get; set; } = 10;
+    [Parameter] public int MinutosAlertaPreparacion { get; set; } = 30;
 
     private List<PedidoDTO> pedidos = new();
     private string? Mensaje;
+
+    private Confirmacion? confirmacionCancelacion;
+    private PedidoDTO? pedidoACancelar;
+    private string motivoCancelacion = "";
 
     protected override async Task OnInitializedAsync()
     {
@@ -137,9 +226,10 @@
         var respuesta = await http.Get<List<PedidoDTO>>($"api/Pedido/Sector/{Sector}");
         if (!respuesta.Error && respuesta.Respuesta != null)
         {
+            // Cancelado ya no necesita seguir en el tablero: cocina/barra ya resolvió lo suyo.
+            // Entregado se mantiene visible en "Listos" hasta que se use el tacho.
             pedidos = respuesta.Respuesta
-                .Where(p => p.Estado != EnumEstadoPedido.Entregado
-                         && p.Estado != EnumEstadoPedido.Cancelado)
+                .Where(p => p.Estado != EnumEstadoPedido.Cancelado)
                 .ToList();
 
             await InvokeAsync(StateHasChanged);
@@ -160,9 +250,74 @@
         await CargarPedidos();
     }
 
+    private void PedirCancelar(PedidoDTO pedido)
+    {
+        pedidoACancelar = pedido;
+        motivoCancelacion = "";
+        confirmacionCancelacion?.Ver();
+    }
+
+    private async Task ConfirmarCancelacion()
+    {
+        if (pedidoACancelar == null || string.IsNullOrWhiteSpace(motivoCancelacion))
+            return;
+
+        var dto = new CambiarEstadoPedidoDTO
+        {
+            Estado = EnumEstadoPedido.Cancelado,
+            MotivoCancelacion = motivoCancelacion.Trim()
+        };
+
+        var respuesta = await http.Put($"api/Pedido/{pedidoACancelar.Id}/Estado", dto);
+        confirmacionCancelacion?.Ocultar();
+
+        if (respuesta.Error)
+        {
+            Mensaje = respuesta.ObtenerError();
+            return;
+        }
+
+        pedidoACancelar = null;
+        motivoCancelacion = "";
+        await CargarPedidos();
+    }
+
+    private async Task VaciarEntregados()
+    {
+        var respuesta = await http.Delete($"api/Pedido/Entregados/Sector/{Sector}");
+
+        if (respuesta.Error)
+        {
+            Mensaje = respuesta.ObtenerError();
+            return;
+        }
+
+        await CargarPedidos();
+    }
+
+    private string ClaseAlerta(PedidoDTO pedido)
+    {
+        var ahora = DateTime.UtcNow;
+
+        if (pedido.Estado == EnumEstadoPedido.Pendiente)
+        {
+            var minutos = (ahora - pedido.FechaPedido).TotalMinutes;
+            return minutos >= MinutosAlertaPendiente ? "pedido-alerta" : "";
+        }
+
+        if (pedido.Estado == EnumEstadoPedido.EnPreparacion && pedido.FechaInicioPreparacion.HasValue)
+        {
+            var minutos = (ahora - pedido.FechaInicioPreparacion.Value).TotalMinutes;
+            return minutos >= MinutosAlertaPreparacion ? "pedido-alerta" : "";
+        }
+
+        return "";
+    }
+
     private RenderFragment RenderCard(PedidoDTO pedido) => @<text>
         <div class="pedido-mesa">
             @(pedido.NumeroMesa != null ? $"Mesa {pedido.NumeroMesa}" : pedido.TipoServicio?.ToString())
+            <span class="pedido-comanda">· @pedido.NumeroComanda</span>
         </div>
         <div class="pedido-tiempo">
             hace @((int)(DateTime.UtcNow - pedido.FechaPedido).TotalMinutes) min
