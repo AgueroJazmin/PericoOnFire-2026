@@ -104,6 +104,28 @@
                     </div>
                 }
 
+                @* Solo Caja *@
+                @if (context.User.IsInRole("Caja"))
+                {
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="caja">
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span>
+                            Caja
+                        </NavLink>
+                    </div>
+                }
+
+                @* Solo Pedidos *@
+                @if (context.User.IsInRole("Pedidos"))
+                {
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="pedidos">
+                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span>
+                            Pedidos
+                        </NavLink>
+                    </div>
+                }
+
                 @* Logout visible para todos *@
                 <div class="nav-item px-3">
                     <form action="Account/Logout" method="post">

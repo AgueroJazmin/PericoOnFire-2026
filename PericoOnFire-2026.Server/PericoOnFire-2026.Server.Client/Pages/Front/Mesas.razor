@@ -152,6 +152,15 @@
                             Cancelar mesa (abierta por error)
                         </button>
                     }
+                    else if (HayPedidosSinEntregar)
+                    {
+                        <button class="btn btn-dark w-100" disabled title="Todavía hay pedidos sin entregar">
+                            Cerrar mesa (consumo final)
+                        </button>
+                        <small class="texto-vacio d-block mt-1">
+                            No se puede cerrar la mesa: todavía hay pedidos pendientes, en preparación o listos sin entregar.
+                        </small>
+                    }
                     else
                     {
                         <button class="btn btn-dark w-100" @onclick="PedirCerrarMesa">
@@ -1160,6 +1169,11 @@
 
     private decimal TotalCarrito => carrito.Sum(i =>
         (productos.FirstOrDefault(p => p.Id == i.IdProducto)?.Precio ?? 0) * i.Cantidad);
+
+    // La mesa solo se puede cerrar cuando ningún pedido quedó pendiente, en preparación
+    // o listo sin retirar; los cancelados no cuentan porque ya no van a llegar a la mesa.
+    private bool HayPedidosSinEntregar => pedidosActuales.Any(p =>
+        p.Estado != EnumEstadoPedido.Entregado && p.Estado != EnumEstadoPedido.Cancelado);
 
     private async Task CargarMesas()
     {

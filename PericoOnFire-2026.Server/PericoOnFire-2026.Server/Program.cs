@@ -88,7 +88,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
-    string[] roles = { "Administracion", "Cocina", "Delivery", "Mozo" };
+    string[] roles = { "Administracion", "Cocina", "Delivery", "Mozo", "Caja", "Pedidos" };
     foreach (var rol in roles)
     {
         if (!await roleManager.RoleExistsAsync(rol))

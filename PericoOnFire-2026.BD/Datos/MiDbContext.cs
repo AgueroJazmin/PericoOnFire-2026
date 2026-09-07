@@ -43,10 +43,10 @@ namespace  PericoOnFire_2026.BD.Datos
             }
 
             modelBuilder.Entity<Subcategoria>()
-        .HasOne(s => s.Categoria)
-        .WithMany(c => c.Subcategorias)
-        .HasForeignKey(s => s.IdCategoria)
-        .OnDelete(DeleteBehavior.Restrict);
+                 .HasOne(s => s.Categoria)
+                 .WithMany(c => c.Subcategorias)
+                 .HasForeignKey(s => s.IdCategoria)
+                 .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Producto>()
                 .Property(p => p.Precio)
@@ -82,12 +82,6 @@ namespace  PericoOnFire_2026.BD.Datos
                 .HasForeignKey(p => p.IdSubcategoria)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            //Esto es porque las claves me daban error y bueno
-            //esto es para evitar que se borren en cascada y me den error de clave foranea,
-            //lo que hace es que si intento borrar una categoria que tiene subcategorias,
-            //no me deje borrarla hasta que borre las subcategorias,
-            //lo mismo con los productos y las subcategorias, y con las comandas y los pedidos, etc.
-
             modelBuilder.Entity<Comanda>()
                 .HasOne(c => c.Mesa)
                 .WithMany()
@@ -118,16 +112,11 @@ namespace  PericoOnFire_2026.BD.Datos
                 .HasForeignKey(p => p.IdDelivery)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            //Esta es la de datelle pedido, que tiene una relacion con producto,
-            //y bueno para evitar el error de clave foranea porque no lo pusimos y se me armaba un lio
             modelBuilder.Entity<DetallePedido>()
                 .HasOne(d => d.Pedido)
                 .WithMany(p => p.DetallesPedido)
                 .HasForeignKey(d => d.IdPedido)
                 .OnDelete(DeleteBehavior.Restrict);
-
-            //Aca tambien pongo la especificacion para producto,
-            //porque tambien tiene una relacion con producto y me daba error de clave foranea
 
             modelBuilder.Entity<DetallePedido>()
                 .HasOne(d => d.Producto)
@@ -139,6 +128,24 @@ namespace  PericoOnFire_2026.BD.Datos
                 .HasOne(u => u.ApplicationUser)
                 .WithMany()
                 .HasForeignKey(u => u.IdApplicationUser)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Pago>()
+                .HasOne(p => p.Comanda)
+                .WithMany(c => c.Pagos)
+                .HasForeignKey(p => p.IdComanda)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Pago>()
+                .HasOne(p => p.UsuarioCaja)
+                .WithMany()
+                .HasForeignKey(p => p.IdUsuarioCaja)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<MovimientoCaja>()
+                .HasOne(m => m.Usuario)
+                .WithMany()
+                .HasForeignKey(m => m.IdUsuario)
                 .OnDelete(DeleteBehavior.Restrict);
         }
         public MiDbContext(DbContextOptions options) : base(options)
