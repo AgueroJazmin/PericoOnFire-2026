@@ -259,6 +259,14 @@ namespace PericoOnFire_2026.Server.Controllers
             if (comanda.Estado != EnumEstadoComanda.Abierta)
                 return Conflict("La comanda ya no está abierta.");
 
+            var hayPedidosSinEntregar = await context.Pedidos.AnyAsync(p =>
+                p.IdComanda == id &&
+                p.Estado != EnumEstadoPedido.Entregado &&
+                p.Estado != EnumEstadoPedido.Cancelado);
+
+            if (hayPedidosSinEntregar)
+                return Conflict("Todavía hay pedidos sin entregar. Esperá a que cocina/barra los termine y marcalos como entregados antes de cerrar la mesa.");
+
             comanda.Estado = EnumEstadoComanda.PendienteCobro;
 
             if (comanda.IdMesa.HasValue)

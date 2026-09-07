@@ -1,0 +1,395 @@
+﻿@page "/caja"
+@using Microsoft.AspNetCore.Authorization
+@using PericoOnFire_2026.Shared.DTOs
+@using PericoOnFire_2026.Shared.ENUM
+@using PericoOnFire_2026.Servicio.ServicioHttp
+@using PericoOnFire_2026.Server.Client.Shared
+@implements IAsyncDisposable
+@inject PericoOnFire_2026.Shared.SerPolling.PollingService Polling
+@inject IHttpServicio http
+@rendermode InteractiveAuto
+@attribute [Authorize(Roles = "Caja,Administracion")]
+
+<div class="caja-layout">
+    <section class="lista-cuentas">
+        <h4>Cuentas pendientes de cobro</h4>
+
+        @if (!string.IsNullOrWhiteSpace(Mensaje))
+        {
+            <div class="alert alert-info">@Mensaje</div>
+        }
+
+        @if (!cuentas.Any())
+        {
+            <p class="texto-vacio">No hay ninguna mesa esperando para cobrar.</p>
+        }
+
+        @foreach (var cuenta in cuentas)
+        {
+            <button class="cuenta-card @(cuentaSeleccionada?.Id == cuenta.Id ? "cuenta-card-activa" : "")"
+                    @onclick="() => SeleccionarCuenta(cuenta)">
+                <div class="cuenta-card-titulo">
+                    @(cuenta.NumeroMesa != null ? $"Mesa {cuenta.NumeroMesa}" : cuenta.TipoServicio.ToString())
+                    <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
+                </div>
+                <div class="cuenta-card-info">
+                    @(cuenta.NombreMozo ?? "—") · hace @((int)(DateTime.UtcNow - cuenta.FechaApertura).TotalMinutes) min
+                </div>
+                <div class="cuenta-card-total">$@cuenta.Total.ToString("0.00")</div>
+            </button>
+        }
+    </section>
+
+    <section class="panel-cobro">
+        @if (cuentaSeleccionada == null)
+        {
+            <p class="texto-vacio">Elegí una cuenta de la izquierda para cobrarla.</p>
+        }
+        else
+        {
+            <h4>
+                @(cuentaSeleccionada.NumeroMesa != null ? $"Mesa {cuentaSeleccionada.NumeroMesa}" : cuentaSeleccionada.TipoServicio.ToString())
+                <span class="cuenta-card-numero">· @cuentaSeleccionada.NumeroComanda</span>
+            </h4>
+            <p class="texto-vacio">Mozo: @(cuentaSeleccionada.NombreMozo ?? "—") · @cuentaSeleccionada.CantidadComensales comensales</p>
+
+            @if (!cuentaSeleccionada.Items.Any())
+            {
+                <div class="alert alert-warning">
+                    Esta cuenta no tiene ningún producto cargado (seguramente se cancelaron todos los
+                    pedidos, o quedó abierta de antes). No hay nada para cobrar, pero la mesa sigue
+                    bloqueada hasta que se cierre.
+                </div>
+                <button class="btn btn-outline-dark w-100" disabled="@procesando" @onclick="PedirCerrarSinCobro">
+                    Cerrar mesa sin cobro
+                </button>
+            }
+            else
+            {
+                <table class="tabla-detalle">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Cant.</th>
+                            <th>Precio</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in cuentaSeleccionada.Items)
+                        {
+                            <tr>
+                                <td>@item.NombreProducto</td>
+                                <td>@item.Cantidad</td>
+                                <td>$@item.PrecioUnitario.ToString("0.00")</td>
+                                <td>$@item.Subtotal.ToString("0.00")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <div class="total-cuenta">
+                    Total a cobrar: <strong>$@cuentaSeleccionada.Total.ToString("0.00")</strong>
+                </div>
+
+                <div class="form-cobro">
+                    <label>Forma de pago</label>
+                    <select class="form-select" @bind="tipoPagoSeleccionado">
+                        @foreach (var tipo in Enum.GetValues<EnumTipoPago>())
+                        {
+                            <option value="@tipo">@tipo</option>
+                        }
+                    </select>
+
+                    <label class="mt-2">Monto recibido</label>
+                    <input type="number" step="0.01" min="0" class="form-control" @bind="montoPagado" />
+
+                    @if (montoPagado > 0)
+                    {
+                        <div class="vuelto-preview">
+                            @if (montoPagado >= cuentaSeleccionada.Total)
+                            {
+                                <span>Vuelto: $@((montoPagado - cuentaSeleccionada.Total).ToString("0.00"))</span>
+                            }
+                            else
+                            {
+                                <span class="vuelto-faltante">
+                                    Falta $@((cuentaSeleccionada.Total - montoPagado).ToString("0.00"))
+                                </span>
+                            }
+                        </div>
+                    }
+
+                    <button class="btn btn-success w-100 mt-3" disabled="@procesando" @onclick="PedirConfirmarCobro">
+                        Confirmar cobro
+                    </button>
+                </div>
+            }
+        }
+    </section>
+</div>
+
+<Confirmacion @ref="confirmacionCobro"
+              Titulo="Confirmar cobro"
+              textOk="Sí, cobrar"
+              textCancelar="Volver"
+              onConfirm="ConfirmarCobro"
+              onCancel="() => confirmacionCobro!.Ocultar()">
+    @if (cuentaSeleccionada != null)
+    {
+        <p>
+            Vas a cerrar la cuenta de
+            @(cuentaSeleccionada.NumeroMesa != null ? $"Mesa {cuentaSeleccionada.NumeroMesa}" : cuentaSeleccionada.TipoServicio.ToString())
+            por <strong>$@cuentaSeleccionada.Total.ToString("0.00")</strong> con @tipoPagoSeleccionado.
+        </p>
+        <p>Una vez confirmado, la mesa queda libre para un nuevo grupo.</p>
+    }
+</Confirmacion>
+
+<Confirmacion @ref="confirmacionCerrarSinCobro"
+              Titulo="Cerrar mesa sin cobro"
+              textOk="Sí, cerrar"
+              textCancelar="Volver"
+              onConfirm="ConfirmarCerrarSinCobro"
+              onCancel="() => confirmacionCerrarSinCobro!.Ocultar()">
+    @if (cuentaSeleccionada != null)
+    {
+        <p>
+            Esta cuenta no tiene productos cargados. Vas a cerrarla sin registrar ningún cobro
+            y a liberar
+            @(cuentaSeleccionada.NumeroMesa != null ? $"la Mesa {cuentaSeleccionada.NumeroMesa}" : "este pedido")
+            para un nuevo grupo.
+        </p>
+    }
+</Confirmacion>
+
+<style>
+    .caja-layout {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    .lista-cuentas {
+        background: #f4f4f4;
+        border-radius: 8px;
+        padding: 0.75rem;
+        max-height: 85vh;
+        overflow-y: auto;
+    }
+
+    .cuenta-card {
+        display: block;
+        width: 100%;
+        text-align: left;
+        background: white;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        padding: 0.6rem 0.75rem;
+        margin-bottom: 0.6rem;
+        cursor: pointer;
+    }
+
+    .cuenta-card-activa {
+        border-color: #1f6feb;
+        box-shadow: 0 0 0 2px rgba(31, 111, 235, .2);
+    }
+
+    .cuenta-card-titulo {
+        font-weight: bold;
+    }
+
+    .cuenta-card-numero {
+        font-weight: 400;
+        font-size: 0.8rem;
+        color: #666;
+    }
+
+    .cuenta-card-info {
+        font-size: 0.8rem;
+        color: #777;
+        margin: 0.15rem 0;
+    }
+
+    .cuenta-card-total {
+        font-weight: bold;
+        color: #2e7d32;
+    }
+
+    .panel-cobro {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+
+    .texto-vacio {
+        color: #888;
+    }
+
+    .tabla-detalle {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 0.75rem 0;
+    }
+
+        .tabla-detalle th, .tabla-detalle td {
+            border-bottom: 1px solid #eee;
+            padding: 0.4rem 0.3rem;
+            text-align: left;
+        }
+
+    .total-cuenta {
+        font-size: 1.1rem;
+        text-align: right;
+        margin: 0.5rem 0;
+    }
+
+    .form-cobro {
+        max-width: 320px;
+        margin-left: auto;
+    }
+
+    .vuelto-preview {
+        margin-top: 0.5rem;
+        font-weight: 600;
+        color: #2e7d32;
+    }
+
+    .vuelto-faltante {
+        color: #d32f2f;
+    }
+</style>
+
+@code {
+    private List<ComandaPendienteCobroDTO> cuentas = new();
+    private ComandaPendienteCobroDTO? cuentaSeleccionada;
+    private EnumTipoPago tipoPagoSeleccionado = EnumTipoPago.Efectivo;
+    private decimal montoPagado;
+    private bool procesando;
+    private string? Mensaje;
+    private int? idUsuarioActual;
+
+    private Confirmacion? confirmacionCobro;
+    private Confirmacion? confirmacionCerrarSinCobro;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarUsuarioActual();
+        await CargarCuentas();
+        Polling.Iniciar(CargarCuentas, TimeSpan.FromSeconds(4));
+    }
+
+    private async Task CargarUsuarioActual()
+    {
+        var respuesta = await http.Get<int>("api/Usuario/Actual");
+        if (!respuesta.Error)
+        {
+            idUsuarioActual = respuesta.Respuesta;
+        }
+    }
+
+    private async Task CargarCuentas()
+    {
+        var respuesta = await http.Get<List<ComandaPendienteCobroDTO>>("api/Pago/PendientesCobro");
+        if (!respuesta.Error && respuesta.Respuesta != null)
+        {
+            cuentas = respuesta.Respuesta;
+
+            // Si la cuenta que tenía abierta ya no está pendiente (por ej. se cobró
+            // desde otra caja), la saco del panel para no dejar un formulario colgado.
+            if (cuentaSeleccionada != null && !cuentas.Any(c => c.Id == cuentaSeleccionada.Id))
+            {
+                cuentaSeleccionada = null;
+            }
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void SeleccionarCuenta(ComandaPendienteCobroDTO cuenta)
+    {
+        cuentaSeleccionada = cuenta;
+        tipoPagoSeleccionado = EnumTipoPago.Efectivo;
+        montoPagado = 0;
+        Mensaje = null;
+    }
+
+    private void PedirConfirmarCobro()
+    {
+        if (cuentaSeleccionada == null) return;
+
+        if (montoPagado < cuentaSeleccionada.Total)
+        {
+            Mensaje = "El monto recibido es menor al total de la cuenta.";
+            return;
+        }
+
+        confirmacionCobro?.Ver();
+    }
+
+    private async Task ConfirmarCobro()
+    {
+        if (cuentaSeleccionada == null || idUsuarioActual == null) return;
+
+        procesando = true;
+
+        var dto = new RegistrarPagoDTO
+        {
+            IdComanda = cuentaSeleccionada.Id,
+            IdUsuarioCaja = idUsuarioActual.Value,
+            TipoPago = tipoPagoSeleccionado,
+            MontoPagado = montoPagado
+        };
+
+        var respuesta = await http.Post<RegistrarPagoDTO, PagoRegistradoDTO>("api/Pago/Registrar", dto);
+        confirmacionCobro?.Ocultar();
+        procesando = false;
+
+        if (respuesta.Error)
+        {
+            Mensaje = respuesta.ObtenerError();
+            return;
+        }
+
+        Mensaje = $"Cobro registrado. Vuelto: ${respuesta.Respuesta!.Vuelto:0.00}";
+        cuentaSeleccionada = null;
+        await CargarCuentas();
+    }
+
+    // Para las cuentas que quedaron en PendienteCobro sin ningún ítem cargado
+    // (pedidos todos cancelados, o mesas viejas de antes de esta validación).
+    // Usa el endpoint CerrarSinCobro del PagoController en vez de Registrar,
+    // porque acá no hay ningún monto real que registrar como Pago.
+    private void PedirCerrarSinCobro()
+    {
+        if (cuentaSeleccionada == null) return;
+        confirmacionCerrarSinCobro?.Ver();
+    }
+
+    private async Task ConfirmarCerrarSinCobro()
+    {
+        if (cuentaSeleccionada == null) return;
+
+        procesando = true;
+
+        var respuesta = await http.Put($"api/Pago/CerrarSinCobro/{cuentaSeleccionada.Id}", new { });
+        confirmacionCerrarSinCobro?.Ocultar();
+        procesando = false;
+
+        if (respuesta.Error)
+        {
+            Mensaje = respuesta.ObtenerError();
+            return;
+        }
+
+        Mensaje = "Mesa cerrada sin cobro.";
+        cuentaSeleccionada = null;
+        await CargarCuentas();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await Polling.DisposeAsync();
+    }
+}
