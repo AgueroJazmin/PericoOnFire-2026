@@ -259,6 +259,38 @@
     .vuelto-faltante {
         color: #d32f2f;
     }
+
+    @@media (max-width: 760px) {
+        .caja-layout {
+            grid-template-columns: 1fr;
+            gap: .75rem;
+            padding: .75rem;
+        }
+
+        .lista-cuentas {
+            max-height: 38vh;
+        }
+
+        .panel-cobro {
+            padding: .75rem;
+            overflow: hidden;
+        }
+
+        .tabla-detalle {
+            display: block;
+            overflow-x: auto;
+            white-space: nowrap;
+        }
+
+        .total-cuenta {
+            text-align: left;
+        }
+
+        .form-cobro {
+            max-width: none;
+            margin-left: 0;
+        }
+    }
 </style>
 
 @code {

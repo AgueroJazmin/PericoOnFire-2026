@@ -168,6 +168,30 @@
         gap: .4rem;
         align-items: center;
     }
+
+    @@media (max-width: 650px) {
+        .page-wrapper {
+            padding: 1rem .75rem;
+        }
+
+        .filtros-row {
+            flex-direction: column;
+            gap: .6rem;
+        }
+
+        .filtro-estado {
+            width: 100%;
+        }
+
+        .tabla-card {
+            padding: .65rem;
+            border-radius: .75rem;
+        }
+
+        .tabla-card table {
+            min-width: 720px;
+        }
+    }
 </style>
 
 @code {

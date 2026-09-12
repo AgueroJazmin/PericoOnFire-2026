@@ -1179,6 +1179,39 @@
     /* CELULARES Y PANTALLAS PEQUEÑAS */
 
     @@media (max-width: 780px) {
+        .perico-main {
+            height: auto;
+            min-height: calc(100vh - 56px);
+            display: block;
+            overflow-y: auto;
+        }
+
+        .salon {
+            width: 100%;
+            height: min(700px, 135vw);
+            min-height: 500px;
+            overflow: hidden;
+        }
+
+        .salon-izq {
+            border-right: 0;
+            border-bottom: 4px solid #111;
+        }
+
+        .panel-mesa {
+            top: 56px;
+            width: 100%;
+            height: calc(100vh - 56px);
+            padding: .85rem;
+            border-left: 0;
+        }
+
+        .foto-salon-wrapper {
+            left: 245px;
+            width: 240px;
+            height: 240px;
+        }
+
         .modal-pedido-fondo {
             padding: .5rem;
         }
@@ -1191,6 +1224,7 @@
 
         .modal-pedido-header {
             align-items: flex-start;
+            padding: .65rem .75rem;
         }
 
         .modal-encabezado-contenido {
@@ -1204,9 +1238,9 @@
             width: 100%;
         }
 
-            .categorias-superiores button {
-                min-width: 105px;
-                flex: 1;
+        .categorias-superiores button {
+            min-width: 100px;
+            flex: 1;
             }
 
         .selector-productos {
@@ -1249,6 +1283,38 @@
 
         .modal-pedido-footer {
             flex-wrap: wrap;
+        }
+
+        .modal-pedido-footer > div {
+            width: 100%;
+            margin-right: 0;
+        }
+
+        .modal-pedido-footer .btn {
+            flex: 1;
+        }
+    }
+
+    @@media (max-width: 420px) {
+        .salon {
+            min-height: 460px;
+        }
+
+        .modal-pedido-header h4 {
+            font-size: 1.1rem;
+        }
+
+        .categorias-superiores button {
+            min-width: calc(50% - .25rem);
+            padding: .5rem;
+        }
+
+        .productos-modal {
+            margin: .6rem;
+        }
+
+        .producto-fila {
+            padding: .65rem;
         }
     }
 </style>
