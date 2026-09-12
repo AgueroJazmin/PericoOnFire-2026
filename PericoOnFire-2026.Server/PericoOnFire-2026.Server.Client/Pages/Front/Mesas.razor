@@ -95,24 +95,65 @@
                 {
                     @foreach (var grupo in pedidosActuales.GroupBy(p => p.SectorDestino))
                     {
+                        var pedidosPendientes = grupo
+                            .Where(p => p.Estado == EnumEstadoPedido.Pendiente)
+                            .ToList();
+
+                        var otrosPedidos = grupo
+                            .Where(p => p.Estado != EnumEstadoPedido.Pendiente)
+                            .ToList();
+
                         <div class="grupo-sector">
+
                             <strong>@grupo.Key</strong>
-                            @foreach (var pedido in grupo)
+
+                            @* Todos los pedidos pendientes del sector se muestran juntos *@
+                            @if (pedidosPendientes.Any())
                             {
-                                <div class="pedido-card @(pedido.Estado == EnumEstadoPedido.Cancelado ? "pedido-card-cancelado" : "")">
+                                <div class="pedido-card pedido-card-pendiente">
+
+                                    <span class="pedido-estado">Pendiente</span>
+
+                                    <ul>
+                                        @foreach (var productoAgrupado in pedidosPendientes
+                                            .SelectMany(p => p.DetallesPedido)
+                                            .GroupBy(d => d.NombreProducto))
+                                        {
+                                            <li>
+                                                @productoAgrupado.Sum(d => d.Cantidad) x
+                                                @productoAgrupado.Key
+                                            </li>
+                                        }
+                                    </ul>
+
+                                </div>
+                            }
+
+                            @* Entregados, cancelados, en preparación y listos siguen separados *@
+                            @foreach (var pedido in otrosPedidos)
+                            {
+                                <div class="pedido-card @(pedido.Estado == EnumEstadoPedido.Cancelado
+                                                              ? "pedido-card-cancelado"
+                                                              : "")">
+
                                     <span class="pedido-estado">@pedido.Estado</span>
+
                                     <ul>
                                         @foreach (var detalle in pedido.DetallesPedido)
                                         {
-                                            <li>@detalle.Cantidad x @detalle.NombreProducto</li>
+                                            <li>
+                                                @detalle.Cantidad x @detalle.NombreProducto
+                                            </li>
                                         }
                                     </ul>
 
                                     @if (pedido.Estado == EnumEstadoPedido.Cancelado)
                                     {
                                         <div class="motivo-cancelacion">
-                                            ⚠ Cancelado por @grupo.Key.ToString().ToLower(): @pedido.MotivoCancelacion
+                                            ⚠ Cancelado por @grupo.Key.ToString().ToLower():
+                                            @pedido.MotivoCancelacion
                                         </div>
+
                                         <button class="btn btn-sm btn-outline-danger w-100 mt-1"
                                                 @onclick="() => EliminarPedidoCancelado(pedido)">
                                             Quitar de la comanda
@@ -125,8 +166,10 @@
                                             Marcar como entregado
                                         </button>
                                     }
+
                                 </div>
                             }
+
                         </div>
                     }
                 }
@@ -187,14 +230,35 @@
     <div class="modal-pedido-fondo" @onclick="CerrarModalPedido">
         <section class="modal-pedido" role="dialog" aria-modal="true" aria-label="Seleccionar productos" @onclick:stopPropagation="true">
             <header class="modal-pedido-header">
-                <div>
-                    <h4>Mesa @mesaSeleccionada.NumeroMesa</h4>
-                    @if (comandaActual != null)
-                    {
-                        <span>@comandaActual.NumeroComanda</span>
-                    }
+                <div class="modal-encabezado-contenido">
+
+                    <div class="modal-identificacion">
+                        <h4>Mesa @mesaSeleccionada.NumeroMesa</h4>
+
+                        @if (comandaActual != null)
+                        {
+                            <span>@comandaActual.NumeroComanda</span>
+                        }
+                    </div>
+
+                    <nav class="categorias categorias-superiores" aria-label="Categorías">
+                        @foreach (var categoria in CategoriasDisponibles)
+                        {
+                            <button class="@(categoria == categoriaSeleccionada ? "activo" : "")"
+                                    @onclick="() => SeleccionarCategoria(categoria)">
+                                <span>@IconoCategoria(categoria)</span>
+                                @categoria
+                            </button>
+                        }
+                    </nav>
+
                 </div>
-                <button class="btn-cerrar" aria-label="Cerrar" @onclick="CerrarModalPedido">&times;</button>
+
+                <button class="btn-cerrar"
+                        aria-label="Cerrar"
+                        @onclick="CerrarModalPedido">
+                    &times;
+                </button>
             </header>
 
             @if (!string.IsNullOrWhiteSpace(MensajeModal))
@@ -214,15 +278,7 @@
                         </div>
                     }
 
-                    <nav class="categorias" aria-label="Categorías">
-                        @foreach (var categoria in CategoriasDisponibles)
-                        {
-                            <button class="@(categoria == categoriaSeleccionada ? "activo" : "")"
-                                    @onclick="() => SeleccionarCategoria(categoria)">
-                                <span>@IconoCategoria(categoria)</span>@categoria
-                            </button>
-                        }
-                    </nav>
+                   
 
                     <div class="resumen-carrito">
                         <strong>Pedido (@CantidadTotalItems)</strong>
@@ -729,7 +785,8 @@
     }
 
     .modal-pedido {
-        width: min(1000px, 96vw);
+        width: min(1180px, 97vw);
+        height: min(650px, calc(100vh - 2rem));
         max-height: calc(100vh - 2rem);
         display: flex;
         flex-direction: column;
@@ -740,29 +797,85 @@
         box-shadow: 0 18px 60px rgba(0, 0, 0, .35);
     }
 
+    /* ENCABEZADO */
+
     .modal-pedido-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
+        flex-shrink: 0;
+        gap: 1rem;
         padding: .8rem 1rem;
         border-bottom: 1px solid #ddd;
+        background: white;
     }
 
-        .modal-pedido-header h4 {
-            margin: 0;
-            font-weight: 800;
+    .modal-encabezado-contenido {
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 2rem;
+    }
+
+    .modal-identificacion {
+        min-width: 120px;
+    }
+
+    .modal-pedido-header h4 {
+        margin: 0;
+        font-weight: 800;
+    }
+
+    .modal-pedido-header span {
+        color: #666;
+        font-size: .85rem;
+        font-weight: 700;
+    }
+
+    /* CATEGORÍAS DE ARRIBA */
+
+    .categorias-superiores {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: .5rem;
+    }
+
+        .categorias-superiores button {
+            min-width: 125px;
+            padding: .55rem .9rem;
+            border: 1px solid #aaa;
+            border-radius: 7px;
+            background: white;
+            text-align: center;
+            font-weight: 600;
+            cursor: pointer;
         }
 
-        .modal-pedido-header span {
-            color: #666;
-            font-size: .85rem;
-            font-weight: 700;
-        }
+            .categorias-superiores button span {
+                margin-right: .4rem;
+            }
+
+            .categorias-superiores button:hover {
+                border-color: #ef1111;
+                background: #fff7f7;
+            }
+
+            .categorias-superiores button.activo {
+                border-color: #ef1111;
+                background: #fff0f0;
+                color: #b60000;
+                font-weight: 800;
+            }
+
+    /* CUERPO DEL MODAL */
 
     .selector-productos {
-        min-height: 420px;
+        min-height: 0;
+        flex: 1;
         display: grid;
-        grid-template-columns: 230px 210px 1fr;
+        grid-template-columns: 320px 165px minmax(0, 1fr);
         overflow: hidden;
     }
 
@@ -770,13 +883,24 @@
     .subcategorias,
     .productos-modal {
         min-height: 0;
-        overflow-y: auto;
     }
 
+    /* PEDIDO Y COMENSALES */
+
     .selector-resumen {
+        display: flex;
+        flex-direction: column;
         padding: 1rem;
+        overflow: hidden;
         border-right: 1px solid #ddd;
+        background: #fff;
     }
+
+        .selector-resumen > strong {
+            display: block;
+            text-align: center;
+            font-size: .95rem;
+        }
 
     .control-cantidad {
         display: inline-flex;
@@ -794,10 +918,17 @@
             border-radius: 50%;
             background: white;
             font-weight: 800;
+            cursor: pointer;
         }
+
+            .control-cantidad button:hover:not(:disabled) {
+                border-color: #1687e8;
+                background: #eef7ff;
+            }
 
             .control-cantidad button:disabled {
                 opacity: .35;
+                cursor: default;
             }
 
         .control-cantidad span {
@@ -812,80 +943,60 @@
         margin: .75rem 0 1rem;
     }
 
-    .categorias,
-    .subcategorias {
-        display: flex;
-        flex-direction: column;
-        gap: .5rem;
-    }
-
-        .categorias button,
-        .subcategorias button {
-            padding: .7rem .75rem;
-            border: 1px solid #aaa;
-            border-radius: 7px;
-            background: white;
-            text-align: left;
-        }
-
-            .categorias button span {
-                margin-right: .5rem;
-            }
-
-            .categorias button.activo,
-            .subcategorias button.activo {
-                border-color: #ef1111;
-                background: #fff0f0;
-                color: #b60000;
-                font-weight: 700;
-            }
-
-    .subcategorias {
-        padding: 1rem;
-        border-right: 1px solid #ddd;
-    }
+    /* RESUMEN DEL PEDIDO */
 
     .resumen-carrito {
+        min-height: 0;
+        flex: 1;
         display: flex;
         flex-direction: column;
-        gap: .45rem;
-        margin-top: 1rem;
+        gap: .55rem;
+        margin-top: .25rem;
         padding-top: 1rem;
+        overflow-y: auto;
         border-top: 1px solid #ddd;
     }
 
-        .resumen-carrito small {
-            color: #777;
+        .resumen-carrito > strong {
+            font-size: 1.25rem;
+            color: #222;
         }
 
-        .resumen-carrito div {
-            font-size: .82rem;
+        .resumen-carrito > small {
+            color: #777;
+            font-size: .9rem;
+            line-height: 1.4;
         }
 
     .carrito-item {
-        padding: .35rem 0;
-        border-bottom: 1px solid #eee;
+        padding: .7rem;
+        border: 1px solid #e2e2e2;
+        border-radius: 7px;
+        background: #fafafa;
     }
 
     .carrito-item-linea {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: .4rem;
+        gap: .5rem;
+        font-size: .9rem;
+        font-weight: 600;
     }
 
     .carrito-acciones {
         display: flex;
-        gap: .15rem;
         flex-shrink: 0;
+        gap: .15rem;
     }
 
         .carrito-acciones button {
             border: 0;
             background: transparent;
-            padding: .1rem .25rem;
-            font-size: 1rem;
+            padding: .15rem .3rem;
+            font-size: 1.05rem;
             line-height: 1;
+            cursor: pointer;
         }
 
     .btn-observacion {
@@ -898,19 +1009,22 @@
 
     .observacion-carrito {
         display: block;
-        margin-top: .25rem;
-        padding: .28rem .4rem;
+        margin-top: .35rem;
+        padding: .35rem .45rem;
         border-left: 3px solid #f0a000;
         border-radius: 3px;
         background: #fff5d9;
         color: #6e4b00 !important;
+        font-size: .78rem;
         font-weight: 600;
     }
 
+    /* EDITOR DE OBSERVACIONES */
+
     .editor-observacion {
         display: block;
-        margin-top: .4rem;
-        padding: .5rem;
+        margin-top: .5rem;
+        padding: .6rem;
         border: 1px solid #c9d9e8;
         border-radius: 6px;
         background: #f4f9fd;
@@ -919,31 +1033,32 @@
         .editor-observacion label {
             display: block;
             margin-bottom: .3rem;
-            font-size: .72rem;
+            font-size: .75rem;
             font-weight: 700;
         }
 
         .editor-observacion input {
             width: 100%;
-            padding: .4rem .5rem;
+            padding: .45rem .5rem;
             border: 1px solid #aaa;
             border-radius: 4px;
-            font-size: .8rem;
+            font-size: .82rem;
         }
 
     .editor-observacion-acciones {
         display: flex;
         justify-content: flex-end;
         gap: .35rem;
-        margin-top: .4rem;
+        margin-top: .45rem;
     }
 
         .editor-observacion-acciones button {
-            padding: .3rem .5rem;
+            padding: .35rem .55rem;
             border: 0;
             border-radius: 4px;
-            font-size: .72rem;
+            font-size: .75rem;
             font-weight: 700;
+            cursor: pointer;
         }
 
     .btn-cancelar-observacion {
@@ -956,12 +1071,54 @@
         color: white;
     }
 
+    /* SUBCATEGORÍAS */
+
+    .subcategorias {
+        display: flex;
+        flex-direction: column;
+        gap: .5rem;
+        padding: .75rem;
+        overflow-y: auto;
+        border-right: 1px solid #ddd;
+        background: #fafafa;
+    }
+
+        .subcategorias button {
+            width: 100%;
+            padding: .65rem .6rem;
+            border: 1px solid #aaa;
+            border-radius: 7px;
+            background: white;
+            text-align: left;
+            cursor: pointer;
+        }
+
+            .subcategorias button:hover {
+                border-color: #ef1111;
+                background: #fff7f7;
+            }
+
+            .subcategorias button.activo {
+                border-color: #ef1111;
+                background: #fff0f0;
+                color: #b60000;
+                font-weight: 700;
+            }
+
+    /* PRODUCTOS */
+
     .productos-modal {
-        border: 2px solid #1687e8;
         margin: 1rem;
+        overflow-y: auto;
+        border: 2px solid #1687e8;
+        border-radius: 3px;
+        background: white;
     }
 
     .productos-titulo {
+        position: sticky;
+        top: 0;
+        z-index: 2;
         display: flex;
         justify-content: space-between;
         padding: .75rem;
@@ -974,9 +1131,13 @@
         grid-template-columns: minmax(120px, 1fr) auto 110px;
         align-items: center;
         gap: .75rem;
-        padding: .7rem .8rem;
+        padding: .75rem .8rem;
         border-bottom: 1px solid #eee;
     }
+
+        .producto-fila:last-child {
+            border-bottom: 0;
+        }
 
         .producto-fila > div:first-child {
             display: flex;
@@ -992,13 +1153,17 @@
         white-space: nowrap;
     }
 
+    /* PIE DEL MODAL */
+
     .modal-pedido-footer {
         display: flex;
         align-items: center;
         justify-content: flex-end;
+        flex-shrink: 0;
         gap: .7rem;
         padding: .8rem 1rem;
         border-top: 1px solid #ddd;
+        background: white;
     }
 
         .modal-pedido-footer > div {
@@ -1007,28 +1172,70 @@
             margin-right: auto;
         }
 
+            .modal-pedido-footer > div strong {
+                font-size: 1.05rem;
+            }
+
+    /* CELULARES Y PANTALLAS PEQUEÑAS */
+
     @@media (max-width: 780px) {
+        .modal-pedido-fondo {
+            padding: .5rem;
+        }
+
+        .modal-pedido {
+            width: 100%;
+            height: calc(100vh - 1rem);
+            max-height: calc(100vh - 1rem);
+        }
+
+        .modal-pedido-header {
+            align-items: flex-start;
+        }
+
+        .modal-encabezado-contenido {
+            flex: 1;
+            align-items: flex-start;
+            flex-direction: column;
+            gap: .65rem;
+        }
+
+        .categorias-superiores {
+            width: 100%;
+        }
+
+            .categorias-superiores button {
+                min-width: 105px;
+                flex: 1;
+            }
+
         .selector-productos {
-            grid-template-columns: 1fr;
+            display: block;
             overflow-y: auto;
         }
 
-        .selector-resumen,
-        .subcategorias,
-        .productos-modal {
+        .selector-resumen {
+            min-height: 320px;
+            overflow: visible;
+            border-right: 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .resumen-carrito {
+            min-height: 190px;
             overflow: visible;
         }
 
-        .categorias,
         .subcategorias {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-        }
-
-        .selector-resumen,
-        .subcategorias {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            overflow: visible;
             border-right: 0;
             border-bottom: 1px solid #ddd;
+        }
+
+        .productos-modal {
+            overflow: visible;
         }
 
         .producto-fila {
