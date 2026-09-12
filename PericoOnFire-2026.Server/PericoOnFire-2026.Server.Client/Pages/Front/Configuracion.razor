@@ -327,7 +327,8 @@
                            @bind="filtroProducto"
                            @bind:event="oninput" />
 
-                    <table class="table tabla-config mt-3">
+                    <div class="tabla-scroll tabla-productos-scroll">
+                    <table class="table tabla-config tabla-productos mt-3">
                         <thead>
                             <tr>
                                 <th>Producto</th>
@@ -414,6 +415,7 @@
                             }
                         </tbody>
                     </table>
+                    </div>
                 }
 
                 @if (seccionActiva == "usuarios")
@@ -959,101 +961,6 @@
     .filtro-estado-rol {
         width: 160px;
         border-radius: .6rem;
-    }
-
-    @@media (max-width: 900px) {
-        .config-tabs {
-            height: auto;
-            overflow-x: auto;
-        }
-
-        .tab-btn {
-            min-height: 44px;
-            padding: .65rem 1rem;
-            white-space: nowrap;
-        }
-
-        .config-body {
-            grid-template-columns: 1fr;
-            min-height: auto;
-        }
-
-        .config-sidebar {
-            display: flex;
-            overflow-x: auto;
-            padding: 0;
-        }
-
-        .config-sidebar h4 {
-            display: none;
-        }
-
-        .side-item {
-            width: auto;
-            min-width: max-content;
-            padding: .75rem 1rem;
-        }
-
-        .config-content,
-        .mesas-config {
-            min-height: auto;
-            padding: 1rem;
-            border-left: 0;
-        }
-
-        .categorias-form,
-        .subcategorias-form,
-        .productos-form,
-        .usuarios-layout {
-            grid-template-columns: 1fr;
-        }
-
-        .detalle-panel {
-            min-height: auto;
-            border-left: 0;
-            border-top: 1px solid #ddd;
-        }
-
-        .filtros-row {
-            flex-direction: column;
-            max-width: none;
-        }
-
-        .filtro-estado-rol {
-            width: 100%;
-        }
-
-        .tabla-config {
-            display: block;
-            width: 100%;
-            overflow-x: auto;
-            white-space: nowrap;
-        }
-
-        .acciones {
-            min-width: max-content;
-            flex-wrap: nowrap;
-        }
-
-        .detalle-body p {
-            grid-template-columns: 1fr;
-            gap: .15rem;
-        }
-    }
-
-    @@media (max-width: 480px) {
-        .section-header {
-            align-items: flex-start;
-            flex-direction: column;
-            gap: .6rem;
-        }
-
-        .section-header .btn,
-        .top-action .btn,
-        .form-line .btn,
-        .productos-form .btn {
-            width: 100%;
-        }
     }
 
 </style>
