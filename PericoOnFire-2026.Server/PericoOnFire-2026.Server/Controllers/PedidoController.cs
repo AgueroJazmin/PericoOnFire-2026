@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using PericoOnFire_2026.BD.Datos;
 using PericoOnFire_2026.BD.Datos.Entity;
 using PericoOnFire_2026.Shared.DTOs;
@@ -63,11 +64,31 @@ namespace PericoOnFire_2026.Server.Controllers
         }
 
         //Este endpoint permite cambiar el estado de un pedido específico.
+        // Un pedido de TakeAway solo se puede marcar como retirado por el cliente (Entregado)
+        // una vez que la cuenta ya se cobró en caja.
+        // Delivery se marca "Entregado" en el momento de la entrega física, sea
+        // que ya esté cobrado o se cobre recién ahí.
+
         [HttpPut("{id:int}/Estado")]
         public async Task<ActionResult> CambiarEstado(int id, CambiarEstadoPedidoDTO dto)
         {
             if (dto.Estado == EnumEstadoPedido.Cancelado && string.IsNullOrWhiteSpace(dto.MotivoCancelacion))
                 return BadRequest("Para cancelar un pedido es obligatorio indicar el motivo.");
+            
+            if (dto.Estado == EnumEstadoPedido.Entregado)
+            {
+                var comandaDelPedido = await context.Pedidos
+                    .Where(p => p.Id == id)
+                    .Select(p => new { p.Comanda.TipoServicio, p.Comanda.Estado })
+                    .FirstOrDefaultAsync();
+
+                if (comandaDelPedido != null &&
+                    comandaDelPedido.TipoServicio == EnumTipoServicio.TakeAway &&
+                    comandaDelPedido.Estado != EnumEstadoComanda.Pagada)
+                {
+                    return Conflict("Todavía no se registró el pago de este pedido. Primero hay que cobrarlo en caja.");
+                }
+            }
 
             var resultado = await repositorio.CambiarEstado(id, dto.Estado, dto.MotivoCancelacion);
 
@@ -77,8 +98,8 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok();
         }
 
-        //Este endpoint borra en lote los pedidos ya entregados de un sector,
-        //lo usa el tacho que aparece al lado de la columna "Listos" en cocina/barra.
+        //Este endpoint borra los pedidos ya entregados de un sector,
+        //Es el tacho que aparece al lado de la columna "Listos" en cocina/barra.
         [HttpDelete("Entregados/Sector/{sector}")]
         public async Task<ActionResult<int>> BorrarEntregadosPorSector(EnumSectorDestino sector)
         {
@@ -86,15 +107,23 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok(cantidad);
         }
 
-        //Usado por Pedidos.razor: lista las comandas de TakeAway o Delivery que siguen
-        //en curso (Abierta o PendienteCobro), con sus pedidos agrupados por sector para
-        //saber si ya está todo listo. Cancelado se ignora en todos lados, igual que en
-        //el resto del sistema.
+        // Se listan las comandas de TakeAway o Delivery que siguen en curso (Abierta o PendienteCobro),
+        // con sus pedidos agrupados por sector para saber si ya está todo listo.
+        // Cancelado se ignora en todos lados, igual que en el resto del sistema.
         [HttpGet("ParaLlevar/{tipoServicio}")]
+        [Authorize(Roles = "Administracion,Barra,Delivery")]
         public async Task<ActionResult<List<PedidoParaLlevarDTO>>> GetParaLlevar(EnumTipoServicio tipoServicio)
         {
             if (tipoServicio != EnumTipoServicio.TakeAway && tipoServicio != EnumTipoServicio.Delivery)
                 return BadRequest("Este endpoint es solo para pedidos TakeAway o Delivery.");
+
+            // El rol Delivery solo puede ver pedidos de Delivery, nunca de TakeAway.
+            var esSoloDelivery = User.IsInRole("Delivery") &&
+                                  !User.IsInRole("Administracion") &&
+                                  !User.IsInRole("Barra");
+
+            if (esSoloDelivery && tipoServicio == EnumTipoServicio.TakeAway)
+                return Forbid();
 
             var comandas = await context.Comandas
                 .Include(c => c.Cliente)
@@ -104,7 +133,13 @@ namespace PericoOnFire_2026.Server.Controllers
                 .Include(c => c.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado))
                     .ThenInclude(p => p.Delivery)
                 .Where(c => c.TipoServicio == tipoServicio &&
-                            (c.Estado == EnumEstadoComanda.Abierta || c.Estado == EnumEstadoComanda.PendienteCobro))
+                            (c.Estado == EnumEstadoComanda.Abierta ||
+                             c.Estado == EnumEstadoComanda.PendienteCobro ||
+                             // Aca en esta parte, aun que se haya cobrado, sigue apareciendo hasta
+                             // marcarlo como retirado/entregado. Lo hice asi por el momento
+                             (c.Estado == EnumEstadoComanda.Pagada &&
+                              c.Pedidos.Any(p => p.Estado != EnumEstadoPedido.Entregado &&
+                                                  p.Estado != EnumEstadoPedido.Cancelado))))
                 .OrderBy(c => c.FechaApertura)
                 .ToListAsync();
 
@@ -144,10 +179,10 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok(resultado);
         }
 
-        //El repartidor "toma" toda la comanda de una vez, no pedido por pedido: no tiene
-        //sentido que salga con la comida y deje la bebida en la barra. Por eso exige que
-        //TODOS los pedidos activos de la comanda estén ListoParaRetirar antes de asignarla.
+        // El repartidor toma toda la comanda de una vez, por eso exige que todos los pedidos activos
+        //de la comanda estén ListoParaRetirar antes de asignarla. 
         [HttpPut("Delivery/{idComanda:int}/Tomar")]
+        [Authorize(Roles = "Delivery,Administracion")]
         public async Task<ActionResult> TomarParaDelivery(int idComanda, AsignarDeliveryDTO dto)
         {
             var comanda = await context.Comandas
@@ -182,9 +217,9 @@ namespace PericoOnFire_2026.Server.Controllers
         }
 
         //Cierra el otro extremo del flujo de delivery: de EnCamino a Entregado.
-        //Solo lo puede marcar el mismo repartidor que lo tomó (se valida por IdUsuarioDelivery,
-        //no hay nada que impida que otro intente marcarlo si no fuera por este chequeo).
+        //Solo lo puede marcar el mismo repartidor que lo tomó antes, y solo si ya estaba EnCamino.
         [HttpPut("Delivery/{idComanda:int}/MarcarEntregado")]
+        [Authorize(Roles = "Delivery,Administracion")]
         public async Task<ActionResult> MarcarEntregadoDelivery(int idComanda, AsignarDeliveryDTO dto)
         {
             var comanda = await context.Comandas
@@ -286,7 +321,6 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok();
         }
 
-        //
         private List<PedidoDTO> MapearPedidos(List<Pedido> pedidos)
         {
             return pedidos.Select(p => new PedidoDTO

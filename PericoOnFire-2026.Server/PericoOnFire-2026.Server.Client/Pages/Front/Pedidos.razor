@@ -6,6 +6,7 @@
 @implements IAsyncDisposable
 @inject PericoOnFire_2026.Shared.SerPolling.PollingService Polling
 @inject IHttpServicio http
+@inject AuthenticationStateProvider AuthStateProvider
 @rendermode InteractiveAuto
 @attribute [Authorize(Roles = "Administracion,Barra,Delivery")]
 
@@ -96,17 +97,34 @@
                                 </div>
                             }
 
-                            @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway && cuenta.TodoListo)
+                            @* Estado de pago: independiente del estado físico del pedido, porque
+                               a veces se cobra antes (transferencia) y a veces al retirar/entregar. *@
+                            @switch (cuenta.EstadoComanda)
                             {
-                                <button class="btn btn-sm btn-outline-success w-100 mt-1" @onclick="() => MarcarRetiradoTakeAway(cuenta)">
-                                    Marcar retirado por el cliente
+                                case EnumEstadoComanda.PendienteCobro:
+                                    <div class="cuenta-card-info aviso-pago">💰 Pendiente de pago en caja</div>
+                                    break;
+                                case EnumEstadoComanda.Pagada:
+                                    <div class="cuenta-card-info aviso-pago-ok">✅ Pagado</div>
+                                    break;
+                            }
+
+                            @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway && cuenta.TodoListo && cuenta.EstadoComanda == EnumEstadoComanda.Abierta)
+                            {
+                                <div class="cuenta-card-info aviso-pago">🔔 Listo para retirar</div>
+                            }
+
+                            @if (PuedeCerrar(cuenta))
+                            {
+                                <button class="btn btn-sm btn-dark w-100 mt-1" @onclick="() => CerrarPedido(cuenta)">
+                                    Pasar a Caja
                                 </button>
                             }
 
-                            @if (cuenta.TodoEntregado)
+                            @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway && cuenta.EstadoComanda == EnumEstadoComanda.Pagada)
                             {
-                                <button class="btn btn-sm btn-dark w-100 mt-1" @onclick="() => CerrarPedido(cuenta)">
-                                    Cerrar pedido (pasa a Caja)
+                                <button class="btn btn-sm btn-outline-success w-100 mt-1" @onclick="() => MarcarRetiradoTakeAway(cuenta)">
+                                    Marcar retirado por el cliente
                                 </button>
                             }
                         </div>
@@ -459,6 +477,16 @@
         color: #555;
     }
 
+    .aviso-pago {
+        font-weight: 700;
+        color: #b06d00;
+    }
+
+    .aviso-pago-ok {
+        font-weight: 700;
+        color: #2e7d32;
+    }
+
     .lista-items {
         margin: 0.3rem 0;
         padding-left: 1.1rem;
@@ -480,8 +508,8 @@
     }
 
     /* ===== Todo lo de acá abajo es una copia fiel del modal de Mesas.razor
-           (mismas clases, mismo look) para que el "Agregar productos" se sienta
-           igual en las dos pantallas ===== */
+               (mismas clases, mismo look) para que el "Agregar productos" se sienta
+               igual en las dos pantallas ===== */
 
     .btn-cerrar {
         border: none;
@@ -1038,6 +1066,7 @@
         deliveries.Where(c => c.IdDelivery == idUsuarioActual && c.TodoEnCamino).ToList();
 
     private int? idUsuarioActual;
+    private bool esSoloDelivery;
 
     private IEnumerable<string> CategoriasDisponibles => productos
         .Select(p => p.NombreCategoria)
@@ -1069,10 +1098,20 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await CargarRolActual();
         await CargarUsuarioActual();
         await CargarProductos();
         await CargarSeguimiento();
         Polling.Iniciar(CargarSeguimiento, TimeSpan.FromSeconds(4));
+    }
+
+    private async Task CargarRolActual()
+    {
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        esSoloDelivery = user.IsInRole("Delivery") &&
+                         !user.IsInRole("Administracion") &&
+                         !user.IsInRole("Barra");
     }
 
     private async Task CargarUsuarioActual()
@@ -1095,10 +1134,15 @@
 
     private async Task CargarSeguimiento()
     {
-        var respuestaTakeAway = await http.Get<List<PedidoParaLlevarDTO>>($"api/Pedido/ParaLlevar/{EnumTipoServicio.TakeAway}");
-        if (!respuestaTakeAway.Error && respuestaTakeAway.Respuesta != null)
+        // El rol Delivery no tiene permiso para ver TakeAway (el server también lo
+        // rechaza), así que ni se lo pedimos.
+        if (!esSoloDelivery)
         {
-            takeAways = respuestaTakeAway.Respuesta;
+            var respuestaTakeAway = await http.Get<List<PedidoParaLlevarDTO>>($"api/Pedido/ParaLlevar/{EnumTipoServicio.TakeAway}");
+            if (!respuestaTakeAway.Error && respuestaTakeAway.Respuesta != null)
+            {
+                takeAways = respuestaTakeAway.Respuesta;
+            }
         }
 
         var respuestaDelivery = await http.Get<List<PedidoParaLlevarDTO>>($"api/Pedido/ParaLlevar/{EnumTipoServicio.Delivery}");
@@ -1109,6 +1153,13 @@
 
         await InvokeAsync(StateHasChanged);
     }
+
+    // Se puede pasar a caja apenas cocina/barra terminó (listo, en camino o ya
+    // entregado), sin esperar a que el cliente lo retire o el repartidor lo entregue.
+    // Una vez que ya está en caja (PendienteCobro) o ya se cobró (Pagada), el botón
+    // desaparece porque no hay nada más que "cerrar".
+    private bool PuedeCerrar(PedidoParaLlevarDTO cuenta) =>
+        cuenta.EstadoComanda == EnumEstadoComanda.Abierta && cuenta.TodoListoOMasAlla;
 
     private string NombreProducto(int idProducto) =>
         productos.FirstOrDefault(p => p.Id == idProducto)?.Nombre ?? "";
