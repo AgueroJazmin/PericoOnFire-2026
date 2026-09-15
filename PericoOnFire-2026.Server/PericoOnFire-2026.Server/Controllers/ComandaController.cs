@@ -67,7 +67,7 @@ namespace PericoOnFire_2026.Server.Controllers
                        Total = c.Total,
                        CantidadComensales = c.CantidadComensales,
                        Observaciones = c.Observaciones
-                   }) 
+                   })
                    .FirstOrDefaultAsync();
 
             if (comanda == null)
@@ -214,6 +214,116 @@ namespace PericoOnFire_2026.Server.Controllers
             {
                 return Conflict(ex.Message);
             }
+
+            return Ok(resultado);
+        }
+
+        // Análogo a Confirmar, pero para TakeAway/Delivery: no hay Mesa que bloquear
+        // ni liberar, así que no hace falta la verificación de "mesa ya abierta por
+        // otro usuario". En cambio, acá se crea un Cliente nuevo con los datos que
+        // cargó quien tomó el pedido (nombre siempre, dirección solo si es Delivery).
+        [HttpPost("ConfirmarSinMesa")]
+        public async Task<ActionResult<ComandaConfirmadaDTO>> ConfirmarSinMesa(ConfirmarPedidoSinMesaDTO dto)
+        {
+            if (dto.TipoServicio != EnumTipoServicio.TakeAway && dto.TipoServicio != EnumTipoServicio.Delivery)
+                return BadRequest("Este endpoint es solo para pedidos TakeAway o Delivery.");
+
+            if (dto.TipoServicio == EnumTipoServicio.Delivery && string.IsNullOrWhiteSpace(dto.Direccion))
+                return BadRequest("La dirección es obligatoria para un pedido de Delivery.");
+
+            if (dto.Items == null || !dto.Items.Any())
+                return BadRequest("Agregá al menos un producto antes de enviar el pedido.");
+
+            if (dto.Items.Any(i => i.Cantidad <= 0))
+                return BadRequest("La cantidad de cada producto debe ser mayor que cero.");
+
+            var idsProducto = dto.Items.Select(i => i.IdProducto).Distinct().ToList();
+            var productos = await context.Productos
+                .Where(p => idsProducto.Contains(p.Id) && p.Activo)
+                .ToListAsync();
+
+            var faltantes = idsProducto.Except(productos.Select(p => p.Id)).ToList();
+            if (faltantes.Any())
+                return Conflict($"No existen o están inactivos los productos con id: {string.Join(", ", faltantes)}.");
+
+            ComandaConfirmadaDTO? resultado = null;
+            var estrategia = context.Database.CreateExecutionStrategy();
+
+            await estrategia.ExecuteAsync(async () =>
+            {
+                await using var transaccion = await context.Database.BeginTransactionAsync();
+
+                var cliente = new Cliente
+                {
+                    Nombre = dto.NombreCliente,
+                    Direccion = dto.Direccion ?? "",
+                    Telefono = dto.Telefono ?? "",
+                    EstadoRegistro = EnumEstadoRegistro.activo
+                };
+                context.Clientes.Add(cliente);
+                await context.SaveChangesAsync();
+
+                var comanda = new Comanda
+                {
+                    IdCliente = cliente.Id,
+                    IdUsuario = dto.IdUsuario,
+                    TipoServicio = dto.TipoServicio,
+                    CantidadComensales = 1,
+                    Observaciones = dto.Observaciones,
+                    Estado = EnumEstadoComanda.Abierta,
+                    EstadoRegistro = EnumEstadoRegistro.activo,
+                    FechaApertura = DateTime.UtcNow,
+                    Total = dto.Items.Sum(i =>
+                        productos.First(p => p.Id == i.IdProducto).Precio * i.Cantidad)
+                };
+
+                context.Comandas.Add(comanda);
+                await context.SaveChangesAsync();
+
+                var idsPedidos = new List<int>();
+                var grupos = dto.Items.GroupBy(i =>
+                    productos.First(p => p.Id == i.IdProducto).SectorDestino);
+
+                foreach (var grupo in grupos)
+                {
+                    var pedido = new Pedido
+                    {
+                        IdComanda = comanda.Id,
+                        SectorDestino = grupo.Key,
+                        Estado = EnumEstadoPedido.Pendiente,
+                        FechaPedido = DateTime.UtcNow,
+                        EstadoRegistro = EnumEstadoRegistro.activo
+                    };
+
+                    context.Pedidos.Add(pedido);
+                    await context.SaveChangesAsync();
+
+                    foreach (var item in grupo)
+                    {
+                        var producto = productos.First(p => p.Id == item.IdProducto);
+                        context.DetallesPedido.Add(new DetallePedido
+                        {
+                            IdPedido = pedido.Id,
+                            IdProducto = item.IdProducto,
+                            Cantidad = item.Cantidad,
+                            PrecioUnitario = producto.Precio,
+                            Observacion = item.Observacion,
+                            EstadoRegistro = EnumEstadoRegistro.activo
+                        });
+                    }
+
+                    await context.SaveChangesAsync();
+                    idsPedidos.Add(pedido.Id);
+                }
+
+                await transaccion.CommitAsync();
+
+                resultado = new ComandaConfirmadaDTO
+                {
+                    IdComanda = comanda.Id,
+                    IdsPedidos = idsPedidos
+                };
+            });
 
             return Ok(resultado);
         }

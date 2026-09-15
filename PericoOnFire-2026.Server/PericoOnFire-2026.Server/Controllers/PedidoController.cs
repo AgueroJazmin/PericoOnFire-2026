@@ -86,6 +86,135 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok(cantidad);
         }
 
+        //Usado por Pedidos.razor: lista las comandas de TakeAway o Delivery que siguen
+        //en curso (Abierta o PendienteCobro), con sus pedidos agrupados por sector para
+        //saber si ya está todo listo. Cancelado se ignora en todos lados, igual que en
+        //el resto del sistema.
+        [HttpGet("ParaLlevar/{tipoServicio}")]
+        public async Task<ActionResult<List<PedidoParaLlevarDTO>>> GetParaLlevar(EnumTipoServicio tipoServicio)
+        {
+            if (tipoServicio != EnumTipoServicio.TakeAway && tipoServicio != EnumTipoServicio.Delivery)
+                return BadRequest("Este endpoint es solo para pedidos TakeAway o Delivery.");
+
+            var comandas = await context.Comandas
+                .Include(c => c.Cliente)
+                .Include(c => c.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado))
+                    .ThenInclude(p => p.DetallesPedido)
+                        .ThenInclude(d => d.Producto)
+                .Include(c => c.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado))
+                    .ThenInclude(p => p.Delivery)
+                .Where(c => c.TipoServicio == tipoServicio &&
+                            (c.Estado == EnumEstadoComanda.Abierta || c.Estado == EnumEstadoComanda.PendienteCobro))
+                .OrderBy(c => c.FechaApertura)
+                .ToListAsync();
+
+            var resultado = comandas.Select(c =>
+            {
+                var pedidosActivos = c.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado).ToList();
+
+                return new PedidoParaLlevarDTO
+                {
+                    IdComanda = c.Id,
+                    TipoServicio = c.TipoServicio,
+                    EstadoComanda = c.Estado,
+                    NombreCliente = c.Cliente?.Nombre ?? "",
+                    Telefono = c.Cliente?.Telefono,
+                    Direccion = c.Cliente?.Direccion,
+                    FechaApertura = c.FechaApertura,
+                    Items = pedidosActivos
+                        .SelectMany(p => p.DetallesPedido)
+                        .Select(d => new ItemCuentaDTO
+                        {
+                            NombreProducto = d.Producto.Nombre,
+                            Cantidad = d.Cantidad,
+                            PrecioUnitario = d.PrecioUnitario
+                        }).ToList(),
+                    Pedidos = pedidosActivos
+                        .Select(p => new PedidoSectorEstadoDTO
+                        {
+                            IdPedido = p.Id,
+                            Sector = p.SectorDestino,
+                            Estado = p.Estado
+                        }).ToList(),
+                    IdDelivery = pedidosActivos.Select(p => p.IdDelivery).FirstOrDefault(),
+                    NombreDelivery = pedidosActivos.Where(p => p.Delivery != null).Select(p => p.Delivery!.Nombre).FirstOrDefault()
+                };
+            }).ToList();
+
+            return Ok(resultado);
+        }
+
+        //El repartidor "toma" toda la comanda de una vez, no pedido por pedido: no tiene
+        //sentido que salga con la comida y deje la bebida en la barra. Por eso exige que
+        //TODOS los pedidos activos de la comanda estén ListoParaRetirar antes de asignarla.
+        [HttpPut("Delivery/{idComanda:int}/Tomar")]
+        public async Task<ActionResult> TomarParaDelivery(int idComanda, AsignarDeliveryDTO dto)
+        {
+            var comanda = await context.Comandas
+                .Include(c => c.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado))
+                .FirstOrDefaultAsync(c => c.Id == idComanda);
+
+            if (comanda == null)
+                return NotFound();
+
+            if (comanda.TipoServicio != EnumTipoServicio.Delivery)
+                return Conflict("Esta comanda no es un pedido de delivery.");
+
+            var pedidos = comanda.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado).ToList();
+
+            if (!pedidos.Any())
+                return Conflict("Esta comanda no tiene pedidos para repartir.");
+
+            if (pedidos.Any(p => p.IdDelivery.HasValue))
+                return Conflict("Este pedido ya fue tomado por otro repartidor.");
+
+            if (pedidos.Any(p => p.Estado != EnumEstadoPedido.ListoParaRetirar))
+                return Conflict("Todavía hay productos de este pedido en cocina o barra. Esperá a que estén todos listos.");
+
+            foreach (var pedido in pedidos)
+            {
+                pedido.IdDelivery = dto.IdUsuarioDelivery;
+                pedido.Estado = EnumEstadoPedido.EnCamino;
+            }
+
+            await context.SaveChangesAsync();
+            return Ok();
+        }
+
+        //Cierra el otro extremo del flujo de delivery: de EnCamino a Entregado.
+        //Solo lo puede marcar el mismo repartidor que lo tomó (se valida por IdUsuarioDelivery,
+        //no hay nada que impida que otro intente marcarlo si no fuera por este chequeo).
+        [HttpPut("Delivery/{idComanda:int}/MarcarEntregado")]
+        public async Task<ActionResult> MarcarEntregadoDelivery(int idComanda, AsignarDeliveryDTO dto)
+        {
+            var comanda = await context.Comandas
+                .Include(c => c.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado))
+                .FirstOrDefaultAsync(c => c.Id == idComanda);
+
+            if (comanda == null)
+                return NotFound();
+
+            var pedidos = comanda.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado).ToList();
+
+            if (!pedidos.Any())
+                return Conflict("Esta comanda no tiene pedidos para entregar.");
+
+            if (pedidos.Any(p => p.IdDelivery != dto.IdUsuarioDelivery))
+                return Conflict("Este pedido no te lo asignaron a vos.");
+
+            if (pedidos.Any(p => p.Estado != EnumEstadoPedido.EnCamino))
+                return Conflict("Este pedido todavía no está en camino.");
+
+            foreach (var pedido in pedidos)
+            {
+                pedido.Estado = EnumEstadoPedido.Entregado;
+                pedido.FechaEntregado = DateTime.UtcNow;
+            }
+
+            await context.SaveChangesAsync();
+            return Ok();
+        }
+
         [HttpPost]
         public async Task<ActionResult<int>> Post(PedidoCrearDTO dto)
         {

@@ -129,3 +129,107 @@ h1:focus {
         overflow-wrap: anywhere;
     }
 }
+
+/* CELULARES Y PANTALLAS PEQUEÑAS */
+@media (max-width: 780px) {
+    .modal-pedido-fondo {
+        padding: .5rem;
+    }
+
+    .modal-pedido {
+        width: 100%;
+        height: calc(100vh - 1rem);
+        max-height: calc(100vh - 1rem);
+    }
+
+    .modal-pedido-header {
+        align-items: flex-start;
+        padding: .65rem .75rem;
+    }
+
+    .modal-encabezado-contenido {
+        flex: 1;
+        align-items: flex-start;
+        flex-direction: column;
+        gap: .65rem;
+    }
+
+    .categorias-superiores {
+        width: 100%;
+    }
+
+        .categorias-superiores button {
+            min-width: 100px;
+            flex: 1;
+        }
+
+    .selector-productos {
+        display: block;
+        overflow-y: auto;
+    }
+
+    .selector-resumen {
+        min-height: 320px;
+        overflow: visible;
+        border-right: 0;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .resumen-carrito {
+        min-height: 190px;
+        overflow: visible;
+    }
+
+    .subcategorias {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        overflow: visible;
+        border-right: 0;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .productos-modal {
+        overflow: visible;
+    }
+
+    .producto-fila {
+        grid-template-columns: 1fr auto;
+    }
+
+        .producto-fila .control-cantidad {
+            grid-column: 1 / -1;
+            justify-self: end;
+        }
+
+    .modal-pedido-footer {
+        flex-wrap: wrap;
+    }
+
+        .modal-pedido-footer > div {
+            width: 100%;
+            margin-right: 0;
+        }
+
+        .modal-pedido-footer .btn {
+            flex: 1;
+        }
+}
+
+@media (max-width: 420px) {
+    .modal-pedido-header h4 {
+        font-size: 1.1rem;
+    }
+
+    .categorias-superiores button {
+        min-width: calc(50% - .25rem);
+        padding: .5rem;
+    }
+
+    .productos-modal {
+        margin: .6rem;
+    }
+
+    .producto-fila {
+        padding: .65rem;
+    }
+}

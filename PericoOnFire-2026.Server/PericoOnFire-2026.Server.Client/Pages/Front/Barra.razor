@@ -2,6 +2,6 @@
 @using Microsoft.AspNetCore.Authorization
 @using PericoOnFire_2026.Shared.ENUM
 @rendermode InteractiveAuto
-@attribute [Authorize(Roles = "Administracion")]
+@attribute [Authorize(Roles = "Administracion,Barra")]
 
 <TableroPedidos Sector="EnumSectorDestino.Barra" TituloSector="Pedidos - Barra" />

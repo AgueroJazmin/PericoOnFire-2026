@@ -93,16 +93,9 @@
                     </div>
                 }
 
-                @* Solo Delivery *@
-                @if (context.User.IsInRole("Delivery"))
-                {
-                    <div class="nav-item px-3">
-                        <NavLink class="nav-link" href="delivery">
-                            <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span>
-                            Mis entregas
-                        </NavLink>
-                    </div>
-                }
+                @* El link de "Mis entregas" (Solo Delivery) se sacó de acá: apuntaba a /delivery,
+                   una página que nunca se llegó a crear. Ahora Delivery entra por "Pedidos" de arriba,
+                   que ya tiene su vista de repartidor adentro. *@
 
                 @* Solo Caja *@
                 @if (context.User.IsInRole("Caja"))
@@ -115,8 +108,9 @@
                     </div>
                 }
 
-                @* Solo Pedidos *@
-                @if (context.User.IsInRole("Pedidos"))
+                @* Pedidos: Administracion, Barra y Delivery (antes chequeaba el rol "Pedidos",
+                   que quedó sembrado pero sin usar; si ese rol era para esto, avisame y lo unificamos) *@
+                @if (context.User.IsInRole("Administracion") || context.User.IsInRole("Barra") || context.User.IsInRole("Delivery"))
                 {
                     <div class="nav-item px-3">
                         <NavLink class="nav-link" href="pedidos">
