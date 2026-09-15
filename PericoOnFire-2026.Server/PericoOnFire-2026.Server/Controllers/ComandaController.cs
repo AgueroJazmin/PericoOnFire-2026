@@ -107,7 +107,7 @@ namespace PericoOnFire_2026.Server.Controllers
         }
 
         // Crea la comanda y sus pedidos recién cuando el mozo confirma el primer envío.
-        // Toda la operación es atómica: si algo falla, la mesa continúa libre.
+        // Pero si algo falla, la mesa continúa libre.
         [HttpPost("Confirmar")]
         public async Task<ActionResult<ComandaConfirmadaDTO>> Confirmar(ConfirmarComandaDTO dto)
         {
@@ -218,10 +218,9 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok(resultado);
         }
 
-        // Análogo a Confirmar, pero para TakeAway/Delivery: no hay Mesa que bloquear
-        // ni liberar, así que no hace falta la verificación de "mesa ya abierta por
-        // otro usuario". En cambio, acá se crea un Cliente nuevo con los datos que
-        // cargó quien tomó el pedido (nombre siempre, dirección solo si es Delivery).
+        // Para TakeAway/Delivery, aca no hay Mesa que bloquear ni liberar,
+        // así que no hace falta la verificación de mesa. En cambio, acá se crea un cliente nuevo
+        // con los datos que cargó quien tomó el pedido (nombre siempre, dirección solo si es Delivery).
         [HttpPost("ConfirmarSinMesa")]
         public async Task<ActionResult<ComandaConfirmadaDTO>> ConfirmarSinMesa(ConfirmarPedidoSinMesaDTO dto)
         {
@@ -369,13 +368,32 @@ namespace PericoOnFire_2026.Server.Controllers
             if (comanda.Estado != EnumEstadoComanda.Abierta)
                 return Conflict("La comanda ya no está abierta.");
 
-            var hayPedidosSinEntregar = await context.Pedidos.AnyAsync(p =>
-                p.IdComanda == id &&
-                p.Estado != EnumEstadoPedido.Entregado &&
-                p.Estado != EnumEstadoPedido.Cancelado);
+            bool hayPedidosSinAvanzar;
 
-            if (hayPedidosSinEntregar)
-                return Conflict("Todavía hay pedidos sin entregar. Esperá a que cocina/barra los termine y marcalos como entregados antes de cerrar la mesa.");
+            if (comanda.TipoServicio == EnumTipoServicio.Mesa)
+            {
+                // Esto es del Mozo, es para que no pueda pasar a caja una comanda
+                // de mesa que todavía tiene pedidos en preparación
+                hayPedidosSinAvanzar = await context.Pedidos.AnyAsync(p =>
+                    p.IdComanda == id &&
+                    p.Estado != EnumEstadoPedido.Entregado &&
+                    p.Estado != EnumEstadoPedido.Cancelado);
+            }
+            else
+            {
+                // Esto es para TakeAway/Delivery en donde pasa a caja apenas cocina/barra lo dejó listo,
+                // sin esperar a que el cliente lo retire o el repartidor lo entregue. Así caja puede cobrar en
+                // cualquier momento del proceso y no solo al final.
+                hayPedidosSinAvanzar = await context.Pedidos.AnyAsync(p =>
+                    p.IdComanda == id &&
+                    p.Estado != EnumEstadoPedido.ListoParaRetirar &&
+                    p.Estado != EnumEstadoPedido.EnCamino &&
+                    p.Estado != EnumEstadoPedido.Entregado &&
+                    p.Estado != EnumEstadoPedido.Cancelado);
+            }
+
+            if (hayPedidosSinAvanzar)
+                return Conflict("Todavía hay pedidos en preparación. Esperá a que cocina/barra los termine antes de pasarlo a caja.");
 
             comanda.Estado = EnumEstadoComanda.PendienteCobro;
 
