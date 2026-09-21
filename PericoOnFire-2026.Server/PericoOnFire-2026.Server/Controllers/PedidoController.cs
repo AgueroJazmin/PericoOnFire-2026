@@ -66,7 +66,7 @@ namespace PericoOnFire_2026.Server.Controllers
         //Este endpoint permite cambiar el estado de un pedido específico.
         // Un pedido de TakeAway solo se puede marcar como retirado por el cliente (Entregado)
         // una vez que la cuenta ya se cobró en caja.
-        // Delivery se marca "Entregado" en el momento de la entrega física, sea
+        // Delivery se marca Entregado en el momento de la entrega física, sea
         // que ya esté cobrado o se cobre recién ahí.
 
         [HttpPut("{id:int}/Estado")]
@@ -74,7 +74,7 @@ namespace PericoOnFire_2026.Server.Controllers
         {
             if (dto.Estado == EnumEstadoPedido.Cancelado && string.IsNullOrWhiteSpace(dto.MotivoCancelacion))
                 return BadRequest("Para cancelar un pedido es obligatorio indicar el motivo.");
-            
+
             if (dto.Estado == EnumEstadoPedido.Entregado)
             {
                 var comandaDelPedido = await context.Pedidos
@@ -99,7 +99,7 @@ namespace PericoOnFire_2026.Server.Controllers
         }
 
         //Este endpoint borra los pedidos ya entregados de un sector,
-        //Es el tacho que aparece al lado de la columna "Listos" en cocina/barra.
+        //Es el tacho que aparece al lado de la columna Listos en cocina/barra.
         [HttpDelete("Entregados/Sector/{sector}")]
         public async Task<ActionResult<int>> BorrarEntregadosPorSector(EnumSectorDestino sector)
         {
@@ -156,6 +156,7 @@ namespace PericoOnFire_2026.Server.Controllers
                     Telefono = c.Cliente?.Telefono,
                     Direccion = c.Cliente?.Direccion,
                     FechaApertura = c.FechaApertura,
+                    HoraDeseada = c.HoraDeseada,
                     Items = pedidosActivos
                         .SelectMany(p => p.DetallesPedido)
                         .Select(d => new ItemCuentaDTO
@@ -339,6 +340,9 @@ namespace PericoOnFire_2026.Server.Controllers
                 FechaCancelado = p.FechaCancelado,
                 NumeroMesa = p.Comanda != null ? p.Comanda.Mesa?.NumeroMesa : null,
                 TipoServicio = p.Comanda?.TipoServicio,
+                NombreCliente = p.Comanda?.Cliente?.Nombre,
+                Direccion = p.Comanda?.Cliente?.Direccion,
+                HoraDeseada = p.Comanda?.HoraDeseada,
                 DetallesPedido = p.DetallesPedido.Select(d => new DetallePedidoDTO
                 {
                     Id = d.Id,
@@ -348,7 +352,23 @@ namespace PericoOnFire_2026.Server.Controllers
                     PrecioUnitario = d.PrecioUnitario,
                     Observacion = d.Observacion,
                     NombreProducto = d.Producto.Nombre
-                }).ToList()
+                }).ToList(),
+                DetallesOtroSector = p.Comanda != null
+                    ? p.Comanda.Pedidos
+                        .Where(hermano => hermano.SectorDestino != p.SectorDestino &&
+                                          hermano.Estado != EnumEstadoPedido.Cancelado)
+                        .SelectMany(hermano => hermano.DetallesPedido)
+                        .Select(d => new DetallePedidoDTO
+                        {
+                            Id = d.Id,
+                            IdPedido = d.IdPedido,
+                            IdProducto = d.IdProducto,
+                            Cantidad = d.Cantidad,
+                            PrecioUnitario = d.PrecioUnitario,
+                            Observacion = d.Observacion,
+                            NombreProducto = d.Producto.Nombre
+                        }).ToList()
+                    : new List<DetallePedidoDTO>()
             }).ToList();
         }
     }

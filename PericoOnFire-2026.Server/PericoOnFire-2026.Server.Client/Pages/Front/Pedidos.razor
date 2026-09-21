@@ -16,15 +16,186 @@
         <Authorized>
             <div class="pedidos-header">
                 <h2>Pedidos para llevar</h2>
-                <button class="btn btn-primary btn-sm btn-nuevo-pedido" @onclick="AbrirModalPedido">
-                    Nuevo pedido
-                </button>
             </div>
 
             @if (!string.IsNullOrWhiteSpace(MensajeForm))
             {
                 <div class="alert alert-info">@MensajeForm</div>
             }
+
+            @* Carga de nuevo pedido: siempre visible arriba de la page, calcada del modal de
+     "Agregar productos" de Mesas.razor. En vez de "Cant. de comensales" va el tipo de pedido, los datos del cliente y el horario deseado. *@
+            <div class="panel-nuevo-pedido">
+                <section class="modal-pedido" aria-label="Cargar nuevo pedido">
+                    <header class="modal-pedido-header">
+                        <div class="modal-encabezado-contenido">
+
+                            <div class="modal-identificacion">
+                                <h4>Nuevo pedido</h4>
+                                <span>@tipoNuevoPedido</span>
+                            </div>
+
+                            <nav class="categorias categorias-superiores" aria-label="Categorías">
+                                @foreach (var categoria in CategoriasDisponibles)
+                                {
+                                    <button class="@(categoria == categoriaSeleccionada ? "activo" : "")"
+                                            @onclick="() => SeleccionarCategoria(categoria)">
+                                        <span>@IconoCategoria(categoria)</span>
+                                        @categoria
+                                    </button>
+                                }
+                            </nav>
+
+                        </div>
+
+                    </header>
+
+                    @if (!string.IsNullOrWhiteSpace(MensajeForm))
+                    {
+                        <div class="alert alert-danger py-2">@MensajeForm</div>
+                    }
+
+                    <div class="selector-productos">
+                        <aside class="selector-resumen">
+                            <strong>Tipo de pedido</strong>
+                            <div class="selector-tipo">
+                                <button class="@(tipoNuevoPedido == EnumTipoServicio.TakeAway ? "activo" : "")"
+                                        @onclick='() => tipoNuevoPedido = EnumTipoServicio.TakeAway'>
+                                    Take Away
+                                </button>
+                                <button class="@(tipoNuevoPedido == EnumTipoServicio.Delivery ? "activo" : "")"
+                                        @onclick='() => tipoNuevoPedido = EnumTipoServicio.Delivery'>
+                                    Delivery
+                                </button>
+                            </div>
+
+                            <label class="mt-2">Nombre y apellido</label>
+                            <input class="form-control form-control-sm" maxlength="100" @bind="nombreCliente" @bind:event="oninput" />
+
+                            <label class="mt-2">Teléfono (opcional)</label>
+                            <input class="form-control form-control-sm" maxlength="30" @bind="telefonoCliente" @bind:event="oninput" />
+
+                            @if (tipoNuevoPedido == EnumTipoServicio.Delivery)
+                            {
+                                <label class="mt-2">Referencia de WhatsApp</label>
+                                <input class="form-control form-control-sm" maxlength="150" placeholder="Ej.: pedido de WhatsApp de las 21:40 - Juan"
+                                       @bind="direccionCliente" @bind:event="oninput" />
+                            }
+
+                            <label class="mt-2">
+                                @(tipoNuevoPedido == EnumTipoServicio.Delivery ? "Horario de entrega (opcional)" : "Horario de retiro (opcional)")
+                            </label>
+                            <input type="time" class="form-control form-control-sm" value="@horaDeseadaTexto"
+                                   @oninput="e => horaDeseadaTexto = e.Value?.ToString() ?? string.Empty" />
+                            <small class="ayuda-horario">Si lo dejás vacío, entra a cocina/barra apenas lo enviás.</small>
+
+                            <div class="resumen-carrito">
+                                <strong>Pedido (@CantidadTotalItems)</strong>
+                                @if (!carrito.Any())
+                                {
+                                    <small>Todavía no agregaste productos.</small>
+                                }
+                                else
+                                {
+                                    @foreach (var item in carrito)
+                                    {
+                                        <div class="carrito-item">
+                                            <div class="carrito-item-linea">
+                                                <span>@item.Cantidad × @NombreProducto(item.IdProducto)</span>
+                                                <div class="carrito-acciones">
+                                                    <button class="btn-observacion"
+                                                            title="Agregar observación"
+                                                            aria-label="Agregar observación"
+                                                            @onclick="() => EditarObservacion(item)">
+                                                        ✎
+                                                    </button>
+                                                    <button class="btn-eliminar"
+                                                            title="Quitar producto"
+                                                            aria-label="Quitar producto"
+                                                            @onclick="() => QuitarDelCarrito(item)">
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            @if (!string.IsNullOrWhiteSpace(item.Observacion))
+                                            {
+                                                <small class="observacion-carrito">⚠ @item.Observacion</small>
+                                            }
+
+                                            @if (ReferenceEquals(itemEditandoObservacion, item))
+                                            {
+                                                <div class="editor-observacion">
+                                                    <label>Observación para cocina/barra</label>
+                                                    <input type="text"
+                                                           maxlength="300"
+                                                           placeholder="Ej.: sin aceitunas"
+                                                           @bind="textoObservacion"
+                                                           @bind:event="oninput" />
+                                                    <div class="editor-observacion-acciones">
+                                                        <button class="btn-cancelar-observacion" @onclick="CancelarObservacion">Cancelar</button>
+                                                        <button class="btn-guardar-observacion" @onclick="GuardarObservacion">Guardar</button>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </aside>
+
+                        <nav class="subcategorias" aria-label="Subcategorías">
+                            @foreach (var subcategoria in SubcategoriasDisponibles)
+                            {
+                                <button class="@(subcategoria == subcategoriaSeleccionada ? "activo" : "")"
+                                        @onclick="() => subcategoriaSeleccionada = subcategoria">
+                                    @subcategoria
+                                </button>
+                            }
+                        </nav>
+
+                        <div class="productos-modal">
+                            <div class="productos-titulo">
+                                <strong>@subcategoriaSeleccionada</strong>
+                                <span>@categoriaSeleccionada</span>
+                            </div>
+
+                            @foreach (var producto in ProductosVisibles)
+                            {
+                                var cantidad = CantidadProducto(producto.Id);
+                                <article class="producto-fila">
+                                    <div>
+                                        <strong>@producto.Nombre</strong>
+                                        <small>@producto.SectorDestino</small>
+                                    </div>
+                                    <span class="producto-precio">$@producto.Precio.ToString("N2")</span>
+                                    <div class="control-cantidad">
+                                        <button @onclick="() => DisminuirProducto(producto.Id)" disabled="@(cantidad == 0)">−</button>
+                                        <span>@cantidad</span>
+                                        <button @onclick="() => AumentarProducto(producto.Id)">+</button>
+                                    </div>
+                                </article>
+                            }
+
+                            @if (!ProductosVisibles.Any())
+                            {
+                                <p class="texto-vacio p-3">No hay productos activos en esta subcategoría.</p>
+                            }
+                        </div>
+                    </div>
+
+                    <footer class="modal-pedido-footer">
+                        <div>
+                            <span>Total</span>
+                            <strong>$@TotalCarrito.ToString("N2")</strong>
+                        </div>
+                        <button class="btn btn-outline-secondary" @onclick="ReiniciarFormularioPedido" disabled="@enviandoPedido">Vaciar</button>
+                        <button class="btn btn-success" @onclick="EnviarPedido" disabled="@(!PedidoListoParaEnviar || enviandoPedido)">
+                            @(enviandoPedido ? "Enviando..." : "Enviar a cocina/barra")
+                        </button>
+                    </footer>
+                </section>
+            </div>
 
             <section class="panel-seguimiento">
                 <div class="tabs-seguimiento">
@@ -51,15 +222,18 @@
                     @foreach (var cuenta in listaActual)
                     {
                         <div class="cuenta-card">
-                            <div class="cuenta-card-titulo">
-                                @cuenta.NombreCliente
-                                <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
-                            </div>
-
-                            @if (cuenta.TipoServicio == EnumTipoServicio.Delivery)
+                            @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway)
+                            {
+                                <div class="cuenta-card-titulo">
+                                    @cuenta.NombreCliente
+                                    <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
+                                </div>
+                            }
+                            else
                             {
                                 <div class="cuenta-card-info">📍 @cuenta.Direccion</div>
                             }
+
                             @if (!string.IsNullOrWhiteSpace(cuenta.Telefono))
                             {
                                 <div class="cuenta-card-info">☎ @cuenta.Telefono</div>
@@ -78,6 +252,36 @@
                                     <span class="badge-sector">@pedido.Sector: @pedido.Estado</span>
                                 }
                             </div>
+
+                            @if (cuenta.TipoServicio == EnumTipoServicio.Delivery)
+                            {
+                                <div class="cuenta-card-titulo cuenta-card-titulo-final">
+                                    @cuenta.NombreCliente
+                                    <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
+                                </div>
+                            }
+
+                            @if (editandoHorarioId == cuenta.IdComanda)
+                            {
+                                <div class="editor-horario">
+                                    <label>@(cuenta.TipoServicio == EnumTipoServicio.Delivery ? "Horario de entrega" : "Horario de retiro")</label>
+                                    <input type="time" value="@horaEditando"
+                                           @oninput="e => horaEditando = e.Value?.ToString() ?? string.Empty" />
+                                    <div class="editor-horario-acciones">
+                                        <button class="btn-cancelar-observacion" @onclick="CancelarEdicionHorario">Cancelar</button>
+                                        <button class="btn-guardar-observacion" @onclick="() => GuardarHoraDeseada(cuenta)">Guardar</button>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="cuenta-card-info @ClaseHorarioProximo(cuenta)">
+                                    🕒 @(cuenta.HoraDeseada.HasValue
+                                                                                ? $"Para las {cuenta.HoraDeseada.Value.ToLocalTime():HH:mm}"
+                                                                                : "Sin horario indicado")
+                                    <button class="btn-editar-horario" @onclick="() => EditarHoraDeseada(cuenta)">✎ editar</button>
+                                </div>
+                            }
 
                             @if (cuenta.TipoServicio == EnumTipoServicio.Delivery)
                             {
@@ -158,10 +362,6 @@
                     @foreach (var cuenta in ParaRepartir)
                     {
                         <div class="cuenta-card">
-                            <div class="cuenta-card-titulo">
-                                @cuenta.NombreCliente
-                                <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
-                            </div>
                             <div class="cuenta-card-info">📍 @cuenta.Direccion</div>
                             @if (!string.IsNullOrWhiteSpace(cuenta.Telefono))
                             {
@@ -173,6 +373,14 @@
                                     <li>@item.Cantidad x @item.NombreProducto</li>
                                 }
                             </ul>
+                            @if (cuenta.HoraDeseada.HasValue)
+                            {
+                                <div class="cuenta-card-info @ClaseHorarioProximo(cuenta)">🕒 Para las @cuenta.HoraDeseada.Value.ToLocalTime().ToString("HH:mm")</div>
+                            }
+                            <div class="cuenta-card-titulo cuenta-card-titulo-final">
+                                @cuenta.NombreCliente
+                                <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
+                            </div>
                             <button class="btn btn-sm btn-primary w-100 mt-1" @onclick="() => TomarPedido(cuenta)">
                                 Tomar este pedido
                             </button>
@@ -192,10 +400,6 @@
                     @foreach (var cuenta in MisEntregas)
                     {
                         <div class="cuenta-card">
-                            <div class="cuenta-card-titulo">
-                                @cuenta.NombreCliente
-                                <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
-                            </div>
                             <div class="cuenta-card-info">📍 @cuenta.Direccion</div>
                             @if (!string.IsNullOrWhiteSpace(cuenta.Telefono))
                             {
@@ -207,6 +411,14 @@
                                     <li>@item.Cantidad x @item.NombreProducto</li>
                                 }
                             </ul>
+                            @if (cuenta.HoraDeseada.HasValue)
+                            {
+                                <div class="cuenta-card-info @ClaseHorarioProximo(cuenta)">🕒 Para las @cuenta.HoraDeseada.Value.ToLocalTime().ToString("HH:mm")</div>
+                            }
+                            <div class="cuenta-card-titulo cuenta-card-titulo-final">
+                                @cuenta.NombreCliente
+                                <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
+                            </div>
                             <button class="btn btn-sm btn-success w-100 mt-1" @onclick="() => MarcarEntregado(cuenta)">
                                 Marcar entregado
                             </button>
@@ -219,180 +431,7 @@
     </AuthorizeView>
 </div>
 
-@* ===== Modal de nuevo pedido: mismo componente/markup que ya usás en Mesas.razor para
-     "Agregar productos" (categorías arriba, subcategorías a la izquierda, grilla de
-     productos con steppers +/-, carrito con observaciones). Lo único que cambia es la
-     columna de resumen: en vez de "Cant. de comensales" va el tipo de pedido y los
-     datos del cliente. *@
-@if (mostrarModalPedido)
-{
-    <div class="modal-pedido-fondo" @onclick="CerrarModalPedido">
-        <section class="modal-pedido" role="dialog" aria-modal="true" aria-label="Seleccionar productos" @onclick:stopPropagation="true">
-            <header class="modal-pedido-header">
-                <div class="modal-encabezado-contenido">
 
-                    <div class="modal-identificacion">
-                        <h4>Nuevo pedido</h4>
-                        <span>@tipoNuevoPedido</span>
-                    </div>
-
-                    <nav class="categorias categorias-superiores" aria-label="Categorías">
-                        @foreach (var categoria in CategoriasDisponibles)
-                        {
-                            <button class="@(categoria == categoriaSeleccionada ? "activo" : "")"
-                                    @onclick="() => SeleccionarCategoria(categoria)">
-                                <span>@IconoCategoria(categoria)</span>
-                                @categoria
-                            </button>
-                        }
-                    </nav>
-
-                </div>
-
-                <button class="btn-cerrar" aria-label="Cerrar" @onclick="CerrarModalPedido">
-                    &times;
-                </button>
-            </header>
-
-            @if (!string.IsNullOrWhiteSpace(MensajeForm))
-            {
-                <div class="alert alert-danger py-2">@MensajeForm</div>
-            }
-
-            <div class="selector-productos">
-                <aside class="selector-resumen">
-                    <strong>Tipo de pedido</strong>
-                    <div class="selector-tipo">
-                        <button class="@(tipoNuevoPedido == EnumTipoServicio.TakeAway ? "activo" : "")"
-                                @onclick='() => tipoNuevoPedido = EnumTipoServicio.TakeAway'>
-                            Take Away
-                        </button>
-                        <button class="@(tipoNuevoPedido == EnumTipoServicio.Delivery ? "activo" : "")"
-                                @onclick='() => tipoNuevoPedido = EnumTipoServicio.Delivery'>
-                            Delivery
-                        </button>
-                    </div>
-
-                    <label class="mt-2">Nombre y apellido</label>
-                    <input class="form-control form-control-sm" maxlength="100" @bind="nombreCliente" @bind:event="oninput" />
-
-                    <label class="mt-2">Teléfono (opcional)</label>
-                    <input class="form-control form-control-sm" maxlength="30" @bind="telefonoCliente" @bind:event="oninput" />
-
-                    @if (tipoNuevoPedido == EnumTipoServicio.Delivery)
-                    {
-                        <label class="mt-2">Dirección</label>
-                        <input class="form-control form-control-sm" maxlength="150" @bind="direccionCliente" @bind:event="oninput" />
-                    }
-
-                    <div class="resumen-carrito">
-                        <strong>Pedido (@CantidadTotalItems)</strong>
-                        @if (!carrito.Any())
-                        {
-                            <small>Todavía no agregaste productos.</small>
-                        }
-                        else
-                        {
-                            @foreach (var item in carrito)
-                            {
-                                <div class="carrito-item">
-                                    <div class="carrito-item-linea">
-                                        <span>@item.Cantidad × @NombreProducto(item.IdProducto)</span>
-                                        <div class="carrito-acciones">
-                                            <button class="btn-observacion"
-                                                    title="Agregar observación"
-                                                    aria-label="Agregar observación"
-                                                    @onclick="() => EditarObservacion(item)">
-                                                ✎
-                                            </button>
-                                            <button class="btn-eliminar"
-                                                    title="Quitar producto"
-                                                    aria-label="Quitar producto"
-                                                    @onclick="() => QuitarDelCarrito(item)">
-                                                ×
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    @if (!string.IsNullOrWhiteSpace(item.Observacion))
-                                    {
-                                        <small class="observacion-carrito">⚠ @item.Observacion</small>
-                                    }
-
-                                    @if (ReferenceEquals(itemEditandoObservacion, item))
-                                    {
-                                        <div class="editor-observacion">
-                                            <label>Observación para cocina/barra</label>
-                                            <input type="text"
-                                                   maxlength="300"
-                                                   placeholder="Ej.: sin aceitunas"
-                                                   @bind="textoObservacion"
-                                                   @bind:event="oninput" />
-                                            <div class="editor-observacion-acciones">
-                                                <button class="btn-cancelar-observacion" @onclick="CancelarObservacion">Cancelar</button>
-                                                <button class="btn-guardar-observacion" @onclick="GuardarObservacion">Guardar</button>
-                                            </div>
-                                        </div>
-                                    }
-                                </div>
-                            }
-                        }
-                    </div>
-                </aside>
-
-                <nav class="subcategorias" aria-label="Subcategorías">
-                    @foreach (var subcategoria in SubcategoriasDisponibles)
-                    {
-                        <button class="@(subcategoria == subcategoriaSeleccionada ? "activo" : "")"
-                                @onclick="() => subcategoriaSeleccionada = subcategoria">
-                            @subcategoria
-                        </button>
-                    }
-                </nav>
-
-                <div class="productos-modal">
-                    <div class="productos-titulo">
-                        <strong>@subcategoriaSeleccionada</strong>
-                        <span>@categoriaSeleccionada</span>
-                    </div>
-
-                    @foreach (var producto in ProductosVisibles)
-                    {
-                        var cantidad = CantidadProducto(producto.Id);
-                        <article class="producto-fila">
-                            <div>
-                                <strong>@producto.Nombre</strong>
-                                <small>@producto.SectorDestino</small>
-                            </div>
-                            <span class="producto-precio">$@producto.Precio.ToString("N2")</span>
-                            <div class="control-cantidad">
-                                <button @onclick="() => DisminuirProducto(producto.Id)" disabled="@(cantidad == 0)">−</button>
-                                <span>@cantidad</span>
-                                <button @onclick="() => AumentarProducto(producto.Id)">+</button>
-                            </div>
-                        </article>
-                    }
-
-                    @if (!ProductosVisibles.Any())
-                    {
-                        <p class="texto-vacio p-3">No hay productos activos en esta subcategoría.</p>
-                    }
-                </div>
-            </div>
-
-            <footer class="modal-pedido-footer">
-                <div>
-                    <span>Total</span>
-                    <strong>$@TotalCarrito.ToString("N2")</strong>
-                </div>
-                <button class="btn btn-outline-secondary" @onclick="CerrarModalPedido" disabled="@enviandoPedido">Cancelar</button>
-                <button class="btn btn-success" @onclick="EnviarPedido" disabled="@(!PedidoListoParaEnviar || enviandoPedido)">
-                    @(enviandoPedido ? "Enviando..." : "Enviar a cocina/barra")
-                </button>
-            </footer>
-        </section>
-    </div>
-}
 
 <style>
     .pedidos-pagina {
@@ -466,6 +505,12 @@
         font-weight: bold;
     }
 
+    .cuenta-card-titulo-final {
+        margin-top: 0.35rem;
+        padding-top: 0.35rem;
+        border-top: 1px dashed #ddd;
+    }
+
     .cuenta-card-numero {
         font-weight: 400;
         font-size: 0.8rem;
@@ -475,6 +520,48 @@
     .cuenta-card-info {
         font-size: 0.85rem;
         color: #555;
+    }
+
+        .cuenta-card-info.hora-proxima {
+            color: #d32f2f;
+            font-weight: 700;
+        }
+
+    .btn-editar-horario {
+        border: none;
+        background: none;
+        color: #0d6efd;
+        font-size: 0.78rem;
+        cursor: pointer;
+        margin-left: 0.35rem;
+        padding: 0;
+    }
+
+    .editor-horario {
+        margin: 0.3rem 0;
+        padding: 0.4rem 0.5rem;
+        background: #fff;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+    }
+
+        .editor-horario label {
+            display: block;
+            font-size: 0.78rem;
+            color: #555;
+            margin-bottom: 0.2rem;
+        }
+
+    .editor-horario-acciones {
+        display: flex;
+        gap: 0.4rem;
+        margin-top: 0.35rem;
+    }
+
+    .ayuda-horario {
+        display: block;
+        color: #888;
+        margin-bottom: 0.4rem;
     }
 
     .aviso-pago {
@@ -507,9 +594,8 @@
         padding: 0.15rem 0.4rem;
     }
 
-    /* ===== Todo lo de acá abajo es una copia fiel del modal de Mesas.razor
-               (mismas clases, mismo look) para que el "Agregar productos" se sienta
-               igual en las dos pantallas ===== */
+    /* Todo lo de acá abajo es una copia fiel del modal de Mesas.razor para que 
+    el "Agregar productos" se sienta igual en las dos pantallas*/
 
     .btn-cerrar {
         border: none;
@@ -518,27 +604,22 @@
         cursor: pointer;
     }
 
-    .modal-pedido-fondo {
-        position: fixed;
-        inset: 0;
-        z-index: 100;
-        display: grid;
-        place-items: center;
-        padding: 1rem;
-        background: rgba(0, 0, 0, 0.58);
+    .panel-nuevo-pedido {
+        display: block;
+        margin-bottom: 1.5rem;
     }
 
     .modal-pedido {
-        width: min(1180px, 97vw);
-        height: min(650px, calc(100vh - 2rem));
-        max-height: calc(100vh - 2rem);
+        width: 100%;
+        height: auto;
+        max-height: none;
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        overflow: visible;
         background: white;
         border: 4px solid #ef1111;
         border-radius: 10px;
-        box-shadow: 0 18px 60px rgba(0, 0, 0, .35);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, .12);
     }
 
     .modal-pedido-header {
@@ -614,7 +695,7 @@
         flex: 1;
         display: grid;
         grid-template-columns: 320px 165px minmax(0, 1fr);
-        overflow: hidden;
+        overflow: visible;
     }
 
     .selector-resumen,
@@ -627,7 +708,7 @@
         display: flex;
         flex-direction: column;
         padding: 1rem;
-        overflow: hidden;
+        overflow: visible;
         border-right: 1px solid #ddd;
         background: #fff;
     }
@@ -915,7 +996,6 @@
             margin-right: auto;
         }
 
-    /* ===== Responsive: mismos breakpoints que ya usás en Mesas.razor ===== */
 
     @@media (max-width: 780px) {
         .pedidos-header {
@@ -930,14 +1010,14 @@
             max-width: 100%;
         }
 
-        .modal-pedido-fondo {
-            padding: .5rem;
+        .panel-nuevo-pedido {
+            padding: 0;
         }
 
         .modal-pedido {
             width: 100%;
-            height: calc(100vh - 1rem);
-            max-height: calc(100vh - 1rem);
+            height: auto;
+            max-height: none;
         }
 
         .modal-pedido-header {
@@ -1038,12 +1118,12 @@
 </style>
 
 @code {
-    // ---- Nuevo pedido (modal, calcado del de Mesas.razor) ----
-    private bool mostrarModalPedido;
+    //lo que pidio el cliente, Nuevo pedido siempre visible arriba, calcado del modal de Mesas.razor
     private EnumTipoServicio tipoNuevoPedido = EnumTipoServicio.TakeAway;
     private string nombreCliente = "";
     private string telefonoCliente = "";
     private string direccionCliente = "";
+    private string horaDeseadaTexto = ""; 
     private List<ProductoListadoDTO> productos = new();
     private List<ItemPedidoDTO> carrito = new();
     private string categoriaSeleccionada = "";
@@ -1053,12 +1133,19 @@
     private bool enviandoPedido;
     private string? MensajeForm;
 
+    // Cuánto antes del horario deseado se lo marca en rojo para avisar que se acerca.
+    private const int MinutosAvisoHoraDeseada = 15;
+
+    //Para editar el horario deseado de un pedido ya creado, es solo para administracion/barra, no para delivery
+    private int? editandoHorarioId;
+    private string horaEditando = "";
+
     // ---- Seguimiento (Administracion/Barra) ----
     private EnumTipoServicio tabSeguimiento = EnumTipoServicio.TakeAway;
     private List<PedidoParaLlevarDTO> takeAways = new();
     private List<PedidoParaLlevarDTO> deliveries = new();
 
-    // ---- Vista Delivery ----
+    //Para Delivery
     private string? MensajeDelivery;
     private List<PedidoParaLlevarDTO> ParaRepartir =>
         deliveries.Where(c => c.TodoListo && c.IdDelivery == null).ToList();
@@ -1101,6 +1188,7 @@
         await CargarRolActual();
         await CargarUsuarioActual();
         await CargarProductos();
+        ReiniciarFormularioPedido();
         await CargarSeguimiento();
         Polling.Iniciar(CargarSeguimiento, TimeSpan.FromSeconds(4));
     }
@@ -1157,16 +1245,51 @@
     // Se puede pasar a caja apenas cocina/barra terminó (listo, en camino o ya
     // entregado), sin esperar a que el cliente lo retire o el repartidor lo entregue.
     // Una vez que ya está en caja (PendienteCobro) o ya se cobró (Pagada), el botón
-    // desaparece porque no hay nada más que "cerrar".
+    // desaparece porque no hay nada más que cerrar.
     private bool PuedeCerrar(PedidoParaLlevarDTO cuenta) =>
         cuenta.EstadoComanda == EnumEstadoComanda.Abierta && cuenta.TodoListoOMasAlla;
 
     private string NombreProducto(int idProducto) =>
         productos.FirstOrDefault(p => p.Id == idProducto)?.Nombre ?? "";
 
-    // ---- Modal: abrir/cerrar ----
+    //Es lo del horario deseado, que es opcional. Si ya pasó la hora deseada, se marca en rojo para avisar que se acerca.
+    //Lo puse que aparezca en rojo 15 minutos antes de la hora deseada, para que el personal sepa que se acerca la hora y
+    // se apure en preparar el pedido. Tambien la comanda aparece solo 45 minutos antes de la hora deseada, para que no se vea en el seguimiento demasiado temprano.
 
-    private void AbrirModalPedido()
+    private string ClaseHorarioProximo(PedidoParaLlevarDTO cuenta) =>
+        cuenta.HoraDeseada.HasValue && cuenta.HoraDeseada.Value <= DateTime.UtcNow.AddMinutes(MinutosAvisoHoraDeseada)
+            ? "hora-proxima"
+            : "";
+
+    private void EditarHoraDeseada(PedidoParaLlevarDTO cuenta)
+    {
+        editandoHorarioId = cuenta.IdComanda;
+        horaEditando = cuenta.HoraDeseada?.ToLocalTime().ToString("HH:mm") ?? "";
+    }
+
+    private void CancelarEdicionHorario()
+    {
+        editandoHorarioId = null;
+        horaEditando = "";
+    }
+
+    private async Task GuardarHoraDeseada(PedidoParaLlevarDTO cuenta)
+    {
+        var dto = new ActualizarHoraDeseadaDTO { HoraDeseada = ConvertirHoraDeseada(horaEditando) };
+        var respuesta = await http.Put($"api/Comanda/{cuenta.IdComanda}/HoraDeseada", dto);
+
+        if (respuesta.Error)
+        {
+            MensajeForm = respuesta.ObtenerError();
+            return;
+        }
+
+        CancelarEdicionHorario();
+        await CargarSeguimiento();
+    }
+
+
+    private void ReiniciarFormularioPedido()
     {
         CancelarObservacion();
         MensajeForm = null;
@@ -1174,16 +1297,10 @@
         nombreCliente = "";
         telefonoCliente = "";
         direccionCliente = "";
+        horaDeseadaTexto = "";
         carrito = new();
         categoriaSeleccionada = CategoriasDisponibles.FirstOrDefault() ?? "";
         subcategoriaSeleccionada = SubcategoriasDisponibles.FirstOrDefault() ?? "";
-        mostrarModalPedido = true;
-    }
-
-    private void CerrarModalPedido()
-    {
-        mostrarModalPedido = false;
-        CancelarObservacion();
     }
 
     private void SeleccionarCategoria(string categoria)
@@ -1201,7 +1318,7 @@
         return "🍔";
     }
 
-    // ---- Carrito (mismo comportamiento que en Mesas.razor) ----
+    //Es lo mismo que en mesa.razor, pero es para Take Away y Delivery.
 
     private int CantidadProducto(int idProducto) =>
         carrito.Where(c => c.IdProducto == idProducto).Sum(c => c.Cantidad);
@@ -1257,7 +1374,6 @@
             string.IsNullOrWhiteSpace(itemEditandoObservacion.Observacion) &&
             itemEditandoObservacion.Cantidad > 1)
         {
-            // Separa una unidad: permite, por ej., una porción sin algo y el resto normal.
             itemEditandoObservacion.Cantidad--;
             carrito.Add(new ItemPedidoDTO
             {
@@ -1283,7 +1399,22 @@
         textoObservacion = "";
     }
 
-    // ---- Envío del pedido ----
+    //Aca es la parte del horario deseado, el cual lo dejo opcional.
+    //Solo es horas y minutos, no se elige fecha. Se asume que es para hoy, y si ya pasó, se asume que es para mañana.
+    private DateTime? ConvertirHoraDeseada(string horaTexto)
+    {
+        if (string.IsNullOrWhiteSpace(horaTexto)) return null;
+        if (!TimeSpan.TryParse(horaTexto, out var hora)) return null;
+
+        var ahora = DateTime.Now;
+        var candidato = ahora.Date.Add(hora);
+        if (candidato < ahora.AddMinutes(-1))
+        {
+            candidato = candidato.AddDays(1);
+        }
+
+        return candidato.ToUniversalTime();
+    }
 
     private async Task EnviarPedido()
     {
@@ -1304,6 +1435,7 @@
             NombreCliente = nombreCliente.Trim(),
             Telefono = string.IsNullOrWhiteSpace(telefonoCliente) ? null : telefonoCliente.Trim(),
             Direccion = tipoNuevoPedido == EnumTipoServicio.Delivery ? direccionCliente.Trim() : null,
+            HoraDeseada = ConvertirHoraDeseada(horaDeseadaTexto),
             Items = carrito
         };
 
@@ -1316,12 +1448,13 @@
             return;
         }
 
-        mostrarModalPedido = false;
-        MensajeForm = $"Pedido {respuesta.Respuesta!.NumeroComanda} enviado.";
+        var numeroGenerado = respuesta.Respuesta!.NumeroComanda;
+        ReiniciarFormularioPedido();
+        MensajeForm = $"Pedido {numeroGenerado} enviado.";
         await CargarSeguimiento();
     }
 
-    // ---- Seguimiento Administracion/Barra ----
+    //Es de administración/barra, para marcar como retirado un pedido de TakeAway que ya lo retiró el cliente
 
     private async Task MarcarRetiradoTakeAway(PedidoParaLlevarDTO cuenta)
     {
@@ -1346,7 +1479,7 @@
         await CargarSeguimiento();
     }
 
-    // ---- Vista Delivery ----
+    // Esto es lo del Delivery, en donde toma un pedido para repartirlo, y lo marca como entregado cuando se terminó
 
     private async Task TomarPedido(PedidoParaLlevarDTO cuenta)
     {

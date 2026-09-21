@@ -8,27 +8,17 @@ namespace PericoOnFire_2026.Shared.DTOs
     public class ComandaDTO
     {
         public int Id { get; set; }
-
         public int? IdMesa { get; set; }
-
         public int? IdCliente { get; set; }
-
         public int? IdUsuario { get; set; }
-
         public EnumTipoServicio TipoServicio { get; set; }
-
         public EnumEstadoComanda Estado { get; set; }
-
         public DateTime FechaApertura { get; set; }
-
         public DateTime? FechaCierre { get; set; }
-
         public decimal Total { get; set; }
-
         public int CantidadComensales { get; set; }
-
+        public DateTime? HoraDeseada { get; set; }
         public string NumeroComanda => $"COM-{Id:D6}";
-
         public string? Observaciones { get; set; }
     }
 }

@@ -22,6 +22,11 @@ namespace PericoOnFire_2026.BD.Datos.Entity
 
         public DateTime? FechaCierre { get; set; }
 
+        //Horario específico en el que el cliente desea recibir/retirar el pedido.
+        //Si es null, significa que el pedido es para el momento, pero si no es null,
+        //la comanda se guarda y a aprece en cocina recien cuando se acerque la hora deseada.
+        public DateTime? HoraDeseada { get; set; }
+
         public decimal Total { get; set; } = 0;
 
         public int CantidadComensales { get; set; }

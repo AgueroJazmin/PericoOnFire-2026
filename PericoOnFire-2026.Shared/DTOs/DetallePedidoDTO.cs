@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PericoOnFire_2026.Shared.ENUM;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -13,6 +14,7 @@ namespace PericoOnFire_2026.Shared.DTOs
         public decimal PrecioUnitario { get; set; }
         public string? Observacion { get; set; }
         public string NombreProducto { get; set; } = ""; //para no tener que armar otra clase solo para mostrar el nombre
+        public EnumSectorDestino SectorDestino { get; set; }
 
     }
 }

@@ -34,14 +34,29 @@ namespace PericoOnFire_2026.Repositorio.Repositorios
                 .ToListAsync();
         }
 
+        // Ventana de tiempo antes del horario deseado en la que un pedido empieza a
+        // aparecerle a cocina/barra. Si falta más que esto, el pedido existe en la base
+        //para que Administración lo vea en el seguimiento pero no estorba en el tablero.
+        private const int MinutosAntesDeHoraDeseada = 45;
+
         public async Task<List<Pedido>> SelectBySector(EnumSectorDestino sector)
         {
+            var limite = DateTime.UtcNow.AddMinutes(MinutosAntesDeHoraDeseada);
+
             return await context.Pedidos
                 .Include(p => p.Comanda)
                    .ThenInclude(c => c.Mesa)
+                .Include(p => p.Comanda)
+                   .ThenInclude(c => c.Cliente)
                 .Include(p => p.DetallesPedido)
                    .ThenInclude(d => d.Producto)
-                .Where(p => p.SectorDestino == sector)
+                .Include(p => p.Comanda)
+                   .ThenInclude(c => c.Pedidos.Where(hermano => hermano.SectorDestino != sector &&
+                                                                 hermano.Estado != EnumEstadoPedido.Cancelado))
+                       .ThenInclude(hermano => hermano.DetallesPedido)
+                           .ThenInclude(d => d.Producto)
+                .Where(p => p.SectorDestino == sector &&
+                            (p.Comanda.HoraDeseada == null || p.Comanda.HoraDeseada <= limite))
                 .OrderBy(p => p.FechaPedido)
                 .ToListAsync();
         }
@@ -68,9 +83,7 @@ namespace PericoOnFire_2026.Repositorio.Repositorios
 
             var pedidosCreados = new List<int>();
 
-            // La conexión tiene reintentos automáticos (EnableRetryOnFailure), así que la
-            // transacción manual tiene que ir envuelta en la estrategia de ejecución del
-            // contexto, o EF la rechaza directamente.
+            // La conexión tiene reintentos, así que la transacción también tiene que estar dentro de la estrategia de reintento.
             var estrategia = context.Database.CreateExecutionStrategy();
 
             await estrategia.ExecuteAsync(async () =>
@@ -192,7 +205,7 @@ namespace PericoOnFire_2026.Repositorio.Repositorios
             return pedidos.Count;
         }
 
-        //La FK de DetallesPedido hacia Pedidos es RESTRICT (no ON DELETE CASCADE), así que
+        //La llave foranea de DetallesPedido hacia Pedidos es restrict, no lo de cascada, así que
         //Postgres rechaza borrar un Pedido mientras le queden DetallesPedido colgando.
         //Es parecido a lo que hace EliminarEntregadosPorSector, pero para un solo pedido.
         //De esta manera, si un pedido tiene detalles, se borran todos los detalles y luego el pedido.
