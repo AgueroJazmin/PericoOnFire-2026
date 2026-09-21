@@ -219,8 +219,8 @@ namespace PericoOnFire_2026.Server.Controllers
         }
 
         // Para TakeAway/Delivery, aca no hay Mesa que bloquear ni liberar,
-        // así que no hace falta la verificación de mesa. En cambio, acá se crea un cliente nuevo
-        // con los datos que cargó quien tomó el pedido (nombre siempre, dirección solo si es Delivery).
+        //así que no hace falta la verificación de mesa. En cambio, acá se crea un cliente nuevo
+        //con los datos que cargó quien tomó el pedido
         [HttpPost("ConfirmarSinMesa")]
         public async Task<ActionResult<ComandaConfirmadaDTO>> ConfirmarSinMesa(ConfirmarPedidoSinMesaDTO dto)
         {
@@ -272,6 +272,7 @@ namespace PericoOnFire_2026.Server.Controllers
                     Estado = EnumEstadoComanda.Abierta,
                     EstadoRegistro = EnumEstadoRegistro.activo,
                     FechaApertura = DateTime.UtcNow,
+                    HoraDeseada = dto.HoraDeseada,
                     Total = dto.Items.Sum(i =>
                         productos.First(p => p.Id == i.IdProducto).Precio * i.Cantidad)
                 };
@@ -327,6 +328,20 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok(resultado);
         }
 
+        // Permite cargar o cambiar el horario deseado (retiro en Take Away, entrega en
+        // Delivery) de una comanda que ya está abierta, sin tener que tocar el resto del pedido.
+        [HttpPut("{id:int}/HoraDeseada")]
+        public async Task<ActionResult> ActualizarHoraDeseada(int id, ActualizarHoraDeseadaDTO dto)
+        {
+            var comanda = await context.Comandas.FindAsync(id);
+            if (comanda == null) return NotFound();
+
+            comanda.HoraDeseada = dto.HoraDeseada;
+            await context.SaveChangesAsync();
+
+            return Ok();
+        }
+
         //Este Cancelar sirve en el caso de que se haya abierto una comanda por error,
         //o si el cliente decide no consumir nada y se quiere liberar la mesa.
 
@@ -339,7 +354,12 @@ namespace PericoOnFire_2026.Server.Controllers
             if (comanda.Estado != EnumEstadoComanda.Abierta)
                 return Conflict("Solo se puede cancelar una comanda abierta.");
 
-            var tienePedidos = await context.Pedidos.AnyAsync(p => p.IdComanda == id);
+            //Vacía totalmente, si no tiene ningún pedido real cargado. Los pedidos ya
+            //cancelados no cuentan como contenido enotonces si la mesa se abrió y todo lo que se
+            //llegó a cargar se canceló después, sigue estando vacía y cualquier usuario
+            //tiene que poder liberarla para que otro la pueda usar.
+            var tienePedidos = await context.Pedidos.AnyAsync(p =>
+                p.IdComanda == id && p.Estado != EnumEstadoPedido.Cancelado);
             if (tienePedidos)
                 return Conflict("No se puede cancelar una mesa que ya tiene pedidos cargados. Usá 'Cerrar mesa' en su lugar.");
 
@@ -372,8 +392,8 @@ namespace PericoOnFire_2026.Server.Controllers
 
             if (comanda.TipoServicio == EnumTipoServicio.Mesa)
             {
-                // Esto es del Mozo, es para que no pueda pasar a caja una comanda
-                // de mesa que todavía tiene pedidos en preparación
+                //Esto es del Mozo, es para que no pueda pasar a caja una comanda
+                //de mesa que todavía tiene pedidos en preparación
                 hayPedidosSinAvanzar = await context.Pedidos.AnyAsync(p =>
                     p.IdComanda == id &&
                     p.Estado != EnumEstadoPedido.Entregado &&
@@ -381,9 +401,9 @@ namespace PericoOnFire_2026.Server.Controllers
             }
             else
             {
-                // Esto es para TakeAway/Delivery en donde pasa a caja apenas cocina/barra lo dejó listo,
-                // sin esperar a que el cliente lo retire o el repartidor lo entregue. Así caja puede cobrar en
-                // cualquier momento del proceso y no solo al final.
+                //Esto es para TakeAway/Delivery en donde pasa a caja apenas cocina/barra lo dejó listo,
+                //sin esperar a que el cliente lo retire o el repartidor lo entregue. Así caja puede cobrar en
+                //cualquier momento del proceso y no solo al final.
                 hayPedidosSinAvanzar = await context.Pedidos.AnyAsync(p =>
                     p.IdComanda == id &&
                     p.Estado != EnumEstadoPedido.ListoParaRetirar &&

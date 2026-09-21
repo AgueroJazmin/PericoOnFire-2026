@@ -15,6 +15,7 @@ namespace PericoOnFire_2026.Shared.DTOs
         public string? Telefono { get; set; }
         public string? Direccion { get; set; }
         public DateTime FechaApertura { get; set; }
+        public DateTime? HoraDeseada { get; set; }
         public List<ItemCuentaDTO> Items { get; set; } = new();
         public List<PedidoSectorEstadoDTO> Pedidos { get; set; } = new();
         public int? IdDelivery { get; set; }
@@ -30,8 +31,7 @@ namespace PericoOnFire_2026.Shared.DTOs
         // Cuando ya está listo el pedido, pasa a: para retirar, en camino, o ya entregado.
         // Se usa para saber si ya se puede pasar la cuenta a caja, sin tener que
         // esperar a que el cliente lo retire o el repartidor lo entregue para poder cobrar.
-        public bool TodoListoOMasAlla => Pedidos.Any() && Pedidos.All(p =>p.Estado == EnumEstadoPedido.ListoParaRetirar 
-       ||p.Estado == EnumEstadoPedido.EnCamino ||p.Estado == EnumEstadoPedido.Entregado);
-
+        public bool TodoListoOMasAlla => Pedidos.Any() && Pedidos.All(p => p.Estado == EnumEstadoPedido.ListoParaRetirar
+       || p.Estado == EnumEstadoPedido.EnCamino || p.Estado == EnumEstadoPedido.Entregado);
     }
 }

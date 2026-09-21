@@ -26,6 +26,6 @@ namespace PericoOnFire_2026.BD.Datos.Entity
             public string? MotivoCancelacion { get; set; }
             public DateTime? FechaCancelado { get; set; }
             public List<DetallePedido> DetallesPedido { get; set; } = new();
-    }
+        }
     
 }

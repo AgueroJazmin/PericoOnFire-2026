@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PericoOnFire_2026.BD.Datos;
@@ -11,9 +12,11 @@ using PericoOnFire_2026.BD.Datos;
 namespace PericoOnFire_2026.BD.Migrations
 {
     [DbContext(typeof(MiDbContext))]
-    partial class MiDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260921031238_Mod")]
+    partial class Mod
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -314,9 +317,6 @@ namespace PericoOnFire_2026.BD.Migrations
                     b.Property<DateTime?>("FechaCierre")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("HoraDeseada")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<int?>("IdCliente")
                         .HasColumnType("integer");
 
@@ -548,6 +548,9 @@ namespace PericoOnFire_2026.BD.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("FechaPedido")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FechaProgramadaEntrega")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("IdComanda")

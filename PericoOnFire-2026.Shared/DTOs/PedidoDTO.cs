@@ -21,7 +21,18 @@ namespace PericoOnFire_2026.Shared.DTOs
         public EnumTipoServicio? TipoServicio { get; set; }
         public string? MotivoCancelacion { get; set; }
         public DateTime? FechaCancelado { get; set; }
+        public DateTime? HoraDeseada { get; set; }
         public string NumeroComanda => $"COM-{IdComanda:D6}";
+
+        //Le agrego estas dos propiedades para que el front pueda mostrar el nombre del cliente
+        //y la direccion en la comanda, sin tener que hacer un join con la tabla Cliente.
+        public string? NombreCliente { get; set; }
+        public string? Direccion { get; set; }
         public List<DetallePedidoDTO> DetallesPedido { get; set; } = new();
+
+        //Ítems de la misma comanda que fueron a otro sector, en este caso seria la bebida que le
+        //corresponde a Barra, mostrada en gris en la comanda de Cocina como referencia,
+        //sin botones de acción sobre ellos
+        public List<DetallePedidoDTO> DetallesOtroSector { get; set; } = new();
     }
 }
