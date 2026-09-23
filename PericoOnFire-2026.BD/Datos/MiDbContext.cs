@@ -18,6 +18,7 @@ namespace  PericoOnFire_2026.BD.Datos
         public DbSet<Usuario> Usuarios { get; set; }
         public DbSet<Cliente> Clientes { get; set; } 
         public DbSet<Mesa> Mesas { get; set; }
+        public DbSet<Sala> Salas { get; set; }
         public DbSet<Categoria> Categorias { get; set; }
         public DbSet<Subcategoria> Subcategorias { get; set; }
         public DbSet<Producto> Productos { get; set; }
@@ -51,6 +52,12 @@ namespace  PericoOnFire_2026.BD.Datos
             modelBuilder.Entity<Producto>()
                 .Property(p => p.Precio)
                 .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Mesa>()
+                .HasOne(m => m.Sala)
+                .WithMany(s => s.Mesas)
+                .HasForeignKey(m => m.IdSala)
+                .OnDelete(DeleteBehavior.Restrict);
 
             modelBuilder.Entity<Comanda>()
                 .Property(c => c.Total)

@@ -328,93 +328,93 @@
                            @bind:event="oninput" />
 
                     <div class="tabla-scroll tabla-productos-scroll">
-                    <table class="table tabla-config tabla-productos mt-3">
-                        <thead>
-                            <tr>
-                                <th>Producto</th>
-                                <th>Categoría</th>
-                                <th>Subcategoría</th>
-                                <th>Precio</th>
-                                <th>Sector</th>
-                                <th>Activo</th>
-                                <th style="width: 130px;">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var p in ProductosFiltrados)
-                            {
+                        <table class="table tabla-config tabla-productos mt-3">
+                            <thead>
                                 <tr>
-                                    <td>
-                                        @if (editandoProductoId == p.Id)
-                                        {
-                                            <input class="form-control form-control-sm"
-                                                   @bind="editandoProducto.Nombre" />
-                                        }
-                                        else
-                                        {
-                                            @p.Nombre
-                                        }
-                                    </td>
-
-                                    <td>@p.NombreCategoria</td>
-                                    <td>@p.NombreSubcategoria</td>
-
-                                    <td>
-                                        @if (editandoProductoId == p.Id)
-                                        {
-                                            <input type="number"
-                                                   class="form-control form-control-sm"
-                                                   @bind="editandoProducto.Precio" />
-                                        }
-                                        else
-                                        {
-                                            @($"$ {p.Precio:N0}")
-                                        }
-                                    </td>
-
-                                    <td>@p.SectorDestino</td>
-
-                                    <td>
-                                        @if (p.Activo)
-                                        {
-                                            <span class="badge bg-success">Sí</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="badge bg-secondary">No</span>
-                                        }
-                                    </td>
-
-                                    <td class="acciones">
-                                        @if (editandoProductoId == p.Id)
-                                        {
-                                            <button class="btn btn-sm btn-success"
-                                                    @onclick="() => GuardarEdicionProducto(p)">
-                                                <i class="bi bi-check-lg"></i>
-                                            </button>
-
-                                            <button class="btn btn-sm btn-secondary"
-                                                    @onclick="CancelarEdicion">
-                                                <i class="bi bi-x-lg"></i>
-                                            </button>
-                                        }
-                                        else
-                                        {
-                                            <button class="btn btn-sm btn-outline-primary"
-                                                    @onclick="() => EditarProducto(p)">
-                                                <i class="bi bi-pencil"></i>
-                                            </button>
-
-                                            <button class="btn btn-sm btn-outline-danger"
-                                                    @onclick="() => EliminarProducto(p.Id)">
-                                                <i class="bi bi-trash"></i>
-                                            </button>
-                                        }
-                                    </td>
+                                    <th>Producto</th>
+                                    <th>Categoría</th>
+                                    <th>Subcategoría</th>
+                                    <th>Precio</th>
+                                    <th>Sector</th>
+                                    <th>Activo</th>
+                                    <th style="width: 130px;">Acciones</th>
                                 </tr>
-                            }
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                @foreach (var p in ProductosFiltrados)
+                                {
+                                    <tr>
+                                        <td>
+                                            @if (editandoProductoId == p.Id)
+                                            {
+                                                <input class="form-control form-control-sm"
+                                                       @bind="editandoProducto.Nombre" />
+                                            }
+                                            else
+                                            {
+                                                @p.Nombre
+                                            }
+                                        </td>
+
+                                        <td>@p.NombreCategoria</td>
+                                        <td>@p.NombreSubcategoria</td>
+
+                                        <td>
+                                            @if (editandoProductoId == p.Id)
+                                            {
+                                                <input type="number"
+                                                       class="form-control form-control-sm"
+                                                       @bind="editandoProducto.Precio" />
+                                            }
+                                            else
+                                            {
+                                                @($"$ {p.Precio:N0}")
+                                            }
+                                        </td>
+
+                                        <td>@p.SectorDestino</td>
+
+                                        <td>
+                                            @if (p.Activo)
+                                            {
+                                                <span class="badge bg-success">Sí</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-secondary">No</span>
+                                            }
+                                        </td>
+
+                                        <td class="acciones">
+                                            @if (editandoProductoId == p.Id)
+                                            {
+                                                <button class="btn btn-sm btn-success"
+                                                        @onclick="() => GuardarEdicionProducto(p)">
+                                                    <i class="bi bi-check-lg"></i>
+                                                </button>
+
+                                                <button class="btn btn-sm btn-secondary"
+                                                        @onclick="CancelarEdicion">
+                                                    <i class="bi bi-x-lg"></i>
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-sm btn-outline-primary"
+                                                        @onclick="() => EditarProducto(p)">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+
+                                                <button class="btn btn-sm btn-outline-danger"
+                                                        @onclick="() => EliminarProducto(p.Id)">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            }
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
                     </div>
                 }
 
@@ -627,118 +627,138 @@
         </div>
     }
 
-    <!-- Nuevo de Mesas-->
+    <!-- Nuevo de Mesas: salas + grilla, como en el diseño de referencia -->
     @if (tabActiva == "mesas")
     {
         <div class="mesas-config">
             <div class="section-header">
-                <h3>Mesas</h3>
+                <h3>Salas y mesas</h3>
             </div>
 
-            <EditForm Model="mesa" OnValidSubmit="GuardarMesa">
-                <DataAnnotationsValidator />
-                <ValidationSummary />
-
-                <div class="form-line categorias-form">
-                    <InputNumber class="form-control"
-                                 placeholder="Número de mesa"
-                                 @bind-Value="mesa.NumeroMesa" />
-
-                    <button class="btn btn-dark" type="submit">
-                        + Nueva Mesa
+            <div class="salas-tabs">
+                @foreach (var s in salas.OrderBy(s => s.Orden))
+                {
+                    <button class="sala-tab @(salaSeleccionadaId == s.Id ? "sala-tab-activa" : "")"
+                            @onclick="() => SeleccionarSala(s.Id)">
+                        @s.Nombre
                     </button>
-                </div>
-            </EditForm>
+                }
 
-            <input class="form-control mt-3 mb-3"
-                   placeholder="Buscar mesa por número..."
-                   @bind="filtroMesa"
-                   @bind:event="oninput" />
+                @if (mostrarFormNuevaSala)
+                {
+                    <input class="form-control form-control-sm input-nueva-sala"
+                           placeholder="Nombre de la sala"
+                           @bind="nombreNuevaSala" @bind:event="oninput"
+                           @onkeyup='async (e) => { if (e.Key == "Enter") { await CrearSala(); } }' />
+                    <button class="btn btn-sm btn-success" @onclick="CrearSala">✓</button>
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => mostrarFormNuevaSala = false">✕</button>
+                }
+                else
+                {
+                    <button class="btn btn-sm btn-dark" @onclick="() => mostrarFormNuevaSala = true">+ Nueva sala</button>
+                }
+            </div>
 
-            <table class="table tabla-config mt-3">
-                <thead>
-                    <tr>
-                        <th>Número</th>
-                        <th>Estado</th>
-                        <th style="width: 130px;">Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @if (mesas.Count == 0)
-                    {
-                        <tr>
-                            <td colspan="3" class="text-muted">
-                                No hay mesas cargadas.
-                            </td>
-                        </tr>
-                    }
-                    else
-                    {
-                        @foreach (var m in MesasFiltradas)
+            @if (!string.IsNullOrWhiteSpace(MensajeMesas))
+            {
+                <div class="alert alert-info mt-2">@MensajeMesas</div>
+            }
+
+            @if (salas.Count == 0)
+            {
+                <p class="text-muted mt-3">Todavía no creaste ninguna sala. Empezá por "+ Nueva sala".</p>
+            }
+            else if (salaSeleccionadaId == null)
+            {
+                <p class="text-muted mt-3">Elegí una sala arriba para ver y armar sus mesas.</p>
+            }
+            else
+            {
+                <div class="editor-salon">
+                    <div class="grilla-salon">
+                        @for (var fila = 0; fila < FilasGrilla; fila++)
                         {
-                            <tr>
-                                <td>
-                                    @if (editandoMesaId == m.Id)
-                                    {
-                                        <input type="number"
-                                               class="form-control form-control-sm"
-                                               @bind="editandoMesaNumero" />
-                                    }
-                                    else
-                                    {
-                                        @m.NumeroMesa
-                                    }
-                                </td>
+                            var filaActual = fila;
+                            <div class="fila-grilla">
+                                @for (var columna = 0; columna < ColumnasGrilla; columna++)
+                                {
+                                    var columnaActual = columna;
+                                    var mesaEnCelda = MesasSalaActual.FirstOrDefault(m => m.Fila == filaActual && m.Columna == columnaActual);
 
-                                <td>
-                                    @if (editandoMesaId == m.Id)
+                                    if (mesaEnCelda != null)
                                     {
-                                        <select class="form-select form-select-sm" @bind="editandoMesaEstado">
-                                            <option value="@EnumEstadoMesa.Libre">Libre</option>
-                                            <option value="@EnumEstadoMesa.Ocupada">Ocupada</option>
-                                            <option value="@EnumEstadoMesa.Reservada">Reservada</option>
-                                            <option value="@EnumEstadoMesa.PendienteCobro">PendienteCobro</option>
-                                        </select>
-                                    }
-                                    else
-                                    {
-                                        @m.Estado
-                                    }
-                                </td>
-
-                                <td class="acciones">
-                                    @if (editandoMesaId == m.Id)
-                                    {
-                                        <button class="btn btn-sm btn-success"
-                                                @onclick="() => GuardarEdicionMesa(m)">
-                                            <i class="bi bi-check-lg"></i>
-                                        </button>
-
-                                        <button class="btn btn-sm btn-secondary"
-                                                @onclick="CancelarEdicion">
-                                            <i class="bi bi-x-lg"></i>
+                                        <button class="celda-mesa tamanio-@mesaEnCelda.Tamanio.ToString().ToLower() forma-@mesaEnCelda.Forma.ToString().ToLower()
+                                            @(mesaSeleccionadaConfig?.Id == mesaEnCelda.Id ? "celda-mesa-activa" : "")"
+                                                @onclick="() => SeleccionarMesaConfig(mesaEnCelda)">
+                                            @mesaEnCelda.NumeroMesa
                                         </button>
                                     }
                                     else
                                     {
-                                        <button class="btn btn-sm btn-outline-primary"
-                                                title="Editar"
-                                                @onclick="() => EditarMesa(m)">
-                                            <i class="bi bi-pencil-square"></i>
-                                        </button>
-
-                                        <button class="btn btn-sm btn-outline-danger"
-                                                title="Borrar"
-                                                @onclick="() => EliminarMesa(m.Id)">
-                                            <i class="bi bi-trash3"></i>
+                                        <button class="celda-vacia" title="Agregar mesa acá"
+                                                @onclick="() => CrearMesaEnCelda(filaActual, columnaActual)">
+                                            +
                                         </button>
                                     }
-                                </td>
-                            </tr>
+                                }
+                            </div>
                         }
-                    }
-                </tbody>
-            </table>
+                    </div>
+
+                    <div class="panel-mesa-config">
+                        <div class="panel-mesa-header">
+                            @(salas.First(s => s.Id == salaSeleccionadaId).Nombre)
+                            <button class="btn-cerrar" title="Eliminar sala" @onclick="() => EliminarSala(salaSeleccionadaId!.Value)">
+                                <i class="bi bi-trash3"></i>
+                            </button>
+                        </div>
+
+                        @if (mesaSeleccionadaConfig == null)
+                        {
+                            <p class="text-muted">Hacé click en una celda vacía para agregar una mesa, o en una mesa ya creada para editarla.</p>
+                        }
+                        else
+                        {
+                            <div class="panel-mesa-body">
+                                <div class="panel-mesa-titulo">
+                                    Mesa @mesaSeleccionadaConfig.NumeroMesa
+                                    <button class="btn-cerrar" title="Eliminar mesa" @onclick="() => EliminarMesaConfig(mesaSeleccionadaConfig.Id)">
+                                        <i class="bi bi-trash3"></i>
+                                    </button>
+                                </div>
+
+                                <label>Número</label>
+                                <input type="number" class="form-control form-control-sm" @bind="numeroEditado" />
+
+                                <label class="mt-2">Sala</label>
+                                <select class="form-select form-select-sm" @bind="salaDestinoEditada">
+                                    @foreach (var s in salas.OrderBy(s => s.Orden))
+                                    {
+                                        <option value="@s.Id">@s.Nombre</option>
+                                    }
+                                </select>
+
+                                <label class="mt-2">Forma</label>
+                                <select class="form-select form-select-sm" @bind="formaEditada">
+                                    <option value="@EnumFormaMesa.Cuadrada">Cuadrada</option>
+                                    <option value="@EnumFormaMesa.Redonda">Redonda</option>
+                                </select>
+
+                                <label class="mt-2">Tamaño</label>
+                                <select class="form-select form-select-sm" @bind="tamanioEditada">
+                                    <option value="@EnumTamanioMesa.Chica">Chica</option>
+                                    <option value="@EnumTamanioMesa.Mediana">Mediana</option>
+                                    <option value="@EnumTamanioMesa.Grande">Grande</option>
+                                </select>
+
+                                <button class="btn btn-dark w-100 mt-3" @onclick="GuardarMesaConfig">
+                                    Guardar cambios
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
         </div>
     }
 
@@ -884,6 +904,155 @@
         padding: 2rem;
     }
 
+    .salas-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .5rem;
+        border-bottom: 2px solid #333;
+        padding-bottom: .6rem;
+        margin-bottom: 1rem;
+    }
+
+    .sala-tab {
+        border: 1px solid #ccc;
+        background: #f2f2f2;
+        border-radius: 6px 6px 0 0;
+        padding: .4rem 1rem;
+        font-weight: 600;
+        color: #444;
+    }
+
+    .sala-tab-activa {
+        background: #333;
+        color: white;
+        border-color: #333;
+    }
+
+    .input-nueva-sala {
+        max-width: 220px;
+        display: inline-block;
+    }
+
+    .editor-salon {
+        display: grid;
+        grid-template-columns: 1fr 280px;
+        gap: 1.2rem;
+        align-items: start;
+    }
+
+    .grilla-salon {
+        display: flex;
+        flex-direction: column;
+        gap: .5rem;
+        overflow: auto;
+        padding: .5rem;
+        background: #fafafa;
+        border: 1px solid #eee;
+        border-radius: 8px;
+    }
+
+    .fila-grilla {
+        display: flex;
+        gap: .5rem;
+    }
+
+    .celda-vacia, .celda-mesa {
+        width: 62px;
+        height: 62px;
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+    }
+
+    .celda-vacia {
+        border: 1px dashed #ccc;
+        border-radius: 6px;
+        background: white;
+        color: #ccc;
+        font-size: 1.3rem;
+    }
+
+        .celda-vacia:hover {
+            border-color: #f0a000;
+            color: #f0a000;
+            background: #fff8ec;
+        }
+
+    .celda-mesa {
+        border: 2px solid #888;
+        background: #e2e2e2;
+        color: #333;
+        cursor: pointer;
+    }
+
+        .celda-mesa.forma-redonda {
+            border-radius: 50%;
+        }
+
+        .celda-mesa.forma-cuadrada {
+            border-radius: 8px;
+        }
+
+        .celda-mesa.tamanio-chica {
+            width: 46px;
+            height: 46px;
+            font-size: .8rem;
+        }
+
+        .celda-mesa.tamanio-grande {
+            width: 78px;
+            height: 78px;
+            font-size: 1.1rem;
+        }
+
+        .celda-mesa.celda-mesa-activa {
+            border-color: #f0a000;
+            background: #fff1c7;
+        }
+
+    .panel-mesa-config {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        overflow: hidden;
+        align-self: start;
+    }
+
+    .panel-mesa-header {
+        background: #f0a000;
+        color: white;
+        font-weight: 700;
+        padding: .6rem .9rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .panel-mesa-body {
+        padding: .9rem;
+    }
+
+    .panel-mesa-titulo {
+        font-weight: 700;
+        margin-bottom: .6rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .panel-mesa-config .btn-cerrar {
+        background: none;
+        border: none;
+        color: inherit;
+        opacity: .85;
+    }
+
+        .panel-mesa-config .btn-cerrar:hover {
+            opacity: 1;
+        }
+
     .top-action {
         display: flex;
         justify-content: flex-end;
@@ -997,13 +1166,27 @@
     private string filtroSubcategoria = "";
     private string filtroProducto = "";
 
-   // Esto es de mesas
+    // Esto es de mesas
     private List<MesaDTO> mesas = new();
-    private MesaDTO mesa = new() { Estado = EnumEstadoMesa.Libre };
-    private int? editandoMesaId;
-    private int editandoMesaNumero;
-    private EnumEstadoMesa editandoMesaEstado;
-    private string filtroMesa = "";
+    private List<SalaDTO> salas = new();
+    private int? salaSeleccionadaId;
+    private MesaDTO? mesaSeleccionadaConfig;
+    private bool mostrarFormNuevaSala;
+    private string nombreNuevaSala = "";
+    private string? MensajeMesas;
+
+    // Número de filas/columnas de la grilla que se muestra por sala (si algún día
+    // hace falta una sala más grande, alcanza con subir estas dos constantes).
+    private const int FilasGrilla = 6;
+    private const int ColumnasGrilla = 8;
+
+    private int numeroEditado;
+    private int salaDestinoEditada;
+    private EnumFormaMesa formaEditada;
+    private EnumTamanioMesa tamanioEditada;
+
+    private IEnumerable<MesaDTO> MesasSalaActual =>
+        mesas.Where(m => m.IdSala == salaSeleccionadaId);
 
     //Esto es lo que yo agrego para que ande roles con lo que yo hice de mi page
     private List<UsuarioRolDTO>? usuariosRol;
@@ -1069,7 +1252,7 @@
     }
 
     //Hasta aca
-  
+
     protected override async Task OnInitializedAsync()
     {
         await CargarCategorias();
@@ -1077,6 +1260,7 @@
         await CargarProductos();
         await CargarUsuarios();
         await CargarMesas();
+        await CargarSalas();
 
         Polling.Iniciar(ActualizarTodo, TimeSpan.FromSeconds(2));
     }
@@ -1088,6 +1272,7 @@
         await CargarProductos();
         await CargarUsuarios();
         await CargarMesas();
+        await CargarSalas();
         await InvokeAsync(StateHasChanged);
     }
 
@@ -1230,7 +1415,7 @@
         CancelarEdicion();
         editandoSubcategoriaId = s.Id;
         editandoSubcategoriaNombre = s.NombreSubcategoria;
-    } 
+    }
 
     private async Task GuardarEdicionSubcategoria(SubcategoriaListadoDTO s)
     {
@@ -1322,7 +1507,7 @@
         editandoSubcategoriaId = null;
         editandoProductoId = null;
         editandoProducto = new();
-        editandoMesaId = null; // NUEVO
+        mesaSeleccionadaConfig = null;
     }
     private void CambiarSeccion(string seccion)
     {
@@ -1358,20 +1543,20 @@
         : categorias.Where(c =>
             c.NombreCategoria.Contains(filtroCategoria, StringComparison.OrdinalIgnoreCase));
 
-private IEnumerable<SubcategoriaListadoDTO> SubcategoriasFiltradas =>
-    string.IsNullOrWhiteSpace(filtroSubcategoria)
-        ? subcategorias
-        : subcategorias.Where(s =>
-            s.NombreSubcategoria.Contains(filtroSubcategoria, StringComparison.OrdinalIgnoreCase)
-            || s.NombreCategoria.Contains(filtroSubcategoria, StringComparison.OrdinalIgnoreCase));
+    private IEnumerable<SubcategoriaListadoDTO> SubcategoriasFiltradas =>
+        string.IsNullOrWhiteSpace(filtroSubcategoria)
+            ? subcategorias
+            : subcategorias.Where(s =>
+                s.NombreSubcategoria.Contains(filtroSubcategoria, StringComparison.OrdinalIgnoreCase)
+                || s.NombreCategoria.Contains(filtroSubcategoria, StringComparison.OrdinalIgnoreCase));
 
-private IEnumerable<ProductoListadoDTO> ProductosFiltrados =>
-    string.IsNullOrWhiteSpace(filtroProducto)
-        ? productos
-        : productos.Where(p =>
-            p.Nombre.Contains(filtroProducto, StringComparison.OrdinalIgnoreCase)
-            || p.NombreCategoria.Contains(filtroProducto, StringComparison.OrdinalIgnoreCase)
-            || p.NombreSubcategoria.Contains(filtroProducto, StringComparison.OrdinalIgnoreCase));
+    private IEnumerable<ProductoListadoDTO> ProductosFiltrados =>
+        string.IsNullOrWhiteSpace(filtroProducto)
+            ? productos
+            : productos.Where(p =>
+                p.Nombre.Contains(filtroProducto, StringComparison.OrdinalIgnoreCase)
+                || p.NombreCategoria.Contains(filtroProducto, StringComparison.OrdinalIgnoreCase)
+                || p.NombreSubcategoria.Contains(filtroProducto, StringComparison.OrdinalIgnoreCase));
 
     private async Task CargarUsuarios()
     {
@@ -1440,7 +1625,7 @@ private IEnumerable<ProductoListadoDTO> ProductosFiltrados =>
             Mensaje = resp.ObtenerError();
         }
     }
-    
+
     //Nuevos metodos para mesas
     private async Task CargarMesas()
     {
@@ -1456,71 +1641,132 @@ private IEnumerable<ProductoListadoDTO> ProductosFiltrados =>
         }
     }
 
-    private async Task GuardarMesa()
+    private async Task CargarSalas()
     {
-        var resp = await http.Post<MesaDTO, int>("api/Mesa", mesa);
+        var resp = await http.Get<List<SalaDTO>>("api/Sala");
+
+        if (!resp.Error && resp.Respuesta != null)
+        {
+            salas = resp.Respuesta;
+            if (salaSeleccionadaId == null && salas.Any())
+                salaSeleccionadaId = salas.OrderBy(s => s.Orden).First().Id;
+        }
+    }
+
+    private void SeleccionarSala(int idSala)
+    {
+        salaSeleccionadaId = idSala;
+        mesaSeleccionadaConfig = null;
+        MensajeMesas = null;
+    }
+
+    private async Task CrearSala()
+    {
+        if (string.IsNullOrWhiteSpace(nombreNuevaSala)) return;
+
+        var dto = new SalaCrearDTO { Nombre = nombreNuevaSala.Trim() };
+        var resp = await http.Post<SalaCrearDTO, int>("api/Sala", dto);
 
         if (!resp.Error)
         {
-            Mensaje = "Mesa cargada correctamente.";
-            mesa = new() { Estado = EnumEstadoMesa.Libre };
-            await CargarMesas();
+            nombreNuevaSala = "";
+            mostrarFormNuevaSala = false;
+            await CargarSalas();
+            salaSeleccionadaId = resp.Respuesta;
         }
         else
         {
-            Mensaje = resp.ObtenerError();
+            MensajeMesas = resp.ObtenerError();
         }
     }
 
-    private void EditarMesa(MesaDTO m)
+    private async Task EliminarSala(int idSala)
     {
-        CancelarEdicion();
-        editandoMesaId = m.Id;
-        editandoMesaNumero = m.NumeroMesa;
-        editandoMesaEstado = m.Estado;
+        var resp = await http.Delete($"api/Sala/{idSala}");
+
+        if (!resp.Error)
+        {
+            salaSeleccionadaId = null;
+            mesaSeleccionadaConfig = null;
+            await CargarSalas();
+        }
+        else
+        {
+            MensajeMesas = resp.ObtenerError();
+        }
     }
 
-    private async Task GuardarEdicionMesa(MesaDTO m)
+    private async Task CrearMesaEnCelda(int fila, int columna)
     {
+        if (salaSeleccionadaId == null) return;
+
+        var dto = new MesaCrearDTO { IdSala = salaSeleccionadaId.Value, Fila = fila, Columna = columna };
+        var resp = await http.Post<MesaCrearDTO, MesaDTO>("api/Mesa/EnCelda", dto);
+
+        if (!resp.Error)
+        {
+            MensajeMesas = null;
+            await CargarMesas();
+            if (resp.Respuesta != null)
+                SeleccionarMesaConfig(resp.Respuesta);
+        }
+        else
+        {
+            MensajeMesas = resp.ObtenerError();
+        }
+    }
+
+    private void SeleccionarMesaConfig(MesaDTO m)
+    {
+        mesaSeleccionadaConfig = m;
+        numeroEditado = m.NumeroMesa;
+        salaDestinoEditada = m.IdSala ?? salaSeleccionadaId ?? 0;
+        formaEditada = m.Forma;
+        tamanioEditada = m.Tamanio;
+    }
+
+    private async Task GuardarMesaConfig()
+    {
+        if (mesaSeleccionadaConfig == null) return;
+
         var dto = new MesaDTO
         {
-            NumeroMesa = editandoMesaNumero,
-            Estado = editandoMesaEstado
+            NumeroMesa = numeroEditado,
+            Estado = mesaSeleccionadaConfig.Estado,
+            IdSala = salaDestinoEditada,
+            Fila = mesaSeleccionadaConfig.Fila,
+            Columna = mesaSeleccionadaConfig.Columna,
+            Forma = formaEditada,
+            Tamanio = tamanioEditada
         };
 
-        var resp = await http.Put<MesaDTO>($"api/Mesa/{m.Id}", dto);
+        var resp = await http.Put<MesaDTO>($"api/Mesa/{mesaSeleccionadaConfig.Id}", dto);
 
         if (!resp.Error)
         {
-            Mensaje = "Mesa actualizada.";
-            CancelarEdicion();
+            MensajeMesas = "Mesa actualizada.";
+            mesaSeleccionadaConfig = null;
             await CargarMesas();
         }
         else
         {
-            Mensaje = resp.ObtenerError();
+            MensajeMesas = resp.ObtenerError();
         }
     }
 
-    private async Task EliminarMesa(int id)
+    private async Task EliminarMesaConfig(int id)
     {
         var resp = await http.Delete($"api/Mesa/{id}");
 
         if (!resp.Error)
         {
-            Mensaje = "Mesa eliminada.";
+            mesaSeleccionadaConfig = null;
             await CargarMesas();
         }
         else
         {
-            Mensaje = resp.ObtenerError();
+            MensajeMesas = resp.ObtenerError();
         }
     }
-
-    private IEnumerable<MesaDTO> MesasFiltradas =>
-        string.IsNullOrWhiteSpace(filtroMesa)
-            ? mesas.OrderBy(m => m.NumeroMesa)
-            : mesas.Where(m => m.NumeroMesa.ToString().Contains(filtroMesa))
-                   .OrderBy(m => m.NumeroMesa);
 
 }
