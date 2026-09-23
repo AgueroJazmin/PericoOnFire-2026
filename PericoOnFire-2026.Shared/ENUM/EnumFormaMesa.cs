@@ -4,7 +4,9 @@ using System.Text;
 
 namespace PericoOnFire_2026.Shared.ENUM
 {
-    public class EnumFormaMesa
+    public enum EnumFormaMesa
     {
+        Cuadrada = 1,
+        Redonda = 2
     }
 }
