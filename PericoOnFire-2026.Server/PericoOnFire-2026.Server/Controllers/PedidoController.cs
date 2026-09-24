@@ -6,6 +6,7 @@ using PericoOnFire_2026.Shared.DTOs;
 using PericoOnFire_2026.Shared.ENUM;
 using Microsoft.EntityFrameworkCore;
 using PericoOnFire_2026.Repositorio.Repositorios;
+using PericoOnFire_2026.Server.Servicios;
 
 namespace PericoOnFire_2026.Server.Controllers
 {
@@ -52,7 +53,7 @@ namespace PericoOnFire_2026.Server.Controllers
         public async Task<ActionResult<List<PedidoDTO>>> GetByComanda(int idComanda)
         {
             var pedidos = await repositorio.SelectByComanda(idComanda);
-            return Ok(MapearPedidos(pedidos));
+            return Ok(await MapearPedidos(pedidos));
         }
 
         //Este endpoint obtiene los pedidos de un sector específico
@@ -60,7 +61,7 @@ namespace PericoOnFire_2026.Server.Controllers
         public async Task<ActionResult<List<PedidoDTO>>> GetBySector(EnumSectorDestino sector)
         {
             var pedidos = await repositorio.SelectBySector(sector);
-            return Ok(MapearPedidos(pedidos));
+            return Ok(await MapearPedidos(pedidos));
         }
 
         //Este endpoint permite cambiar el estado de un pedido específico.
@@ -143,6 +144,10 @@ namespace PericoOnFire_2026.Server.Controllers
                 .OrderBy(c => c.FechaApertura)
                 .ToListAsync();
 
+            var numerosDiarios = await NumeroComandaDiario.ObtenerVariosAsync(
+                context,
+                comandas.Select(c => (c.Id, c.FechaApertura)));
+
             var resultado = comandas.Select(c =>
             {
                 var pedidosActivos = c.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado).ToList();
@@ -150,6 +155,7 @@ namespace PericoOnFire_2026.Server.Controllers
                 return new PedidoParaLlevarDTO
                 {
                     IdComanda = c.Id,
+                    NumeroDiario = numerosDiarios.GetValueOrDefault(c.Id),
                     TipoServicio = c.TipoServicio,
                     EstadoComanda = c.Estado,
                     NombreCliente = c.Cliente?.Nombre ?? "",
@@ -322,8 +328,13 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok();
         }
 
-        private List<PedidoDTO> MapearPedidos(List<Pedido> pedidos)
+        private async Task<List<PedidoDTO>> MapearPedidos(List<Pedido> pedidos)
         {
+            var numerosDiarios = await NumeroComandaDiario.ObtenerVariosAsync(
+                context,
+                pedidos.Where(p => p.Comanda != null)
+                    .Select(p => (p.IdComanda, p.Comanda!.FechaApertura)));
+
             return pedidos.Select(p => new PedidoDTO
             {
                 Id = p.Id,
@@ -340,6 +351,7 @@ namespace PericoOnFire_2026.Server.Controllers
                 FechaCancelado = p.FechaCancelado,
                 NumeroMesa = p.Comanda != null ? p.Comanda.Mesa?.NumeroMesa : null,
                 TipoServicio = p.Comanda?.TipoServicio,
+                NumeroDiario = numerosDiarios.GetValueOrDefault(p.IdComanda),
                 NombreCliente = p.Comanda?.Cliente?.Nombre,
                 Direccion = p.Comanda?.Cliente?.Direccion,
                 HoraDeseada = p.Comanda?.HoraDeseada,

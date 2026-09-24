@@ -299,11 +299,13 @@
                 <aside class="selector-resumen">
                     @if (esNuevaComanda)
                     {
-                        <strong>Cant. de comensales</strong>
-                        <div class="control-cantidad comensales">
-                            <button @onclick="DisminuirComensales" disabled="@(cantidadComensales <= 1)">−</button>
-                            <span>@cantidadComensales</span>
-                            <button @onclick="AumentarComensales">+</button>
+                        <div class="bloque-comensales">
+                            <strong>Comensales</strong>
+                            <div class="control-cantidad comensales">
+                                <button @onclick="DisminuirComensales" disabled="@(cantidadComensales <= 1)">−</button>
+                                <span>@cantidadComensales</span>
+                                <button @onclick="AumentarComensales">+</button>
+                            </div>
                         </div>
                     }
 
@@ -800,7 +802,7 @@
 
     .modal-pedido {
         width: min(1180px, 97vw);
-        height: min(650px, calc(100vh - 2rem));
+        height: min(540px, calc(100vh - 2rem));
         max-height: calc(100vh - 2rem);
         display: flex;
         flex-direction: column;
@@ -857,8 +859,8 @@
     }
 
         .categorias-superiores button {
-            min-width: 125px;
-            padding: .55rem .9rem;
+            min-width: 105px;
+            padding: .5rem .75rem;
             border: 1px solid #aaa;
             border-radius: 7px;
             background: white;
@@ -889,7 +891,7 @@
         min-height: 0;
         flex: 1;
         display: grid;
-        grid-template-columns: 320px 165px minmax(0, 1fr);
+        grid-template-columns: 180px minmax(0, 1fr) 350px;
         overflow: hidden;
     }
 
@@ -902,19 +904,31 @@
     /* PEDIDO Y COMENSALES */
 
     .selector-resumen {
+        grid-column: 3;
+        grid-row: 1;
         display: flex;
         flex-direction: column;
         padding: 1rem;
         overflow: hidden;
-        border-right: 1px solid #ddd;
+        border-left: 1px solid #ddd;
+        border-right: 0;
         background: #fff;
     }
 
-        .selector-resumen > strong {
-            display: block;
-            text-align: center;
-            font-size: .95rem;
-        }
+    .bloque-comensales {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .65rem;
+        padding: .35rem .5rem;
+        border: 1px solid #e1e1e1;
+        border-radius: 7px;
+        background: #fafafa;
+    }
+
+    .bloque-comensales > strong {
+        font-size: .8rem;
+    }
 
     .control-cantidad {
         display: inline-flex;
@@ -954,7 +968,14 @@
     .comensales {
         display: flex;
         justify-content: center;
-        margin: .75rem 0 1rem;
+        margin: 0;
+        gap: .25rem;
+    }
+
+    .comensales button {
+        width: 24px;
+        height: 24px;
+        font-size: .8rem;
     }
 
     /* RESUMEN DEL PEDIDO */
@@ -965,8 +986,8 @@
         display: flex;
         flex-direction: column;
         gap: .55rem;
-        margin-top: .25rem;
-        padding-top: 1rem;
+        margin-top: .5rem;
+        padding-top: .7rem;
         overflow-y: auto;
         border-top: 1px solid #ddd;
     }
@@ -1088,6 +1109,8 @@
     /* SUBCATEGORÍAS */
 
     .subcategorias {
+        grid-column: 1;
+        grid-row: 1;
         display: flex;
         flex-direction: column;
         gap: .5rem;
@@ -1099,11 +1122,16 @@
 
         .subcategorias button {
             width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
             padding: .65rem .6rem;
             border: 1px solid #aaa;
             border-radius: 7px;
             background: white;
             text-align: left;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            line-height: 1.2;
             cursor: pointer;
         }
 
@@ -1122,7 +1150,9 @@
     /* PRODUCTOS */
 
     .productos-modal {
-        margin: 1rem;
+        grid-column: 2;
+        grid-row: 1;
+        margin: .75rem;
         overflow-y: auto;
         border: 2px solid #1687e8;
         border-radius: 3px;
@@ -1178,6 +1208,16 @@
         padding: .8rem 1rem;
         border-top: 1px solid #ddd;
         background: white;
+    }
+
+    .modal-pedido-footer .btn {
+        min-height: 42px;
+        padding: .55rem 1rem;
+        font-weight: 700;
+    }
+
+    .modal-pedido-footer .btn-success {
+        min-width: 175px;
     }
 
         .modal-pedido-footer > div {
@@ -1250,13 +1290,16 @@
             }
 
         .selector-productos {
-            display: block;
+            display: flex;
+            flex-direction: column;
             overflow-y: auto;
         }
 
         .selector-resumen {
+            order: 3;
             min-height: 320px;
             overflow: visible;
+            border-left: 0;
             border-right: 0;
             border-bottom: 1px solid #ddd;
         }
@@ -1267,6 +1310,7 @@
         }
 
         .subcategorias {
+            order: 1;
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             overflow: visible;
@@ -1274,7 +1318,13 @@
             border-bottom: 1px solid #ddd;
         }
 
+        .subcategorias button {
+            font-size: .9rem;
+            text-align: center;
+        }
+
         .productos-modal {
+            order: 2;
             overflow: visible;
         }
 
@@ -1317,6 +1367,10 @@
 
         .productos-modal {
             margin: .6rem;
+        }
+
+        .subcategorias {
+            grid-template-columns: 1fr;
         }
 
         .producto-fila {
@@ -1411,7 +1465,17 @@
         .Select(p => p.NombreCategoria)
         .Where(n => !string.IsNullOrWhiteSpace(n))
         .Distinct()
-        .OrderBy(n => n);
+        .OrderBy(OrdenCategoria)
+        .ThenBy(n => n);
+
+    private static int OrdenCategoria(string categoria)
+    {
+        var nombre = categoria.ToLowerInvariant();
+        if (nombre.Contains("comida")) return 1;
+        if (nombre.Contains("bebida")) return 2;
+        if (nombre.Contains("postre")) return 3;
+        return 4;
+    }
 
     private IEnumerable<string> SubcategoriasDisponibles => productos
         .Where(p => p.NombreCategoria == categoriaSeleccionada)

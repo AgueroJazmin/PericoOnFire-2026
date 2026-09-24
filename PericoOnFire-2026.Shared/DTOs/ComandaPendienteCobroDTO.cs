@@ -8,7 +8,8 @@ namespace PericoOnFire_2026.Shared.DTOs
     public class ComandaPendienteCobroDTO
     {
         public int Id { get; set; }
-        public string NumeroComanda => $"COM-{Id:D6}";
+        public int NumeroDiario { get; set; }
+        public string NumeroComanda => $"COM-{NumeroDiario:D3}";
         public int? NumeroMesa { get; set; }
         public EnumTipoServicio TipoServicio { get; set; }
         public DateTime FechaApertura { get; set; }

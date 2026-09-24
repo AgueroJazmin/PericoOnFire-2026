@@ -4,6 +4,7 @@ using PericoOnFire_2026.BD.Datos;
 using PericoOnFire_2026.BD.Datos.Entity;
 using PericoOnFire_2026.Shared.DTOs;
 using PericoOnFire_2026.Shared.ENUM;
+using PericoOnFire_2026.Server.Servicios;
 
 namespace PericoOnFire_2026.Server.Controllers
 {
@@ -55,6 +56,13 @@ namespace PericoOnFire_2026.Server.Controllers
                         .ToList()
                 })
                 .ToListAsync();
+
+            var numerosDiarios = await NumeroComandaDiario.ObtenerVariosAsync(
+                context,
+                comandas.Select(c => (c.Id, c.FechaApertura)));
+
+            foreach (var comanda in comandas)
+                comanda.NumeroDiario = numerosDiarios.GetValueOrDefault(comanda.Id);
 
             return Ok(comandas);
         }

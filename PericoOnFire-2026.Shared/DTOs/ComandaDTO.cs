@@ -18,7 +18,8 @@ namespace PericoOnFire_2026.Shared.DTOs
         public decimal Total { get; set; }
         public int CantidadComensales { get; set; }
         public DateTime? HoraDeseada { get; set; }
-        public string NumeroComanda => $"COM-{Id:D6}";
+        public int NumeroDiario { get; set; }
+        public string NumeroComanda => $"COM-{NumeroDiario:D3}";
         public string? Observaciones { get; set; }
     }
 }

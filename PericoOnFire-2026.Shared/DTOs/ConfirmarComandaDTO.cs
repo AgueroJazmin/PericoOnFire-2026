@@ -22,7 +22,8 @@ namespace PericoOnFire_2026.Shared.DTOs
     public class ComandaConfirmadaDTO
     {
         public int IdComanda { get; set; }
-        public string NumeroComanda => $"COM-{IdComanda:D6}";
+        public int NumeroDiario { get; set; }
+        public string NumeroComanda => $"COM-{NumeroDiario:D3}";
         public List<int> IdsPedidos { get; set; } = new();
     }
 }

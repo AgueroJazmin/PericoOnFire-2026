@@ -5,6 +5,7 @@ using PericoOnFire_2026.Shared.DTOs;
 using PericoOnFire_2026.Shared.ENUM;
 using Microsoft.EntityFrameworkCore;
 using PericoOnFire_2026.Repositorio.Repositorios;
+using PericoOnFire_2026.Server.Servicios;
 
 
 namespace PericoOnFire_2026.Server.Controllers
@@ -66,12 +67,16 @@ namespace PericoOnFire_2026.Server.Controllers
                        FechaCierre = c.FechaCierre,
                        Total = c.Total,
                        CantidadComensales = c.CantidadComensales,
+                       HoraDeseada = c.HoraDeseada,
                        Observaciones = c.Observaciones
                    })
                    .FirstOrDefaultAsync();
 
             if (comanda == null)
                 return NotFound();
+
+            comanda.NumeroDiario = await NumeroComandaDiario.ObtenerAsync(
+                context, comanda.Id, comanda.FechaApertura);
 
             return Ok(comanda);
         }
@@ -206,6 +211,8 @@ namespace PericoOnFire_2026.Server.Controllers
                     resultado = new ComandaConfirmadaDTO
                     {
                         IdComanda = comanda.Id,
+                        NumeroDiario = await NumeroComandaDiario.ObtenerAsync(
+                            context, comanda.Id, comanda.FechaApertura),
                         IdsPedidos = idsPedidos
                     };
                 });
@@ -321,6 +328,8 @@ namespace PericoOnFire_2026.Server.Controllers
                 resultado = new ComandaConfirmadaDTO
                 {
                     IdComanda = comanda.Id,
+                    NumeroDiario = await NumeroComandaDiario.ObtenerAsync(
+                        context, comanda.Id, comanda.FechaApertura),
                     IdsPedidos = idsPedidos
                 };
             });

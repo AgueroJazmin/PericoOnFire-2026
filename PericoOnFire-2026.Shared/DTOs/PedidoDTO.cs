@@ -22,7 +22,8 @@ namespace PericoOnFire_2026.Shared.DTOs
         public string? MotivoCancelacion { get; set; }
         public DateTime? FechaCancelado { get; set; }
         public DateTime? HoraDeseada { get; set; }
-        public string NumeroComanda => $"COM-{IdComanda:D6}";
+        public int NumeroDiario { get; set; }
+        public string NumeroComanda => $"COM-{NumeroDiario:D3}";
 
         //Le agrego estas dos propiedades para que el front pueda mostrar el nombre del cliente
         //y la direccion en la comanda, sin tener que hacer un join con la tabla Cliente.
