@@ -1,15 +1,18 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PericoOnFire_2026.BD.Datos;
 using PericoOnFire_2026.BD.Datos.Entity;
 using PericoOnFire_2026.Shared.DTOs;
 using PericoOnFire_2026.Shared.ENUM;
 using PericoOnFire_2026.Server.Servicios;
+using PericoOnFire_2026.Shared.Utilidades;
 
 namespace PericoOnFire_2026.Server.Controllers
 {
     [ApiController]
     [Route("api/Pago")]
+    [Authorize(Roles = "Caja,Administracion")]
     public class PagosController : ControllerBase
     {
         private readonly MiDbContext context;
@@ -70,9 +73,18 @@ namespace PericoOnFire_2026.Server.Controllers
         //Acá es donde caja cobra y recién ahí libera la mesa: mientras la comanda siga
         //PendienteCobro, la mesa se mantiene bloqueada para que no la reasigne otro mozo
         //mientras el pago todavía no se concretó.
+        //Se puede cobrar con varias formas de pago a la vez (pago combinado): cada una queda como
+        //una fila de Pago y las reglas (el vuelto solo sale del efectivo, etc.) viven en
+        //CobroCombinado, que el cliente también usa para avisar antes de enviar.
+        //Solo se cobra con la caja abierta, porque cada pago queda atado al turno para poder
+        //hacer después el arqueo.
         [HttpPost("Registrar")]
         public async Task<ActionResult<PagoRegistradoDTO>> Registrar(RegistrarPagoDTO dto)
         {
+            var turno = await CajaActual.ObtenerTurnoAbiertoAsync(context);
+            if (turno == null)
+                return Conflict("La caja está cerrada. Abrí un turno antes de cobrar.");
+
             var comanda = await context.Comandas
                 .Include(c => c.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado))
                     .ThenInclude(p => p.DetallesPedido)
@@ -92,26 +104,32 @@ namespace PericoOnFire_2026.Server.Controllers
             if (total <= 0)
                 return Conflict("La comanda no tiene productos para cobrar.");
 
-            if (dto.MontoPagado < total)
-                return Conflict($"El monto pagado (${dto.MontoPagado:0.00}) es menor al total de la cuenta (${total:0.00}).");
+            var cobro = CobroCombinado.Evaluar(total, dto.Lineas);
+            if (!cobro.EsValido)
+                return Conflict(cobro.Error);
 
-            var pago = new Pago
-            {
-                IdComanda = comanda.Id,
-                IdUsuarioCaja = dto.IdUsuarioCaja,
-                TipoPago = dto.TipoPago,
-                MontoTotal = total,
-                MontoPagado = dto.MontoPagado,
-                Vuelto = dto.MontoPagado - total,
-                FechaPago = DateTime.UtcNow,
-                EstadoRegistro = EnumEstadoRegistro.activo
-            };
+            //MontoTotal es el de la cuenta en todas las filas; el vuelto se carga solo en la de efectivo.
+            var ahora = DateTime.UtcNow;
+            var pagos = cobro.Lineas
+                .Select(l => new Pago
+                {
+                    IdComanda = comanda.Id,
+                    IdUsuarioCaja = dto.IdUsuarioCaja,
+                    IdTurnoCaja = turno.Id,
+                    TipoPago = l.TipoPago,
+                    MontoTotal = total,
+                    MontoPagado = l.Monto,
+                    Vuelto = l.TipoPago == EnumTipoPago.Efectivo ? cobro.Vuelto : 0,
+                    FechaPago = ahora,
+                    EstadoRegistro = EnumEstadoRegistro.activo
+                })
+                .ToList();
 
-            context.Pagos.Add(pago);
+            context.Pagos.AddRange(pagos);
 
             comanda.Estado = EnumEstadoComanda.Pagada;
             comanda.Total = total;
-            comanda.FechaCierre = DateTime.UtcNow;
+            comanda.FechaCierre = ahora;
 
             if (comanda.IdMesa.HasValue)
             {
@@ -124,9 +142,9 @@ namespace PericoOnFire_2026.Server.Controllers
 
             return Ok(new PagoRegistradoDTO
             {
-                IdPago = pago.Id,
+                IdPago = pagos[0].Id,
                 MontoTotal = total,
-                Vuelto = pago.Vuelto
+                Vuelto = cobro.Vuelto
             });
         }
 

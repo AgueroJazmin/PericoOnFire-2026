@@ -1,0 +1,474 @@
+﻿@using System.Globalization
+@using PericoOnFire_2026.Shared.DTOs
+@using PericoOnFire_2026.Shared.ENUM
+@using PericoOnFire_2026.Shared.Utilidades
+@using PericoOnFire_2026.Servicio.ServicioHttp
+@inject IHttpServicio http
+
+@* Ventas cobradas: las del día por defecto, o las de un rango de fechas. Todo sale de los Pago
+   registrados (ver CajaController), así que sirve tanto para el control diario como para la estadística. *@
+
+<div class="cv-contenedor">
+
+    <section class="cv-filtros">
+        <div class="cv-campo">
+            <label>Desde</label>
+            <input type="date" class="form-control" @bind="desde" @bind:after="Cargar" />
+        </div>
+        <div class="cv-campo">
+            <label>Hasta</label>
+            <input type="date" class="form-control" @bind="hasta" @bind:after="Cargar" />
+        </div>
+        <div class="cv-atajos">
+            <button type="button" class="cv-atajo" @onclick="Hoy">Hoy</button>
+            <button type="button" class="cv-atajo" @onclick="Ayer">Ayer</button>
+            <button type="button" class="cv-atajo" @onclick="UltimosSieteDias">7 días</button>
+        </div>
+    </section>
+
+    @if (!string.IsNullOrWhiteSpace(mensaje))
+    {
+        <div class="alert alert-warning">@mensaje</div>
+    }
+
+    @if (resumen != null)
+    {
+        <section class="cv-tarjetas">
+            <div class="cv-tarjeta cv-tarjeta-principal">
+                <span>Total vendido</span>
+                <strong>@Dinero(resumen.TotalVendido)</strong>
+            </div>
+            <div class="cv-tarjeta">
+                <span>Ventas</span>
+                <strong>@resumen.CantidadVentas</strong>
+            </div>
+            <div class="cv-tarjeta">
+                <span>Ticket promedio</span>
+                <strong>@Dinero(resumen.TicketPromedio)</strong>
+            </div>
+        </section>
+
+        @if (resumen.CantidadVentas > 0)
+        {
+            <section class="cv-bloques">
+                <div class="cv-bloque">
+                    <h6>Por forma de pago</h6>
+                    @foreach (var fila in resumen.PorTipoPago)
+                    {
+                        <div class="cv-fila-barra">
+                            <div class="cv-fila-texto">
+                                <span>@fila.Concepto</span>
+                                <strong>@Dinero(fila.Monto)</strong>
+                            </div>
+                            <div class="cv-barra"><div class="cv-barra-llena" style="width:@Porcentaje(fila.Monto, TotalPorTipoPago)%"></div></div>
+                        </div>
+                    }
+                </div>
+
+                <div class="cv-bloque">
+                    <h6>Por tipo de servicio</h6>
+                    @foreach (var fila in resumen.PorTipoServicio)
+                    {
+                        <div class="cv-fila-barra">
+                            <div class="cv-fila-texto">
+                                <span>@fila.Concepto <small>(@fila.Cantidad)</small></span>
+                                <strong>@Dinero(fila.Monto)</strong>
+                            </div>
+                            <div class="cv-barra"><div class="cv-barra-llena" style="width:@Porcentaje(fila.Monto, resumen.TotalVendido)%"></div></div>
+                        </div>
+                    }
+                </div>
+
+                @if (resumen.PorDia.Count > 1)
+                {
+                    <div class="cv-bloque">
+                        <h6>Por día</h6>
+                        @foreach (var fila in resumen.PorDia)
+                        {
+                            <div class="cv-fila-barra">
+                                <div class="cv-fila-texto">
+                                    <span>@fila.Concepto <small>(@fila.Cantidad)</small></span>
+                                    <strong>@Dinero(fila.Monto)</strong>
+                                </div>
+                                <div class="cv-barra"><div class="cv-barra-llena" style="width:@Porcentaje(fila.Monto, resumen.TotalVendido)%"></div></div>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (resumen.ProductosMasVendidos.Any())
+                {
+                    <div class="cv-bloque">
+                        <h6>Productos más vendidos</h6>
+                        @foreach (var fila in resumen.ProductosMasVendidos)
+                        {
+                            <div class="cv-fila-texto cv-fila-simple">
+                                <span>@fila.Concepto</span>
+                                <strong>@fila.Cantidad u.</strong>
+                            </div>
+                        }
+                    </div>
+                }
+            </section>
+        }
+    }
+
+    <section class="cv-listado">
+        <h5>Ventas registradas</h5>
+
+        @if (cargando)
+        {
+            <p class="texto-vacio">Cargando…</p>
+        }
+        else if (!ventas.Any())
+        {
+            <p class="texto-vacio">No hay ventas cobradas en ese período.</p>
+        }
+
+        @foreach (var venta in ventas)
+        {
+            <article class="cv-venta">
+                <div class="cv-venta-cabecera">
+                    <div class="cv-venta-titulo">
+                        @Servicio(venta)
+                        <span class="cv-venta-numero">· @venta.NumeroComanda</span>
+                    </div>
+                    <div class="cv-venta-total">@Dinero(venta.Total)</div>
+                </div>
+                <div class="cv-venta-pagos">
+                    @foreach (var pago in venta.Pagos)
+                    {
+                        <span class="cv-chip">@TiposPagoCaja.Nombre(pago.TipoPago) @Dinero(pago.Monto)</span>
+                    }
+                    @if (venta.Vuelto > 0)
+                    {
+                        <span class="cv-chip cv-chip-vuelto">Vuelto @Dinero(venta.Vuelto)</span>
+                    }
+                </div>
+                <div class="cv-venta-info">@FechaHora(venta.FechaPago) · Cobró @(venta.NombreCajero ?? "—")</div>
+            </article>
+        }
+    </section>
+</div>
+
+<style>
+    .cv-contenedor {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        color: #222;
+    }
+
+    .cv-filtros {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: .75rem;
+        background: white;
+        border-radius: 8px;
+        padding: .75rem 1rem;
+    }
+
+    .cv-campo {
+        display: flex;
+        flex-direction: column;
+        gap: .2rem;
+        flex: 0 1 170px;
+        min-width: 0;
+    }
+
+        .cv-campo label {
+            font-size: .85rem;
+            color: #666;
+        }
+
+    .cv-atajos {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .4rem;
+    }
+
+    .cv-atajo {
+        padding: .4rem .8rem;
+        border: 1px solid #ccc;
+        border-radius: 999px;
+        background: #f4f4f4;
+        cursor: pointer;
+    }
+
+        .cv-atajo:hover {
+            border-color: #1f6feb;
+        }
+
+    .cv-tarjetas {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: .75rem;
+    }
+
+    .cv-tarjeta {
+        display: flex;
+        flex-direction: column;
+        gap: .15rem;
+        background: white;
+        border-radius: 8px;
+        padding: .75rem 1rem;
+        border-left: 4px solid #ccc;
+        min-width: 0;
+    }
+
+        .cv-tarjeta span {
+            font-size: .85rem;
+            color: #666;
+        }
+
+        .cv-tarjeta strong {
+            font-size: 1.35rem;
+            overflow-wrap: anywhere;
+        }
+
+    .cv-tarjeta-principal {
+        border-left-color: #2e7d32;
+    }
+
+        .cv-tarjeta-principal strong {
+            color: #2e7d32;
+        }
+
+    .cv-bloques {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: .75rem;
+    }
+
+    .cv-bloque {
+        background: white;
+        border-radius: 8px;
+        padding: .75rem 1rem;
+        min-width: 0;
+    }
+
+        .cv-bloque h6 {
+            margin: 0 0 .6rem;
+            font-weight: 700;
+        }
+
+    .cv-fila-barra {
+        margin-bottom: .6rem;
+    }
+
+    .cv-fila-texto {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: .75rem;
+    }
+
+        .cv-fila-texto span {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .cv-fila-texto small {
+            color: #888;
+        }
+
+    .cv-fila-simple {
+        padding: .3rem 0;
+        border-bottom: 1px solid #eee;
+    }
+
+    .cv-barra {
+        height: 6px;
+        margin-top: .2rem;
+        background: #eee;
+        border-radius: 999px;
+        overflow: hidden;
+    }
+
+    .cv-barra-llena {
+        height: 100%;
+        background: #1f6feb;
+        border-radius: 999px;
+    }
+
+    .cv-listado {
+        background: #f4f4f4;
+        border-radius: 8px;
+        padding: .75rem;
+    }
+
+        .cv-listado h5 {
+            margin: 0 0 .6rem;
+        }
+
+    .cv-venta {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: .6rem .75rem;
+        margin-bottom: .6rem;
+    }
+
+    .cv-venta-cabecera {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: .75rem;
+    }
+
+    .cv-venta-titulo {
+        font-weight: bold;
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .cv-venta-numero {
+        font-weight: 400;
+        font-size: .8rem;
+        color: #666;
+    }
+
+    .cv-venta-total {
+        font-weight: bold;
+        color: #2e7d32;
+        white-space: nowrap;
+    }
+
+    .cv-venta-pagos {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .35rem;
+        margin: .35rem 0;
+    }
+
+    .cv-chip {
+        font-size: .8rem;
+        padding: .15rem .55rem;
+        border-radius: 999px;
+        background: #e8f0fe;
+        color: #174ea6;
+    }
+
+    .cv-chip-vuelto {
+        background: #fff3e0;
+        color: #8a4b00;
+    }
+
+    .cv-venta-info {
+        font-size: .8rem;
+        color: #777;
+    }
+
+    @@media (max-width: 560px) {
+        .cv-filtros {
+            padding: .6rem .75rem;
+        }
+
+        .cv-campo {
+            flex: 1 1 130px;
+        }
+
+        .cv-atajos {
+            width: 100%;
+        }
+
+        .cv-atajo {
+            flex: 1;
+        }
+
+        .cv-tarjetas {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .cv-tarjeta-principal {
+            grid-column: 1 / -1;
+        }
+
+        .cv-bloques {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+@code {
+    private DateTime desde = HoraArgentina.HoyLocal;
+    private DateTime hasta = HoraArgentina.HoyLocal;
+    private List<VentaCajaDTO> ventas = new();
+    private ResumenVentasDTO? resumen;
+    private bool cargando = true;
+    private string? mensaje;
+
+    private decimal TotalPorTipoPago => resumen?.PorTipoPago.Sum(f => f.Monto) ?? 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Cargar();
+    }
+
+    private async Task Cargar()
+    {
+        cargando = true;
+        mensaje = null;
+
+        var rango = $"desde={desde:yyyy-MM-dd}&hasta={hasta:yyyy-MM-dd}";
+
+        var respuestaVentas = await http.Get<List<VentaCajaDTO>>($"api/Caja/Ventas?{rango}");
+        if (respuestaVentas.Error)
+        {
+            mensaje = respuestaVentas.ObtenerError();
+            ventas = new();
+            resumen = null;
+            cargando = false;
+            return;
+        }
+
+        ventas = respuestaVentas.Respuesta ?? new();
+
+        var respuestaResumen = await http.Get<ResumenVentasDTO>($"api/Caja/Estadisticas?{rango}");
+        resumen = respuestaResumen.Error ? null : respuestaResumen.Respuesta;
+
+        cargando = false;
+    }
+
+    private async Task Hoy()
+    {
+        desde = hasta = HoraArgentina.HoyLocal;
+        await Cargar();
+    }
+
+    private async Task Ayer()
+    {
+        desde = hasta = HoraArgentina.HoyLocal.AddDays(-1);
+        await Cargar();
+    }
+
+    private async Task UltimosSieteDias()
+    {
+        hasta = HoraArgentina.HoyLocal;
+        desde = hasta.AddDays(-6);
+        await Cargar();
+    }
+
+    private static string Dinero(decimal monto) => $"${monto:0.00}";
+
+    // El ancho de la barra se arma con la cultura invariante para que no salga con coma.
+    private static string Porcentaje(decimal parte, decimal total) =>
+        total <= 0 ? "0" : Math.Min(100m, parte / total * 100m).ToString("0.#", CultureInfo.InvariantCulture);
+
+    private static string Servicio(VentaCajaDTO venta) =>
+        venta.NumeroMesa != null
+            ? $"Mesa {venta.NumeroMesa}"
+            : venta.TipoServicio switch
+            {
+                EnumTipoServicio.Mesa => "Salón",
+                EnumTipoServicio.TakeAway => "Take Away",
+                _ => venta.TipoServicio.ToString()
+            };
+
+    private string FechaHora(DateTime fechaUtc)
+    {
+        var local = HoraArgentina.DesdeUtc(fechaUtc);
+        return desde.Date == hasta.Date ? local.ToString("HH:mm") : local.ToString("dd/MM HH:mm");
+    }
+}

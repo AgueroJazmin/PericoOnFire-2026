@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PericoOnFire_2026.BD.Datos;
@@ -11,9 +12,11 @@ using PericoOnFire_2026.BD.Datos;
 namespace PericoOnFire_2026.BD.Migrations
 {
     [DbContext(typeof(MiDbContext))]
-    partial class MiDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261005170713_Caja")]
+    partial class Caja
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -490,11 +493,14 @@ namespace PericoOnFire_2026.BD.Migrations
                     b.Property<int>("TipoMovimiento")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("TurnoCajaId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("IdTurnoCaja");
-
                     b.HasIndex("IdUsuario");
+
+                    b.HasIndex("TurnoCajaId");
 
                     b.ToTable("MovimientosCaja");
                 });
@@ -533,6 +539,9 @@ namespace PericoOnFire_2026.BD.Migrations
                     b.Property<int>("TipoPago")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("TurnoCajaId")
+                        .HasColumnType("integer");
+
                     b.Property<decimal>("Vuelto")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -541,9 +550,9 @@ namespace PericoOnFire_2026.BD.Migrations
 
                     b.HasIndex("IdComanda");
 
-                    b.HasIndex("IdTurnoCaja");
-
                     b.HasIndex("IdUsuarioCaja");
+
+                    b.HasIndex("TurnoCajaId");
 
                     b.ToTable("Pagos");
                 });
@@ -735,11 +744,17 @@ namespace PericoOnFire_2026.BD.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)");
 
+                    b.Property<int>("UsuarioAperturaId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("UsuarioCierreId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("IdUsuarioApertura");
+                    b.HasIndex("UsuarioAperturaId");
 
-                    b.HasIndex("IdUsuarioCierre");
+                    b.HasIndex("UsuarioCierreId");
 
                     b.ToTable("TurnosCaja");
                 });
@@ -931,16 +946,15 @@ namespace PericoOnFire_2026.BD.Migrations
 
             modelBuilder.Entity("PericoOnFire_2026.BD.Datos.Entity.MovimientoCaja", b =>
                 {
-                    b.HasOne("PericoOnFire_2026.BD.Datos.Entity.TurnoCaja", "TurnoCaja")
-                        .WithMany("Movimientos")
-                        .HasForeignKey("IdTurnoCaja")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("PericoOnFire_2026.BD.Datos.Entity.Usuario", "Usuario")
                         .WithMany()
                         .HasForeignKey("IdUsuario")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("PericoOnFire_2026.BD.Datos.Entity.TurnoCaja", "TurnoCaja")
+                        .WithMany("Movimientos")
+                        .HasForeignKey("TurnoCajaId");
 
                     b.Navigation("TurnoCaja");
 
@@ -955,16 +969,15 @@ namespace PericoOnFire_2026.BD.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("PericoOnFire_2026.BD.Datos.Entity.TurnoCaja", "TurnoCaja")
-                        .WithMany("Pagos")
-                        .HasForeignKey("IdTurnoCaja")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("PericoOnFire_2026.BD.Datos.Entity.Usuario", "UsuarioCaja")
                         .WithMany()
                         .HasForeignKey("IdUsuarioCaja")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("PericoOnFire_2026.BD.Datos.Entity.TurnoCaja", "TurnoCaja")
+                        .WithMany("Pagos")
+                        .HasForeignKey("TurnoCajaId");
 
                     b.Navigation("Comanda");
 
@@ -1017,14 +1030,13 @@ namespace PericoOnFire_2026.BD.Migrations
                 {
                     b.HasOne("PericoOnFire_2026.BD.Datos.Entity.Usuario", "UsuarioApertura")
                         .WithMany()
-                        .HasForeignKey("IdUsuarioApertura")
+                        .HasForeignKey("UsuarioAperturaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("PericoOnFire_2026.BD.Datos.Entity.Usuario", "UsuarioCierre")
                         .WithMany()
-                        .HasForeignKey("IdUsuarioCierre")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .HasForeignKey("UsuarioCierreId");
 
                     b.Navigation("UsuarioApertura");
 

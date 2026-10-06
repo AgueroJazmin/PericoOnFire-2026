@@ -2,6 +2,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using PericoOnFire_2026.Shared.DTOs
 @using PericoOnFire_2026.Shared.ENUM
+@using PericoOnFire_2026.Shared.Utilidades
 @using PericoOnFire_2026.Servicio.ServicioHttp
 @using PericoOnFire_2026.Server.Client.Shared
 @implements IAsyncDisposable
@@ -10,123 +11,263 @@
 @rendermode InteractiveAuto
 @attribute [Authorize(Roles = "Caja,Administracion")]
 
-<div class="caja-layout">
-    <section class="lista-cuentas">
-        <h4>Cuentas pendientes de cobro</h4>
+<div class="caja-pagina">
 
-        @if (!string.IsNullOrWhiteSpace(Mensaje))
-        {
-            <div class="alert alert-info">@Mensaje</div>
-        }
-
-        @if (!cuentas.Any())
-        {
-            <p class="texto-vacio">No hay ninguna mesa esperando para cobrar.</p>
-        }
-
-        @foreach (var cuenta in cuentas)
-        {
-            <button class="cuenta-card @(cuentaSeleccionada?.Id == cuenta.Id ? "cuenta-card-activa" : "")"
-                    @onclick="() => SeleccionarCuenta(cuenta)">
-                <div class="cuenta-card-titulo">
-                    @(cuenta.NumeroMesa != null ? $"Mesa {cuenta.NumeroMesa}" : cuenta.TipoServicio.ToString())
-                    <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
+    @* ---- Estado de la caja: abierta/cerrada, lo cobrado en el turno y la apertura ---- *@
+    @if (estado == null)
+    {
+        <section class="estado-caja">
+            <span class="texto-vacio">Cargando el estado de la caja…</span>
+        </section>
+    }
+    else if (estado.Abierta)
+    {
+        <section class="estado-caja estado-caja-abierta">
+            <div class="estado-caja-cabecera">
+                <span class="estado-caja-punto"></span>
+                <strong>Caja abierta</strong>
+                <span class="estado-caja-detalle">
+                    desde las @HoraArgentina.DesdeUtc(estado.Turno!.FechaApertura).ToString("HH:mm")
+                    · @(estado.Turno.NombreUsuarioApertura ?? "—")
+                </span>
+            </div>
+            <div class="estado-caja-cifras">
+                <div class="cifra cifra-principal">
+                    <span>Efectivo en caja</span>
+                    <strong>@Dinero(estado.EfectivoEsperado)</strong>
                 </div>
-                <div class="cuenta-card-info">
-                    @(cuenta.NombreMozo ?? "—") · hace @((int)(DateTime.UtcNow - cuenta.FechaApertura).TotalMinutes) min
+                <div class="cifra">
+                    <span>Débito</span>
+                    <strong>@Dinero(estado.CobrosDebito)</strong>
                 </div>
-                <div class="cuenta-card-total">$@cuenta.Total.ToString("0.00")</div>
-            </button>
-        }
-    </section>
-
-    <section class="panel-cobro">
-        @if (cuentaSeleccionada == null)
-        {
-            <p class="texto-vacio">Elegí una cuenta de la izquierda para cobrarla.</p>
-        }
-        else
-        {
-            <h4>
-                @(cuentaSeleccionada.NumeroMesa != null ? $"Mesa {cuentaSeleccionada.NumeroMesa}" : cuentaSeleccionada.TipoServicio.ToString())
-                <span class="cuenta-card-numero">· @cuentaSeleccionada.NumeroComanda</span>
-            </h4>
-            <p class="texto-vacio">Mozo: @(cuentaSeleccionada.NombreMozo ?? "—") · @cuentaSeleccionada.CantidadComensales comensales</p>
-
-            @if (!cuentaSeleccionada.Items.Any())
-            {
-                <div class="alert alert-warning">
-                    Esta cuenta no tiene ningún producto cargado (seguramente se cancelaron todos los
-                    pedidos, o quedó abierta de antes). No hay nada para cobrar, pero la mesa sigue
-                    bloqueada hasta que se cierre.
+                <div class="cifra">
+                    <span>Crédito</span>
+                    <strong>@Dinero(estado.CobrosCredito)</strong>
                 </div>
-                <button class="btn btn-outline-dark w-100" disabled="@procesando" @onclick="PedirCerrarSinCobro">
-                    Cerrar mesa sin cobro
-                </button>
-            }
-            else
-            {
-                <table class="tabla-detalle">
-                    <thead>
-                        <tr>
-                            <th>Producto</th>
-                            <th>Cant.</th>
-                            <th>Precio</th>
-                            <th>Subtotal</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var item in cuentaSeleccionada.Items)
-                        {
-                            <tr>
-                                <td>@item.NombreProducto</td>
-                                <td>@item.Cantidad</td>
-                                <td>$@item.PrecioUnitario.ToString("0.00")</td>
-                                <td>$@item.Subtotal.ToString("0.00")</td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-
-                <div class="total-cuenta">
-                    Total a cobrar: <strong>$@cuentaSeleccionada.Total.ToString("0.00")</strong>
+                <div class="cifra">
+                    <span>Transferencia</span>
+                    <strong>@Dinero(estado.CobrosTransferencia)</strong>
                 </div>
-
-                <div class="form-cobro">
-                    <label>Forma de pago</label>
-                    <select class="form-select" @bind="tipoPagoSeleccionado">
-                        @foreach (var tipo in Enum.GetValues<EnumTipoPago>())
-                        {
-                            <option value="@tipo">@tipo</option>
-                        }
-                    </select>
-
-                    <label class="mt-2">Monto recibido</label>
-                    <input type="number" step="0.01" min="0" class="form-control" @bind="montoPagado" />
-
-                    @if (montoPagado > 0)
+                <div class="cifra">
+                    <span>QR</span>
+                    <strong>@Dinero(estado.CobrosQR)</strong>
+                </div>
+                <div class="cifra">
+                    <span>Ventas del turno</span>
+                    <strong>@estado.CantidadVentas</strong>
+                </div>
+            </div>
+        </section>
+    }
+    else
+    {
+        <section class="estado-caja estado-caja-cerrada">
+            <div class="estado-caja-cabecera">
+                <span class="estado-caja-punto estado-caja-punto-cerrada"></span>
+                <strong>Caja cerrada</strong>
+                <span class="estado-caja-detalle">Abrí un turno con el efectivo inicial para poder cobrar.</span>
+            </div>
+            <div class="apertura-caja">
+                <div class="apertura-campo">
+                    <label>Monto inicial (efectivo en el cajón)</label>
+                    <input type="number" step="0.01" min="0" class="form-control"
+                           @bind="montoInicialApertura" @bind:after="() => aperturaEditada = true" />
+                    @if (estado.MontoInicialSugerido != null)
                     {
-                        <div class="vuelto-preview">
-                            @if (montoPagado >= cuentaSeleccionada.Total)
+                        <small class="texto-vacio">Se cargó lo que quedó contado en el último cierre; podés cambiarlo.</small>
+                    }
+                </div>
+                <button type="button" class="btn btn-success" disabled="@procesando" @onclick="AbrirCaja">
+                    Abrir caja
+                </button>
+            </div>
+        </section>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Mensaje))
+    {
+        <div class="alert alert-info mb-0">@Mensaje</div>
+    }
+
+    @* ---- Pestañas ---- *@
+    <nav class="caja-tabs" role="tablist">
+        <button type="button" role="tab" class="caja-tab @ClasePestania("cobrar")" @onclick='() => CambiarPestania("cobrar")'>
+            Cobrar
+            @if (cuentas.Any())
+            {
+                <span class="caja-tab-contador">@cuentas.Count</span>
+            }
+        </button>
+        <button type="button" role="tab" class="caja-tab @ClasePestania("ventas")" @onclick='() => CambiarPestania("ventas")'>Ventas</button>
+        <button type="button" role="tab" class="caja-tab @ClasePestania("movimientos")" @onclick='() => CambiarPestania("movimientos")'>Movimientos</button>
+        <button type="button" role="tab" class="caja-tab @ClasePestania("arqueo")" @onclick='() => CambiarPestania("arqueo")'>Arqueo</button>
+    </nav>
+
+    @if (pestania == "ventas")
+    {
+        <CajaVentas />
+    }
+    else if (pestania == "movimientos")
+    {
+        <CajaMovimientos Estado="estado" OnCambio="Refrescar" />
+    }
+    else if (pestania == "arqueo")
+    {
+        <CajaArqueo Estado="estado" CuentasPendientes="cuentas.Count" OnCambio="Refrescar" />
+    }
+    else
+    {
+        <div class="caja-layout">
+            <section class="lista-cuentas">
+                <h4>Cuentas pendientes de cobro</h4>
+
+                @if (!cuentas.Any())
+                {
+                    <p class="texto-vacio">No hay ninguna mesa esperando para cobrar.</p>
+                }
+
+                @foreach (var cuenta in cuentas)
+                {
+                    <button class="cuenta-card @(cuentaSeleccionada?.Id == cuenta.Id ? "cuenta-card-activa" : "")"
+                            @onclick="() => SeleccionarCuenta(cuenta)">
+                        <div class="cuenta-card-titulo">
+                            @(cuenta.NumeroMesa != null ? $"Mesa {cuenta.NumeroMesa}" : cuenta.TipoServicio.ToString())
+                            <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
+                        </div>
+                        <div class="cuenta-card-info">
+                            @(cuenta.NombreMozo ?? "—") · hace @((int)(DateTime.UtcNow - cuenta.FechaApertura).TotalMinutes) min
+                        </div>
+                        <div class="cuenta-card-total">$@cuenta.Total.ToString("0.00")</div>
+                    </button>
+                }
+            </section>
+
+            <section class="panel-cobro">
+                @if (cuentaSeleccionada == null)
+                {
+                    <p class="texto-vacio">Elegí una cuenta de la izquierda para cobrarla.</p>
+                }
+                else
+                {
+                    <h4>
+                        @(cuentaSeleccionada.NumeroMesa != null ? $"Mesa {cuentaSeleccionada.NumeroMesa}" : cuentaSeleccionada.TipoServicio.ToString())
+                        <span class="cuenta-card-numero">· @cuentaSeleccionada.NumeroComanda</span>
+                    </h4>
+                    <p class="texto-vacio">Mozo: @(cuentaSeleccionada.NombreMozo ?? "—") · @cuentaSeleccionada.CantidadComensales comensales</p>
+
+                    @if (!cuentaSeleccionada.Items.Any())
+                    {
+                        <div class="alert alert-warning">
+                            Esta cuenta no tiene ningún producto cargado (seguramente se cancelaron todos los
+                            pedidos, o quedó abierta de antes). No hay nada para cobrar, pero la mesa sigue
+                            bloqueada hasta que se cierre.
+                        </div>
+                        <button class="btn btn-outline-dark w-100" disabled="@procesando" @onclick="PedirCerrarSinCobro">
+                            Cerrar mesa sin cobro
+                        </button>
+                    }
+                    else
+                    {
+                        <table class="tabla-detalle">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Cant.</th>
+                                    <th>Precio</th>
+                                    <th>Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in cuentaSeleccionada.Items)
+                                {
+                                    <tr>
+                                        <td>@item.NombreProducto</td>
+                                        <td>@item.Cantidad</td>
+                                        <td>$@item.PrecioUnitario.ToString("0.00")</td>
+                                        <td>$@item.Subtotal.ToString("0.00")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+
+                        <div class="total-cuenta">
+                            Total a cobrar: <strong>$@cuentaSeleccionada.Total.ToString("0.00")</strong>
+                        </div>
+
+                        @if (!CajaAbierta)
+                        {
+                            <div class="alert alert-warning">
+                                La caja está cerrada: abrí un turno (arriba) para poder cobrar esta cuenta.
+                            </div>
+                        }
+
+                        <div class="form-cobro">
+                            <label>Forma de pago</label>
+
+                            @foreach (var linea in lineasPago)
                             {
-                                <span>Vuelto: $@((montoPagado - cuentaSeleccionada.Total).ToString("0.00"))</span>
+                                <div class="linea-pago">
+                                    <select class="form-select linea-pago-tipo" @bind="linea.TipoPago">
+                                        @foreach (var tipo in TiposPagoCaja.Habilitados)
+                                        {
+                                            @if (tipo == linea.TipoPago || lineasPago.All(l => l.TipoPago != tipo))
+                                            {
+                                                <option value="@tipo">@TiposPagoCaja.Nombre(tipo)</option>
+                                            }
+                                        }
+                                    </select>
+                                    <input type="number" step="0.01" min="0" class="form-control linea-pago-monto"
+                                           aria-label="Monto con @TiposPagoCaja.Nombre(linea.TipoPago)"
+                                           @bind="linea.Monto" @bind:after="() => AlEditarMonto(linea)" />
+                                    @if (lineasPago.Count > 1)
+                                    {
+                                        <button type="button" class="btn btn-outline-secondary linea-pago-quitar"
+                                                aria-label="Quitar esta forma de pago" @onclick="() => QuitarLinea(linea)">
+                                            &times;
+                                        </button>
+                                    }
+                                </div>
                             }
-                            else
+
+                            @if (lineasPago.Count < TiposPagoCaja.Habilitados.Length)
                             {
-                                <span class="vuelto-faltante">
-                                    Falta $@((cuentaSeleccionada.Total - montoPagado).ToString("0.00"))
-                                </span>
+                                <button type="button" class="btn btn-link p-0 dividir-pago" @onclick="AgregarLinea">
+                                    + Dividir el pago en otra forma
+                                </button>
                             }
+
+                            @{
+                                var cobro = CobroActual;
+                            }
+                            <div class="resumen-cobro">
+                                <div class="resumen-cobro-fila">
+                                    <span>Cobrado</span>
+                                    <strong>$@TotalCobrado.ToString("0.00")</strong>
+                                </div>
+
+                                @if (!cobro.EsValido)
+                                {
+                                    <div class="vuelto-preview vuelto-faltante">@cobro.Error</div>
+                                }
+                                else if (cobro.Vuelto > 0)
+                                {
+                                    <div class="vuelto-preview">Vuelto: $@cobro.Vuelto.ToString("0.00")</div>
+                                }
+                                else
+                                {
+                                    <div class="vuelto-preview">Cobro completo</div>
+                                }
+                            </div>
+
+                            <button class="btn btn-success w-100 mt-3" disabled="@(procesando || !CajaAbierta)" @onclick="PedirConfirmarCobro">
+                                Confirmar cobro
+                            </button>
                         </div>
                     }
-
-                    <button class="btn btn-success w-100 mt-3" disabled="@procesando" @onclick="PedirConfirmarCobro">
-                        Confirmar cobro
-                    </button>
-                </div>
-            }
-        }
-    </section>
+                }
+            </section>
+        </div>
+    }
 </div>
 
 <Confirmacion @ref="confirmacionCobro"
@@ -137,11 +278,23 @@
               onCancel="() => confirmacionCobro!.Ocultar()">
     @if (cuentaSeleccionada != null)
     {
+        var cobro = CobroActual;
+
         <p>
             Vas a cerrar la cuenta de
             @(cuentaSeleccionada.NumeroMesa != null ? $"Mesa {cuentaSeleccionada.NumeroMesa}" : cuentaSeleccionada.TipoServicio.ToString())
-            por <strong>$@cuentaSeleccionada.Total.ToString("0.00")</strong> con @tipoPagoSeleccionado.
+            por <strong>$@cuentaSeleccionada.Total.ToString("0.00")</strong>:
         </p>
+        <ul class="detalle-cobro">
+            @foreach (var linea in cobro.Lineas)
+            {
+                <li>@TiposPagoCaja.Nombre(linea.TipoPago): $@linea.Monto.ToString("0.00")</li>
+            }
+        </ul>
+        @if (cobro.Vuelto > 0)
+        {
+            <p>Vuelto a entregar: <strong>$@cobro.Vuelto.ToString("0.00")</strong></p>
+        }
         <p>Una vez confirmado, la mesa queda libre para un nuevo grupo.</p>
     }
 </Confirmacion>
@@ -164,11 +317,151 @@
 </Confirmacion>
 
 <style>
+    .caja-pagina {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        padding: 1rem;
+    }
+
+    /* ---- Estado de la caja ---- */
+    .estado-caja {
+        background: white;
+        border-radius: 8px;
+        padding: .75rem 1rem;
+        border-left: 5px solid #ccc;
+        color: #222;
+    }
+
+    .estado-caja-abierta {
+        border-left-color: #2e7d32;
+    }
+
+    .estado-caja-cerrada {
+        border-left-color: #d32f2f;
+    }
+
+    .estado-caja-cabecera {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .4rem .6rem;
+    }
+
+    .estado-caja-punto {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #2e7d32;
+        flex: 0 0 auto;
+    }
+
+    .estado-caja-punto-cerrada {
+        background: #d32f2f;
+    }
+
+    .estado-caja-detalle {
+        font-size: .85rem;
+        color: #666;
+    }
+
+    .estado-caja-cifras {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+        gap: .5rem .75rem;
+        margin-top: .6rem;
+    }
+
+    .cifra {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+        .cifra span {
+            font-size: .8rem;
+            color: #666;
+        }
+
+        .cifra strong {
+            font-size: 1.1rem;
+            overflow-wrap: anywhere;
+        }
+
+    .cifra-principal strong {
+        color: #2e7d32;
+        font-size: 1.3rem;
+    }
+
+    .apertura-caja {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        gap: .6rem .75rem;
+        margin-top: .6rem;
+    }
+
+    .apertura-campo {
+        display: flex;
+        flex-direction: column;
+        gap: .2rem;
+        flex: 1 1 220px;
+        max-width: 320px;
+        min-width: 0;
+    }
+
+        .apertura-campo label {
+            font-size: .85rem;
+            color: #666;
+        }
+
+    /* ---- Pestañas ---- */
+    .caja-tabs {
+        display: flex;
+        gap: .4rem;
+        overflow-x: auto;
+        border-bottom: 2px solid #ddd;
+    }
+
+    .caja-tab {
+        flex: 0 0 auto;
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        padding: .55rem 1.1rem;
+        border: 1px solid #ccc;
+        border-bottom: 0;
+        border-radius: 8px 8px 0 0;
+        background: #f4f4f4;
+        color: #333;
+        cursor: pointer;
+    }
+
+    .caja-tab-activa {
+        background: white;
+        color: #1f6feb;
+        font-weight: 700;
+        border-color: #1f6feb;
+        margin-bottom: -2px;
+        border-bottom: 2px solid white;
+    }
+
+    .caja-tab-contador {
+        min-width: 1.4rem;
+        padding: 0 .4rem;
+        border-radius: 999px;
+        background: #d32f2f;
+        color: white;
+        font-size: .75rem;
+        font-weight: 700;
+        text-align: center;
+    }
+
+    /* ---- Cobro ---- */
     .caja-layout {
         display: grid;
         grid-template-columns: 320px 1fr;
         gap: 1rem;
-        padding: 1rem;
     }
 
     .lista-cuentas {
@@ -221,6 +514,7 @@
         background: white;
         border-radius: 8px;
         padding: 1rem;
+        min-width: 0;
     }
 
     .texto-vacio {
@@ -246,12 +540,43 @@
     }
 
     .form-cobro {
-        max-width: 320px;
+        max-width: 360px;
         margin-left: auto;
     }
 
+    .linea-pago {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+        gap: .4rem;
+        margin-bottom: .4rem;
+    }
+
+    .linea-pago-quitar {
+        padding: 0 .75rem;
+        line-height: 1;
+        font-size: 1.3rem;
+    }
+
+    .dividir-pago {
+        display: inline-block;
+        margin: .2rem 0 .6rem;
+    }
+
+    .resumen-cobro {
+        margin-top: .4rem;
+        padding: .5rem .75rem;
+        border-radius: 6px;
+        background: #f4f4f4;
+    }
+
+    .resumen-cobro-fila {
+        display: flex;
+        justify-content: space-between;
+        gap: .75rem;
+    }
+
     .vuelto-preview {
-        margin-top: 0.5rem;
+        margin-top: 0.25rem;
         font-weight: 600;
         color: #2e7d32;
     }
@@ -260,11 +585,19 @@
         color: #d32f2f;
     }
 
+    .detalle-cobro {
+        padding-left: 1.2rem;
+    }
+
     @@media (max-width: 760px) {
+        .caja-pagina {
+            padding: .75rem;
+            gap: .75rem;
+        }
+
         .caja-layout {
             grid-template-columns: 1fr;
             gap: .75rem;
-            padding: .75rem;
         }
 
         .lista-cuentas {
@@ -291,25 +624,90 @@
             margin-left: 0;
         }
     }
+
+    @@media (max-width: 560px) {
+        .estado-caja {
+            padding: .6rem .75rem;
+        }
+
+        .estado-caja-cifras {
+            grid-template-columns: 1fr 1fr;
+        }
+
+        .cifra-principal {
+            grid-column: 1 / -1;
+        }
+
+        .apertura-campo {
+            max-width: none;
+        }
+
+        .apertura-caja .btn {
+            width: 100%;
+        }
+
+        .caja-tab {
+            flex: 1 1 0;
+            justify-content: center;
+            padding: .5rem .35rem;
+            font-size: .9rem;
+        }
+    }
+
+    @@media (max-width: 400px) {
+        .linea-pago {
+            grid-template-columns: minmax(0, 1fr) auto;
+        }
+
+        .linea-pago-tipo {
+            grid-column: 1 / -1;
+        }
+    }
 </style>
 
 @code {
     private List<ComandaPendienteCobroDTO> cuentas = new();
     private ComandaPendienteCobroDTO? cuentaSeleccionada;
-    private EnumTipoPago tipoPagoSeleccionado = EnumTipoPago.Efectivo;
-    private decimal montoPagado;
+    private EstadoCajaDTO? estado;
+    private string pestania = "cobrar";
     private bool procesando;
     private string? Mensaje;
     private int? idUsuarioActual;
 
+    // Apertura: el monto inicial viene cargado con lo que quedó contado en el último cierre,
+    // pero si la persona lo cambia, el refresco automático ya no lo pisa.
+    private decimal montoInicialApertura;
+    private bool aperturaEditada;
+
+    // Pago combinado: una línea por forma de pago. Los montos se cargan solos (la primera línea
+    // arranca con el total de la cuenta y, al dividir, la otra se completa con lo que falta), pero
+    // cualquiera se puede modificar. Una línea que la persona tocó ya no se recalcula sola.
+    private List<LineaPagoDTO> lineasPago = new();
+    private readonly HashSet<LineaPagoDTO> lineasEditadas = new();
+
     private Confirmacion? confirmacionCobro;
     private Confirmacion? confirmacionCerrarSinCobro;
+
+    private bool CajaAbierta => estado?.Abierta == true;
+
+    private ResultadoCobro CobroActual =>
+        cuentaSeleccionada == null
+            ? CobroCombinado.Evaluar(0, lineasPago)
+            : CobroCombinado.Evaluar(cuentaSeleccionada.Total, lineasPago);
+
+    private decimal TotalCobrado => lineasPago.Sum(l => l.Monto);
 
     protected override async Task OnInitializedAsync()
     {
         await CargarUsuarioActual();
+        await Refrescar();
+        Polling.Iniciar(Refrescar, TimeSpan.FromSeconds(4));
+    }
+
+    private async Task Refrescar()
+    {
+        await CargarEstado();
         await CargarCuentas();
-        Polling.Iniciar(CargarCuentas, TimeSpan.FromSeconds(4));
     }
 
     private async Task CargarUsuarioActual()
@@ -318,6 +716,22 @@
         if (!respuesta.Error)
         {
             idUsuarioActual = respuesta.Respuesta;
+        }
+    }
+
+    private async Task CargarEstado()
+    {
+        var respuesta = await http.Get<EstadoCajaDTO>("api/Caja/Estado");
+        if (!respuesta.Error && respuesta.Respuesta != null)
+        {
+            estado = respuesta.Respuesta;
+
+            if (!estado.Abierta && !aperturaEditada)
+            {
+                montoInicialApertura = estado.MontoInicialSugerido ?? 0;
+            }
+
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -339,24 +753,118 @@
         }
     }
 
+    private string ClasePestania(string nombre) => pestania == nombre ? "caja-tab-activa" : "";
+
+    private void CambiarPestania(string nombre)
+    {
+        pestania = nombre;
+        Mensaje = null;
+    }
+
+    private static string Dinero(decimal monto) => $"${monto:0.00}";
+
+    // ---- Apertura de caja ----
+
+    private async Task AbrirCaja()
+    {
+        procesando = true;
+        Mensaje = null;
+
+        var dto = new AbrirCajaDTO { MontoInicial = montoInicialApertura };
+        var respuesta = await http.Post<AbrirCajaDTO, TurnoCajaDTO>("api/Caja/Abrir", dto);
+
+        procesando = false;
+
+        if (respuesta.Error)
+        {
+            Mensaje = respuesta.ObtenerError();
+            return;
+        }
+
+        aperturaEditada = false;
+        Mensaje = "Caja abierta. Ya se puede cobrar.";
+        await Refrescar();
+    }
+
+    // ---- Cobro ----
+
     private void SeleccionarCuenta(ComandaPendienteCobroDTO cuenta)
     {
         cuentaSeleccionada = cuenta;
-        tipoPagoSeleccionado = EnumTipoPago.Efectivo;
-        montoPagado = 0;
         Mensaje = null;
+
+        // El monto ya viene cargado con el total de la cuenta, en efectivo por defecto.
+        lineasEditadas.Clear();
+        lineasPago = new List<LineaPagoDTO>
+        {
+            new LineaPagoDTO { TipoPago = EnumTipoPago.Efectivo, Monto = cuenta.Total }
+        };
+    }
+
+    private void AlEditarMonto(LineaPagoDTO linea)
+    {
+        lineasEditadas.Add(linea);
+        Rebalancear(linea);
+    }
+
+    private void AgregarLinea()
+    {
+        var libres = TiposPagoCaja.Habilitados
+            .Where(t => lineasPago.All(l => l.TipoPago != t))
+            .ToList();
+
+        if (!libres.Any()) return;
+
+        lineasPago.Add(new LineaPagoDTO { TipoPago = libres[0], Monto = 0 });
+        Rebalancear(null);
+    }
+
+    private void QuitarLinea(LineaPagoDTO linea)
+    {
+        lineasPago.Remove(linea);
+        lineasEditadas.Remove(linea);
+
+        if (cuentaSeleccionada != null && lineasPago.Count == 1 && !lineasEditadas.Contains(lineasPago[0]))
+        {
+            lineasPago[0].Monto = cuentaSeleccionada.Total;
+        }
+        else
+        {
+            Rebalancear(null);
+        }
+    }
+
+    // Cuando hay más de una forma de pago, la última línea que la persona no tocó se completa
+    // sola con lo que falta para llegar al total de la cuenta (nunca menos de cero).
+    private void Rebalancear(LineaPagoDTO? editada)
+    {
+        if (cuentaSeleccionada == null || lineasPago.Count < 2) return;
+
+        var candidata = lineasPago.LastOrDefault(l => !ReferenceEquals(l, editada) && !lineasEditadas.Contains(l));
+        if (candidata == null) return;
+
+        var resto = cuentaSeleccionada.Total - lineasPago.Where(l => !ReferenceEquals(l, candidata)).Sum(l => l.Monto);
+        candidata.Monto = Math.Max(resto, 0);
     }
 
     private void PedirConfirmarCobro()
     {
         if (cuentaSeleccionada == null) return;
 
-        if (montoPagado < cuentaSeleccionada.Total)
+        if (!CajaAbierta)
         {
-            Mensaje = "El monto recibido es menor al total de la cuenta.";
+            Mensaje = "La caja está cerrada. Abrí un turno antes de cobrar.";
             return;
         }
 
+        var cobro = CobroActual;
+        if (!cobro.EsValido)
+        {
+            Mensaje = cobro.Error;
+            return;
+        }
+
+        Mensaje = null;
         confirmacionCobro?.Ver();
     }
 
@@ -370,8 +878,10 @@
         {
             IdComanda = cuentaSeleccionada.Id,
             IdUsuarioCaja = idUsuarioActual.Value,
-            TipoPago = tipoPagoSeleccionado,
-            MontoPagado = montoPagado
+            Lineas = lineasPago
+                .Where(l => l.Monto > 0)
+                .Select(l => new LineaPagoDTO { TipoPago = l.TipoPago, Monto = l.Monto })
+                .ToList()
         };
 
         var respuesta = await http.Post<RegistrarPagoDTO, PagoRegistradoDTO>("api/Pago/Registrar", dto);
@@ -386,7 +896,9 @@
 
         Mensaje = $"Cobro registrado. Vuelto: ${respuesta.Respuesta!.Vuelto:0.00}";
         cuentaSeleccionada = null;
-        await CargarCuentas();
+        lineasPago = new();
+        lineasEditadas.Clear();
+        await Refrescar();
     }
 
     // Para las cuentas que quedaron en PendienteCobro sin ningún ítem cargado
@@ -417,7 +929,7 @@
 
         Mensaje = "Mesa cerrada sin cobro.";
         cuentaSeleccionada = null;
-        await CargarCuentas();
+        await Refrescar();
     }
 
     public async ValueTask DisposeAsync()
