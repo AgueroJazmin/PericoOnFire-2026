@@ -14,14 +14,6 @@
 
     <AuthorizeView Roles="Administracion,Barra">
         <Authorized>
-            <div class="pedidos-header">
-                <h2>Pedidos para llevar</h2>
-            </div>
-
-            @if (!string.IsNullOrWhiteSpace(MensajeForm))
-            {
-                <div class="alert alert-info">@MensajeForm</div>
-            }
 
             @* Carga de nuevo pedido: siempre visible arriba de la page, calcada del modal de
      "Agregar productos" de Mesas.razor. En vez de "Cant. de comensales" va el tipo de pedido, los datos del cliente y el horario deseado. *@
@@ -52,7 +44,7 @@
 
                     @if (!string.IsNullOrWhiteSpace(MensajeForm))
                     {
-                        <div class="alert alert-danger py-2">@MensajeForm</div>
+                        <div class="alert @(MensajeFormEsExito ? "alert-success" : "alert-danger") py-2">@MensajeForm</div>
                     }
 
                     <div class="selector-productos">
@@ -277,8 +269,8 @@
                             {
                                 <div class="cuenta-card-info @ClaseHorarioProximo(cuenta)">
                                     🕒 @(cuenta.HoraDeseada.HasValue
-                                                                                ? $"Para las {cuenta.HoraDeseada.Value.ToLocalTime():HH:mm}"
-                                                                                : "Sin horario indicado")
+                                                                                                                    ? $"Para las {cuenta.HoraDeseada.Value.ToLocalTime():HH:mm}"
+                                                                                                                    : "Sin horario indicado")
                                     <button class="btn-editar-horario" @onclick="() => EditarHoraDeseada(cuenta)">✎ editar</button>
                                 </div>
                             }
@@ -341,10 +333,6 @@
 
     <AuthorizeView Roles="Delivery">
         <Authorized>
-            <div class="pedidos-header">
-                <h2>Pedidos para llevar</h2>
-            </div>
-
             @if (!string.IsNullOrWhiteSpace(MensajeDelivery))
             {
                 <div class="alert alert-info">@MensajeDelivery</div>
@@ -594,8 +582,8 @@
         padding: 0.15rem 0.4rem;
     }
 
-    /* Todo lo de acá abajo es una copia fiel del modal de Mesas.razor para que 
-    el "Agregar productos" se sienta igual en las dos pantallas*/
+    /* Todo lo de acá abajo es una copia fiel del modal de Mesas.razor para que
+        el "Agregar productos" se sienta igual en las dos pantallas*/
 
     .btn-cerrar {
         border: none;
@@ -611,11 +599,11 @@
 
     .modal-pedido {
         width: 100%;
-        height: auto;
+        height: clamp(480px, calc(100vh - 6rem), 760px);
         max-height: none;
         display: flex;
         flex-direction: column;
-        overflow: visible;
+        overflow: hidden;
         background: white;
         border: 4px solid #ef1111;
         border-radius: 10px;
@@ -694,8 +682,9 @@
         min-height: 0;
         flex: 1;
         display: grid;
-        grid-template-columns: 320px 165px minmax(0, 1fr);
-        overflow: visible;
+        grid-template-columns: 180px minmax(0, 1fr) 420px;
+        grid-template-rows: minmax(0, 1fr);
+        overflow: hidden;
     }
 
     .selector-resumen,
@@ -705,11 +694,14 @@
     }
 
     .selector-resumen {
+        grid-column: 3;
+        grid-row: 1;
         display: flex;
         flex-direction: column;
-        padding: 1rem;
-        overflow: visible;
-        border-right: 1px solid #ddd;
+        padding: 1rem 1rem 0;
+        overflow-y: auto;
+        border-left: 1px solid #ddd;
+        border-right: 0;
         background: #fff;
     }
 
@@ -778,15 +770,21 @@
         }
 
     .resumen-carrito {
-        min-height: 0;
-        flex: 1;
+        position: sticky;
+        bottom: 0;
+        z-index: 1;
+        min-height: 140px;
+        max-height: 45%;
+        flex: 0 0 auto;
         display: flex;
         flex-direction: column;
         gap: .55rem;
-        margin-top: .25rem;
+        margin-top: auto;
         padding-top: 1rem;
+        padding-bottom: 1rem;
         overflow-y: auto;
         border-top: 1px solid #ddd;
+        background: #fff;
     }
 
         .resumen-carrito > strong {
@@ -902,6 +900,8 @@
     }
 
     .subcategorias {
+        grid-column: 1;
+        grid-row: 1;
         display: flex;
         flex-direction: column;
         gap: .5rem;
@@ -913,11 +913,16 @@
 
         .subcategorias button {
             width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
             padding: .65rem .6rem;
             border: 1px solid #aaa;
             border-radius: 7px;
             background: white;
             text-align: left;
+            white-space: normal;
+            overflow-wrap: anywhere;
+            line-height: 1.2;
             cursor: pointer;
         }
 
@@ -934,7 +939,9 @@
             }
 
     .productos-modal {
-        margin: 1rem;
+        grid-column: 2;
+        grid-row: 1;
+        margin: .75rem;
         overflow-y: auto;
         border: 2px solid #1687e8;
         border-radius: 3px;
@@ -997,27 +1004,33 @@
         }
 
 
-    @@media (max-width: 780px) {
-        .pedidos-header {
-            flex-wrap: wrap;
+    @@media (max-width: 1100px) {
+        .selector-productos {
+            grid-template-columns: 160px minmax(0, 1fr) 300px;
         }
 
-        .grilla-cuentas {
-            grid-template-columns: 1fr;
+        .modal-encabezado-contenido {
+            gap: 1rem;
         }
 
-        .tabs-seguimiento {
-            max-width: 100%;
+        .categorias-superiores button {
+            min-width: 105px;
         }
 
-        .panel-nuevo-pedido {
-            padding: 0;
+        .subcategorias button {
+            font-size: .92rem;
         }
+    }
 
+    /* tablet y menos: el modal se apila (subcategorías > productos > pedido) y crece con su contenido;
+           solo la lista de productos tiene scroll propio */
+    @@media (max-width: 900px) {
         .modal-pedido {
             width: 100%;
             height: auto;
+            min-height: 0;
             max-height: none;
+            overflow: visible;
         }
 
         .modal-pedido-header {
@@ -1042,23 +1055,19 @@
             }
 
         .selector-productos {
-            display: block;
-            overflow-y: auto;
-        }
-
-        .selector-resumen {
-            min-height: 320px;
-            overflow: visible;
-            border-right: 0;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .resumen-carrito {
-            min-height: 190px;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
             overflow: visible;
         }
+            /* en columna ningún bloque se comprime: cada uno mantiene su alto */
+            .selector-productos > * {
+                flex: 0 0 auto;
+                min-height: auto;
+            }
 
         .subcategorias {
+            order: 1;
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             overflow: visible;
@@ -1067,6 +1076,27 @@
         }
 
         .productos-modal {
+            order: 2;
+            max-height: min(60vh, 460px);
+            overflow-y: auto;
+        }
+
+        .selector-resumen {
+            order: 3;
+            padding-bottom: 1rem;
+            overflow: visible;
+            border-left: 0;
+            border-right: 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .resumen-carrito {
+            position: static;
+            flex: 0 0 auto;
+            min-height: 0;
+            max-height: none;
+            margin-top: .25rem;
+            padding-bottom: 0;
             overflow: visible;
         }
 
@@ -1093,6 +1123,24 @@
             }
     }
 
+    @@media (max-width: 780px) {
+        .pedidos-header {
+            flex-wrap: wrap;
+        }
+
+        .grilla-cuentas {
+            grid-template-columns: 1fr;
+        }
+
+        .tabs-seguimiento {
+            max-width: 100%;
+        }
+
+        .panel-nuevo-pedido {
+            padding: 0;
+        }
+    }
+
     @@media (max-width: 420px) {
         .pedidos-header h2 {
             font-size: 1.3rem;
@@ -1114,6 +1162,16 @@
         .producto-fila {
             padding: .65rem;
         }
+
+        .subcategorias {
+            padding: .6rem;
+            gap: .4rem;
+        }
+
+            .subcategorias button {
+                padding: .55rem .4rem;
+                font-size: .85rem;
+            }
     }
 </style>
 
@@ -1123,7 +1181,7 @@
     private string nombreCliente = "";
     private string telefonoCliente = "";
     private string direccionCliente = "";
-    private string horaDeseadaTexto = ""; 
+    private string horaDeseadaTexto = "";
     private List<ProductoListadoDTO> productos = new();
     private List<ItemPedidoDTO> carrito = new();
     private string categoriaSeleccionada = "";
@@ -1132,6 +1190,7 @@
     private string textoObservacion = "";
     private bool enviandoPedido;
     private string? MensajeForm;
+    private bool MensajeFormEsExito => MensajeForm != null && MensajeForm.StartsWith("Pedido ") && MensajeForm.EndsWith(" enviado.");
 
     // Cuánto antes del horario deseado se lo marca en rojo para avisar que se acerca.
     private const int MinutosAvisoHoraDeseada = 15;
@@ -1159,7 +1218,17 @@
         .Select(p => p.NombreCategoria)
         .Where(n => !string.IsNullOrWhiteSpace(n))
         .Distinct()
-        .OrderBy(n => n);
+        .OrderBy(OrdenCategoria)
+        .ThenBy(n => n);
+
+    private static int OrdenCategoria(string categoria)
+    {
+        var nombre = categoria.ToLowerInvariant();
+        if (nombre.Contains("comida")) return 1;
+        if (nombre.Contains("bebida")) return 2;
+        if (nombre.Contains("postre")) return 3;
+        return 4;
+    }
 
     private IEnumerable<string> SubcategoriasDisponibles => productos
         .Where(p => p.NombreCategoria == categoriaSeleccionada)

@@ -2,8 +2,8 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using  PericoOnFire_2026.BD.Datos.Entity;
-using  PericoOnFire_2026.BD.Datos;
+using PericoOnFire_2026.BD.Datos.Entity;
+using PericoOnFire_2026.BD.Datos;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,12 +11,12 @@ using System.Text;
 using System.Threading.Tasks;
 using static Azure.Core.HttpHeader;
 
-namespace  PericoOnFire_2026.BD.Datos
+namespace PericoOnFire_2026.BD.Datos
 {
-    public class MiDbContext : IdentityDbContext<ApplicationUser> 
+    public class MiDbContext : IdentityDbContext<ApplicationUser>
     {
         public DbSet<Usuario> Usuarios { get; set; }
-        public DbSet<Cliente> Clientes { get; set; } 
+        public DbSet<Cliente> Clientes { get; set; }
         public DbSet<Mesa> Mesas { get; set; }
         public DbSet<Sala> Salas { get; set; }
         public DbSet<Categoria> Categorias { get; set; }
@@ -27,6 +27,7 @@ namespace  PericoOnFire_2026.BD.Datos
         public DbSet<DetallePedido> DetallesPedido { get; set; }
         public DbSet<Pago> Pagos { get; set; }
         public DbSet<MovimientoCaja> MovimientosCaja { get; set; }
+        public DbSet<TurnoCaja> TurnosCaja { get; set; }
         public DbSet<ConfiguracionSalon> ConfiguracionesSalon { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -81,6 +82,22 @@ namespace  PericoOnFire_2026.BD.Datos
 
             modelBuilder.Entity<MovimientoCaja>()
                 .Property(m => m.Monto)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<TurnoCaja>()
+                .Property(t => t.MontoInicial)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<TurnoCaja>()
+                .Property(t => t.MontoEsperado)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<TurnoCaja>()
+                .Property(t => t.MontoContado)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<TurnoCaja>()
+                .Property(t => t.Diferencia)
                 .HasPrecision(18, 2);
 
             modelBuilder.Entity<Producto>()
@@ -153,6 +170,30 @@ namespace  PericoOnFire_2026.BD.Datos
                 .HasOne(m => m.Usuario)
                 .WithMany()
                 .HasForeignKey(m => m.IdUsuario)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<TurnoCaja>()
+                .HasOne(t => t.UsuarioApertura)
+                .WithMany()
+                .HasForeignKey(t => t.IdUsuarioApertura)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<TurnoCaja>()
+                .HasOne(t => t.UsuarioCierre)
+                .WithMany()
+                .HasForeignKey(t => t.IdUsuarioCierre)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<Pago>()
+                .HasOne(p => p.TurnoCaja)
+                .WithMany(t => t.Pagos)
+                .HasForeignKey(p => p.IdTurnoCaja)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<MovimientoCaja>()
+                .HasOne(m => m.TurnoCaja)
+                .WithMany(t => t.Movimientos)
+                .HasForeignKey(m => m.IdTurnoCaja)
                 .OnDelete(DeleteBehavior.Restrict);
         }
         public MiDbContext(DbContextOptions options) : base(options)

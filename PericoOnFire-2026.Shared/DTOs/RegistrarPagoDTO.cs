@@ -7,9 +7,10 @@ namespace PericoOnFire_2026.Shared.DTOs
 {
     public class RegistrarPagoDTO
     {
+        //Pago combinado: la cuenta se puede cobrar con varias formas de pago a la vez
+        //(por ej. la mitad en efectivo y el resto con QR o transferencia).
         public int IdComanda { get; set; }
         public int IdUsuarioCaja { get; set; }
-        public EnumTipoPago TipoPago { get; set; }
-        public decimal MontoPagado { get; set; }
+        public List<LineaPagoDTO> Lineas { get; set; } = new();
     }
 }

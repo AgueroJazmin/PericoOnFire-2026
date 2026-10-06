@@ -1,0 +1,605 @@
+﻿@using PericoOnFire_2026.Shared.DTOs
+@using PericoOnFire_2026.Shared.Utilidades
+@using PericoOnFire_2026.Servicio.ServicioHttp
+@using PericoOnFire_2026.Server.Client.Shared
+@inject IHttpServicio http
+
+@* Arqueo: se compara el efectivo que el sistema espera en el cajón con el que se cuenta de verdad,
+   y al confirmar se cierra el turno. El efectivo contado no se autocompleta a propósito: si viniera
+   cargado con el esperado, el arqueo dejaría de ser un control. *@
+
+<div class="ca-contenedor">
+
+    @if (!CajaAbierta)
+    {
+        <div class="alert alert-info">
+            La caja está cerrada. Para empezar a cobrar, abrí un turno desde la parte de arriba.
+        </div>
+    }
+    else
+    {
+        <section class="ca-cierre">
+            <h5>Cierre de caja</h5>
+
+            <div class="ca-detalle">
+                <div class="ca-fila"><span>Monto inicial</span><span>@Dinero(Estado!.MontoInicial)</span></div>
+                <div class="ca-fila"><span>+ Cobros en efectivo</span><span>@Dinero(Estado.CobrosEfectivo)</span></div>
+                <div class="ca-fila"><span>+ Ingresos</span><span>@Dinero(Estado.Ingresos)</span></div>
+                <div class="ca-fila"><span>− Egresos</span><span>@Dinero(Estado.Egresos)</span></div>
+                <div class="ca-fila"><span>− Retiros</span><span>@Dinero(Estado.Retiros)</span></div>
+                <div class="ca-fila ca-fila-total"><span>Efectivo esperado</span><strong>@Dinero(Estado.EfectivoEsperado)</strong></div>
+            </div>
+
+            <div class="ca-informativo">
+                <strong>Cobros que no son en efectivo</strong>
+                <div class="ca-detalle ca-detalle-suave">
+                    <div class="ca-fila"><span>Débito</span><span>@Dinero(Estado.CobrosDebito)</span></div>
+                    <div class="ca-fila"><span>Crédito</span><span>@Dinero(Estado.CobrosCredito)</span></div>
+                    <div class="ca-fila"><span>Transferencia</span><span>@Dinero(Estado.CobrosTransferencia)</span></div>
+                    <div class="ca-fila"><span>QR</span><span>@Dinero(Estado.CobrosQR)</span></div>
+                </div>
+                <small>Esta plata no está en el cajón (va al posnet, al banco o a la app de QR), por eso no se cuenta acá. Se muestra solo para que después la compares con esos resúmenes.</small>
+            </div>
+
+            <div class="ca-campo">
+                <label>Efectivo contado en el cajón</label>
+                <input type="number" step="0.01" min="0" class="form-control" placeholder="Contá el efectivo y cargalo acá"
+                       @bind="montoContado" @bind:event="oninput" />
+            </div>
+
+            @if (montoContado != null)
+            {
+                <div class="ca-diferencia @ClaseDiferencia">@TextoDiferencia</div>
+            }
+
+            <div class="ca-campo">
+                <label>Observaciones (opcional)</label>
+                <textarea class="form-control" rows="2" maxlength="300" @bind="observaciones"></textarea>
+            </div>
+
+            @if (CuentasPendientes > 0)
+            {
+                <div class="alert alert-warning mt-2 mb-0">
+                    Hay @CuentasPendientes @(CuentasPendientes == 1 ? "cuenta esperando" : "cuentas esperando") cobro.
+                    Si cerrás ahora, se cobrarán en el próximo turno y no entrarán en este arqueo.
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(mensaje))
+            {
+                <div class="alert alert-danger mt-2 mb-0">@mensaje</div>
+            }
+
+            <button type="button" class="btn btn-dark w-100 mt-3" disabled="@(procesando || montoContado == null)" @onclick="PedirCierre">
+                Cerrar caja y guardar arqueo
+            </button>
+        </section>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(resultado))
+    {
+        <div class="alert alert-success mb-0">@resultado</div>
+    }
+
+    <section class="ca-historial">
+        <h5>Arqueos anteriores</h5>
+        <p class="ca-ayuda">Cada arqueo muestra con cuánto efectivo se abrió el cajón, cuánto debía haber según el sistema y cuánto se contó de verdad. La diferencia es lo contado menos lo que debía haber.</p>
+
+        @if (!turnos.Any())
+        {
+            <p class="texto-vacio">Todavía no hay arqueos guardados.</p>
+        }
+
+        @foreach (var turno in turnos)
+        {
+            <article class="ca-turno">
+                <div class="ca-turno-cabecera">
+                    <strong>@FechaHora(turno.FechaApertura) → @FechaHora(turno.FechaCierre)</strong>
+                    <span class="ca-etiqueta @ClaseDiferenciaTurno(turno)">@EtiquetaDiferencia(turno)</span>
+                </div>
+                <div class="ca-turno-cifras">
+                    <span>Abrió con <strong>@Dinero(turno.MontoInicial)</strong></span>
+                    <span>Debía haber <strong>@Dinero(turno.MontoEsperado ?? 0)</strong></span>
+                    <span>Se contó <strong>@Dinero(turno.MontoContado ?? 0)</strong></span>
+                </div>
+                <div class="ca-turno-info">
+                    Abrió @(turno.NombreUsuarioApertura ?? "—") · Cerró @(turno.NombreUsuarioCierre ?? "—")
+                </div>
+                @if (!string.IsNullOrWhiteSpace(turno.ObservacionesCierre))
+                {
+                    <div class="ca-turno-obs">@turno.ObservacionesCierre</div>
+                }
+                <button type="button" class="ca-ojo" title="Ver movimientos de este turno" @onclick="() => VerMovimientos(turno)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" /><circle cx="12" cy="12" r="3" /></svg>
+                    Ver movimientos
+                </button>
+            </article>
+        }
+    </section>
+</div>
+
+@if (turnoVisto != null)
+{
+    <div class="ca-modal-fondo" @onclick="CerrarMovimientos">
+        <div class="ca-modal" role="dialog" aria-modal="true" aria-label="Movimientos del turno"
+             @onclick="() => { }" @onclick:stopPropagation="true">
+            <header class="ca-modal-cabecera">
+                <div class="ca-modal-titulo">
+                    <strong>Movimientos del turno</strong>
+                    <small>@FechaHora(turnoVisto.FechaApertura) → @FechaHora(turnoVisto.FechaCierre)</small>
+                </div>
+                <button type="button" class="ca-modal-cerrar" aria-label="Cerrar" @onclick="CerrarMovimientos">&times;</button>
+            </header>
+
+            <div class="ca-modal-cuerpo">
+                @if (cargandoMovimientos)
+                {
+                    <p class="texto-vacio">Cargando…</p>
+                }
+                else if (!movimientosVistos.Any())
+                {
+                    <p class="texto-vacio">Este turno no tiene movimientos guardados.</p>
+                }
+
+                @foreach (var movimiento in movimientosVistos)
+                {
+                    <article class="ca-mov">
+                        <div class="ca-mov-cabecera">
+                            <span class="ca-etiqueta @ClaseEtiquetaMov(movimiento)">@movimiento.TipoMovimiento</span>
+                            <span class="ca-mov-monto @ClaseMontoMov(movimiento)">@SignoMov(movimiento)@Dinero(movimiento.Monto)</span>
+                        </div>
+                        <div class="ca-mov-motivo">@movimiento.Motivo</div>
+                        @if (!string.IsNullOrWhiteSpace(movimiento.Observaciones))
+                        {
+                            <div class="ca-turno-obs">@movimiento.Observaciones</div>
+                        }
+                        <div class="ca-turno-info">@FechaHora(movimiento.FechaMovimiento) · @(movimiento.NombreUsuario ?? "—")</div>
+                    </article>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+<Confirmacion @ref="confirmacionCierre"
+              Titulo="Cerrar caja"
+              textOk="Sí, cerrar caja"
+              textCancelar="Volver"
+              onConfirm="ConfirmarCierre"
+              onCancel="() => confirmacionCierre!.Ocultar()">
+    @if (Estado != null && montoContado != null)
+    {
+        <p>
+            Esperado <strong>@Dinero(Estado.EfectivoEsperado)</strong> · contado <strong>@Dinero(montoContado.Value)</strong>.
+        </p>
+        <p><strong>@TextoDiferencia</strong></p>
+        <p>Una vez cerrada, para cobrar hay que abrir un turno nuevo.</p>
+    }
+</Confirmacion>
+
+<style>
+    .ca-contenedor {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        color: #222;
+    }
+
+    .ca-cierre {
+        background: white;
+        border-radius: 8px;
+        padding: 1rem;
+        max-width: 560px;
+    }
+
+        .ca-cierre h5 {
+            margin: 0 0 .75rem;
+        }
+
+    .ca-detalle {
+        border: 1px solid #eee;
+        border-radius: 6px;
+        padding: .25rem .75rem;
+    }
+
+    .ca-fila {
+        display: flex;
+        justify-content: space-between;
+        gap: .75rem;
+        padding: .4rem 0;
+        border-bottom: 1px solid #f0f0f0;
+    }
+
+    .ca-fila-total {
+        border-bottom: 0;
+        font-size: 1.1rem;
+        color: #2e7d32;
+    }
+
+    .ca-informativo {
+        display: flex;
+        flex-direction: column;
+        gap: .15rem;
+        margin: .75rem 0;
+        font-size: .9rem;
+        color: #555;
+    }
+
+        .ca-informativo small {
+            color: #888;
+        }
+
+    .ca-campo {
+        display: flex;
+        flex-direction: column;
+        gap: .2rem;
+        margin-top: .6rem;
+    }
+
+        .ca-campo label {
+            font-size: .85rem;
+            color: #666;
+        }
+
+    .ca-diferencia {
+        margin-top: .5rem;
+        padding: .5rem .75rem;
+        border-radius: 6px;
+        font-weight: 600;
+        background: #f4f4f4;
+    }
+
+    .ca-ok {
+        background: #e6f4ea;
+        color: #1e6b32;
+    }
+
+    .ca-sobrante {
+        background: #e8f0fe;
+        color: #174ea6;
+    }
+
+    .ca-faltante {
+        background: #fdecea;
+        color: #a52720;
+    }
+
+    .ca-historial {
+        background: #f4f4f4;
+        border-radius: 8px;
+        padding: .75rem;
+    }
+
+        .ca-historial h5 {
+            margin: 0 0 .6rem;
+        }
+
+    .ca-turno {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: .6rem .75rem;
+        margin-bottom: .6rem;
+    }
+
+    .ca-turno-cabecera {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: .4rem .75rem;
+    }
+
+    .ca-etiqueta {
+        font-size: .75rem;
+        font-weight: 700;
+        padding: .15rem .55rem;
+        border-radius: 999px;
+        white-space: nowrap;
+    }
+
+    .ca-turno-cifras {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .25rem 1rem;
+        margin: .4rem 0;
+        font-size: .9rem;
+        color: #555;
+    }
+
+    .ca-turno-info {
+        font-size: .8rem;
+        color: #777;
+    }
+
+    .ca-turno-obs {
+        margin-top: .25rem;
+        font-size: .85rem;
+        color: #555;
+        overflow-wrap: anywhere;
+    }
+
+    .ca-detalle-suave {
+        margin: .35rem 0;
+        background: #fafafa;
+    }
+
+    .ca-ayuda {
+        margin: 0 0 .6rem;
+        font-size: .85rem;
+        color: #666;
+    }
+
+    .ca-ojo {
+        display: inline-flex;
+        align-items: center;
+        gap: .4rem;
+        margin-top: .5rem;
+        padding: .35rem .8rem;
+        border: 1px solid #1f6feb;
+        border-radius: 999px;
+        background: white;
+        color: #1f6feb;
+        cursor: pointer;
+    }
+
+        .ca-ojo:hover {
+            background: #e8f0fe;
+        }
+
+    .ca-modal-fondo {
+        position: fixed;
+        inset: 0;
+        z-index: 2000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: .75rem;
+        background: rgba(0, 0, 0, .55);
+    }
+
+    .ca-modal {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        max-width: 560px;
+        max-height: 85vh;
+        background: white;
+        color: #222;
+        border-radius: 10px;
+        overflow: hidden;
+    }
+
+    .ca-modal-cabecera {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: .75rem;
+        padding: .8rem 1rem;
+        border-bottom: 1px solid #ddd;
+    }
+
+    .ca-modal-titulo {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+    }
+
+        .ca-modal-titulo small {
+            color: #777;
+        }
+
+    .ca-modal-cerrar {
+        flex: 0 0 auto;
+        border: 0;
+        background: transparent;
+        font-size: 1.8rem;
+        line-height: 1;
+        cursor: pointer;
+        color: #444;
+    }
+
+    .ca-modal-cuerpo {
+        padding: .75rem 1rem 1rem;
+        overflow-y: auto;
+    }
+
+    .ca-mov {
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: .55rem .75rem;
+        margin-bottom: .55rem;
+    }
+
+    .ca-mov-cabecera {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .75rem;
+    }
+
+    .ca-mov-motivo {
+        margin-top: .25rem;
+        overflow-wrap: anywhere;
+    }
+
+    .ca-mov-monto {
+        font-weight: bold;
+        white-space: nowrap;
+    }
+
+    .ca-mov-entrada {
+        color: #1e6b32;
+    }
+
+    .ca-mov-salida {
+        color: #a52720;
+    }
+
+    .ca-etiqueta-entrada {
+        background: #e6f4ea;
+        color: #1e6b32;
+    }
+
+    .ca-etiqueta-salida {
+        background: #fdecea;
+        color: #a52720;
+    }
+
+    @@media (max-width: 560px) {
+        .ca-modal {
+            max-height: 90vh;
+        }
+
+        .ca-ojo {
+            width: 100%;
+            justify-content: center;
+        }
+
+        .ca-cierre {
+            padding: .75rem;
+            max-width: none;
+        }
+
+        .ca-turno-cifras {
+            flex-direction: column;
+        }
+    }
+</style>
+
+@code {
+    // La caja le pasa el estado que ya tiene cargado y cuántas cuentas siguen esperando cobro.
+    [Parameter] public EstadoCajaDTO? Estado { get; set; }
+    [Parameter] public int CuentasPendientes { get; set; }
+
+    // Avisa a la caja que el turno cambió (se cerró) para que refresque todo.
+    [Parameter] public EventCallback OnCambio { get; set; }
+
+    private List<TurnoCajaDTO> turnos = new();
+    private decimal? montoContado;
+    private string? observaciones;
+    private bool procesando;
+    private string? mensaje;
+    private string? resultado;
+
+    private Confirmacion? confirmacionCierre;
+
+    // Movimientos de un arqueo anterior (se ven en un modal).
+    private TurnoCajaDTO? turnoVisto;
+    private List<MovimientoCajaDTO> movimientosVistos = new();
+    private bool cargandoMovimientos;
+
+    private bool CajaAbierta => Estado?.Abierta == true;
+
+    // Contado menos esperado: positivo es sobrante, negativo es faltante.
+    private decimal Diferencia => (montoContado ?? 0) - (Estado?.EfectivoEsperado ?? 0);
+
+    private string TextoDiferencia =>
+        Diferencia == 0 ? "Sin diferencia: el cajón coincide con lo esperado."
+        : Diferencia > 0 ? $"Sobrante de {Dinero(Diferencia)}"
+        : $"Faltante de {Dinero(-Diferencia)}";
+
+    private string ClaseDiferencia => Diferencia == 0 ? "ca-ok" : Diferencia > 0 ? "ca-sobrante" : "ca-faltante";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarTurnos();
+    }
+
+    private async Task CargarTurnos()
+    {
+        var respuesta = await http.Get<List<TurnoCajaDTO>>("api/Caja/Turnos");
+        if (!respuesta.Error && respuesta.Respuesta != null)
+        {
+            turnos = respuesta.Respuesta;
+        }
+    }
+
+    private async Task VerMovimientos(TurnoCajaDTO turno)
+    {
+        turnoVisto = turno;
+        movimientosVistos = new();
+        cargandoMovimientos = true;
+
+        var respuesta = await http.Get<List<MovimientoCajaDTO>>($"api/Caja/Movimientos?idTurno={turno.Id}");
+        if (!respuesta.Error && respuesta.Respuesta != null)
+        {
+            movimientosVistos = respuesta.Respuesta;
+        }
+
+        cargandoMovimientos = false;
+    }
+
+    private void CerrarMovimientos()
+    {
+        turnoVisto = null;
+        movimientosVistos = new();
+    }
+
+    private void PedirCierre()
+    {
+        mensaje = null;
+
+        if (montoContado == null || montoContado < 0)
+        {
+            mensaje = "Cargá el efectivo contado en el cajón.";
+            return;
+        }
+
+        confirmacionCierre?.Ver();
+    }
+
+    private async Task ConfirmarCierre()
+    {
+        if (montoContado == null) return;
+
+        procesando = true;
+
+        var dto = new CerrarCajaDTO
+        {
+            MontoContado = montoContado.Value,
+            Observaciones = observaciones
+        };
+
+        var diferenciaAlCerrar = TextoDiferencia;
+
+        var respuesta = await http.Post<CerrarCajaDTO, TurnoCajaDTO>("api/Caja/Cerrar", dto);
+
+        confirmacionCierre?.Ocultar();
+        procesando = false;
+
+        if (respuesta.Error)
+        {
+            mensaje = respuesta.ObtenerError();
+            return;
+        }
+
+        resultado = $"Caja cerrada y arqueo guardado. {diferenciaAlCerrar}";
+        montoContado = null;
+        observaciones = null;
+
+        await CargarTurnos();
+        await OnCambio.InvokeAsync();
+    }
+
+    private static string Dinero(decimal monto) => $"${monto:0.00}";
+
+    private static string FechaHora(DateTime? fechaUtc) =>
+        fechaUtc == null ? "—" : HoraArgentina.DesdeUtc(fechaUtc.Value).ToString("dd/MM HH:mm");
+
+    private static string SignoMov(MovimientoCajaDTO m) => m.EsEntrada ? "+" : m.EsSalida ? "−" : "";
+
+    private static string ClaseEtiquetaMov(MovimientoCajaDTO m) =>
+        m.EsEntrada ? "ca-etiqueta-entrada" : m.EsSalida ? "ca-etiqueta-salida" : "";
+
+    private static string ClaseMontoMov(MovimientoCajaDTO m) =>
+        m.EsEntrada ? "ca-mov-entrada" : m.EsSalida ? "ca-mov-salida" : "";
+
+    private static string EtiquetaDiferencia(TurnoCajaDTO turno) =>
+        (turno.Diferencia ?? 0) == 0 ? "Sin diferencia"
+        : turno.Diferencia > 0 ? $"Sobrante {Dinero(turno.Diferencia!.Value)}"
+        : $"Faltante {Dinero(-turno.Diferencia!.Value)}";
+
+    private static string ClaseDiferenciaTurno(TurnoCajaDTO turno) =>
+        (turno.Diferencia ?? 0) == 0 ? "ca-ok" : turno.Diferencia > 0 ? "ca-sobrante" : "ca-faltante";
+}
