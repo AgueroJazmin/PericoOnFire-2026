@@ -46,6 +46,7 @@
     }
     else
     {
+        <div class="salas-operativas">
         @foreach (var sala in salas.OrderBy(s => s.Orden))
         {
             var mesasDeSala = mesas.Where(m => m.IdSala == sala.Id).ToList();
@@ -82,6 +83,7 @@
                 }
             </section>
         }
+        </div>
     }
 </main>
 
@@ -508,13 +510,21 @@
         margin-top: 3rem;
     }
 
+    .salas-operativas {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+        align-items: start;
+        gap: 1rem;
+    }
+
     .sala-operativa {
         background: white;
         border: 2px solid #111;
         border-radius: 10px;
         padding: 1.3rem;
-        margin-bottom: 1.4rem;
-        overflow: visible;
+        margin-bottom: 0;
+        min-width: 0;
+        overflow: hidden;
     }
 
     .sala-operativa-titulo {
@@ -541,8 +551,8 @@
            cuadraditos de las puntas) sobresalen del cuerpo de la mesa, y si la celda
            queda muy justa, la celda de al lado o el borde del salón se las come. */
     .celda-operativa {
-        width: 168px;
-        height: 128px;
+        width: 148px;
+        height: 116px;
         flex-shrink: 0;
         display: flex;
         align-items: center;
@@ -1230,6 +1240,13 @@
                 font-size: 1.05rem;
             }
 
+    /* Cada salón conserva su distribución; solo su grilla se desplaza si no entra. */
+    @@media (max-width: 1000px) {
+        .salas-operativas {
+            grid-template-columns: minmax(0, 1fr);
+        }
+    }
+
     /* CELULARES Y PANTALLAS PEQUEÑAS */
 
     @@media (max-width: 780px) {
@@ -1241,13 +1258,13 @@
             height: 150px;
         }
 
-        .celda-operativa {
-            width: 128px;
-            height: 100px;
+        .sala-operativa {
+            padding: .75rem;
         }
 
-        .celda-operativa, .mesa {
-            transform: scale(0.86);
+        .celda-operativa {
+            width: 148px;
+            height: 116px;
         }
 
         .panel-mesa {
