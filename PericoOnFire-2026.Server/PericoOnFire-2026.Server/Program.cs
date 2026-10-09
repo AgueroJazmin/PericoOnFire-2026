@@ -9,15 +9,14 @@ using PericoOnFire_2026.Repositorio.Seguridad;
 using PericoOnFire_2026.Server.Client.Pages;
 using PericoOnFire_2026.Server.Components;
 using PericoOnFire_2026.Server.Components.Account;
+using PericoOnFire_2026.Server.Servicios;
 using PericoOnFire_2026.Servicio.ServicioHttp;
 
 var builder = WebApplication.CreateBuilder(args);
 
 var apiBaseUrl = builder.Configuration["ApiBaseUrl"] ?? "https://localhost:7202";
-builder.Services.AddHttpClient<IHttpServicio, HttpServicio>(client =>
-{
-    client.BaseAddress = new Uri(apiBaseUrl);
-});
+
+builder.Services.AddScoped<IHttpServicio>(sp => HttpServicioAutenticado.Crear(sp, new Uri(apiBaseUrl)));
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -37,10 +36,10 @@ builder.Services.AddScoped<IdentityRedirectManager>();
 builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
 
 builder.Services.AddAuthentication(options =>
-    {
-        options.DefaultScheme = IdentityConstants.ApplicationScheme;
-        options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
-    })
+{
+    options.DefaultScheme = IdentityConstants.ApplicationScheme;
+    options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
+})
     .AddIdentityCookies();
 var connectionString = builder.Configuration.GetConnectionString("ConSqlServer") ?? throw new InvalidOperationException("El string de conexion no existe.");
 builder.Services.AddDbContext<MiDbContext>(options =>
@@ -63,10 +62,10 @@ builder.Services.AddTransient<PericoOnFire_2026.Shared.SerPolling.PollingService
 builder.Services.AddSingleton<PericoOnFire_2026.Servicio.ServicioHttp.NotificarCambios>();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
-    {
-        options.SignIn.RequireConfirmedAccount = true;
-        options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
-    })
+{
+    options.SignIn.RequireConfirmedAccount = true;
+    options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
+})
     //Esto es lo de roles que tenemos que agregar para el identity
     .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<MiDbContext>()
@@ -101,7 +100,13 @@ using (var scope = app.Services.CreateScope())
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     var emailAdmin = "admin@pericoonfire.com";
     var adminExiste = await userManager.FindByEmailAsync(emailAdmin);
-    if (adminExiste == null)
+
+    // La clave del admin inicial no va escrita en el código: se lee de la configuración
+    // (variable de entorno AdminInicial__Password en Render). Solo en desarrollo hay una por defecto.
+    var passwordAdmin = builder.Configuration["AdminInicial:Password"]
+        ?? (app.Environment.IsDevelopment() ? "Admin1234!" : null);
+
+    if (adminExiste == null && !string.IsNullOrWhiteSpace(passwordAdmin))
     {
         var adminUser = new ApplicationUser
         {
@@ -109,7 +114,7 @@ using (var scope = app.Services.CreateScope())
             Email = emailAdmin,
             EmailConfirmed = true
         };
-        await userManager.CreateAsync(adminUser, "Admin1234!");
+        await userManager.CreateAsync(adminUser, passwordAdmin);
         await userManager.AddToRoleAsync(adminUser, "Administracion");
         await userManager.AddClaimAsync(adminUser, new System.Security.Claims.Claim("nombre", "Administrador"));
     }
