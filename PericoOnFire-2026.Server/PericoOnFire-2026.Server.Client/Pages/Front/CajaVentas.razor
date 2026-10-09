@@ -13,16 +13,17 @@
     <section class="cv-filtros">
         <div class="cv-campo">
             <label>Desde</label>
-            <input type="date" class="form-control" @bind="desde" @bind:after="Cargar" />
+            <input type="date" class="form-control" @bind="desde" @bind:after="CambiarFecha" />
         </div>
         <div class="cv-campo">
             <label>Hasta</label>
-            <input type="date" class="form-control" @bind="hasta" @bind:after="Cargar" />
+            <input type="date" class="form-control" @bind="hasta" @bind:after="CambiarFecha" />
         </div>
         <div class="cv-atajos">
             <button type="button" class="cv-atajo" @onclick="Hoy">Hoy</button>
             <button type="button" class="cv-atajo" @onclick="Ayer">Ayer</button>
             <button type="button" class="cv-atajo" @onclick="UltimosSieteDias">7 días</button>
+            <button type="button" class="cv-atajo" @onclick="Todo">Todo</button>
         </div>
     </section>
 
@@ -397,6 +398,7 @@
     private List<VentaCajaDTO> ventas = new();
     private ResumenVentasDTO? resumen;
     private bool cargando = true;
+    private bool modoTodo;
     private string? mensaje;
 
     private decimal TotalPorTipoPago => resumen?.PorTipoPago.Sum(f => f.Monto) ?? 0;
@@ -411,7 +413,9 @@
         cargando = true;
         mensaje = null;
 
-        var rango = $"desde={desde:yyyy-MM-dd}&hasta={hasta:yyyy-MM-dd}";
+        var rango = modoTodo
+            ? "todo=true"
+            : $"desde={desde:yyyy-MM-dd}&hasta={hasta:yyyy-MM-dd}";
 
         var respuestaVentas = await http.Get<List<VentaCajaDTO>>($"api/Caja/Ventas?{rango}");
         if (respuestaVentas.Error)
@@ -428,25 +432,48 @@
         var respuestaResumen = await http.Get<ResumenVentasDTO>($"api/Caja/Estadisticas?{rango}");
         resumen = respuestaResumen.Error ? null : respuestaResumen.Respuesta;
 
+        // En "Todo" el server calcula el rango (primer pago hasta hoy): se muestra en los campos de fecha.
+        if (modoTodo && resumen != null)
+        {
+            desde = resumen.Desde.Date;
+            hasta = resumen.Hasta.Date;
+        }
+
         cargando = false;
+    }
+
+    // Si el usuario cambia una fecha a mano, deja de estar en modo "Todo".
+    private async Task CambiarFecha()
+    {
+        modoTodo = false;
+        await Cargar();
     }
 
     private async Task Hoy()
     {
+        modoTodo = false;
         desde = hasta = HoraArgentina.HoyLocal;
         await Cargar();
     }
 
     private async Task Ayer()
     {
+        modoTodo = false;
         desde = hasta = HoraArgentina.HoyLocal.AddDays(-1);
         await Cargar();
     }
 
     private async Task UltimosSieteDias()
     {
+        modoTodo = false;
         hasta = HoraArgentina.HoyLocal;
         desde = hasta.AddDays(-6);
+        await Cargar();
+    }
+
+    private async Task Todo()
+    {
+        modoTodo = true;
         await Cargar();
     }
 

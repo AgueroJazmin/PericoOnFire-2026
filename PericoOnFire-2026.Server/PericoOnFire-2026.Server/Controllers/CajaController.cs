@@ -271,11 +271,11 @@ namespace PericoOnFire_2026.Server.Controllers
         }
 
         //Ventas cobradas entre dos fechas (días locales de Argentina, ambos incluidos).
-        //Sin fechas devuelve las de hoy.
+        //Sin fechas devuelve las de hoy. Con todo=true devuelve todas las ventas hasta hoy.
         [HttpGet("Ventas")]
-        public async Task<ActionResult<List<VentaCajaDTO>>> GetVentas([FromQuery] DateTime? desde, [FromQuery] DateTime? hasta)
+        public async Task<ActionResult<List<VentaCajaDTO>>> GetVentas([FromQuery] DateTime? desde, [FromQuery] DateTime? hasta, [FromQuery] bool todo = false)
         {
-            var rango = ArmarRango(desde, hasta);
+            var rango = await ArmarRangoAsync(desde, hasta, todo);
             if (rango == null)
                 return Conflict("El rango de fechas no puede superar un año.");
 
@@ -285,9 +285,9 @@ namespace PericoOnFire_2026.Server.Controllers
         //Las estadísticas salen de los pagos registrados (Pago.MontoPagado - Vuelto), no de
         //Comanda.Total, que puede quedar desactualizado si el mozo agregó rondas después de confirmar.
         [HttpGet("Estadisticas")]
-        public async Task<ActionResult<ResumenVentasDTO>> GetEstadisticas([FromQuery] DateTime? desde, [FromQuery] DateTime? hasta)
+        public async Task<ActionResult<ResumenVentasDTO>> GetEstadisticas([FromQuery] DateTime? desde, [FromQuery] DateTime? hasta, [FromQuery] bool todo = false)
         {
-            var rango = ArmarRango(desde, hasta);
+            var rango = await ArmarRangoAsync(desde, hasta, todo);
             if (rango == null)
                 return Conflict("El rango de fechas no puede superar un año.");
 
@@ -442,8 +442,23 @@ namespace PericoOnFire_2026.Server.Controllers
 
             return (dia1, dia2, HoraArgentina.InicioDiaUtc(dia1), HoraArgentina.InicioDiaUtc(dia2).AddDays(1));
         }
+     
+        private async Task<(DateTime Desde, DateTime Hasta, DateTime InicioUtc, DateTime FinUtc)?> ArmarRangoAsync(DateTime? desde, DateTime? hasta, bool todo)
+        {
+            if (!todo)
+                return ArmarRango(desde, hasta);
 
-        //Una venta es una comanda cobrada: se juntan las filas de Pago de cada comanda (pago combinado).
+            var primerPago = await context.Pagos
+                .Where(p => p.EstadoRegistro == EnumEstadoRegistro.activo)
+                .Select(p => (DateTime?)p.FechaPago)
+                .MinAsync();
+
+            var hoy = HoraArgentina.HoyLocal;
+            var dia1 = primerPago.HasValue ? HoraArgentina.DesdeUtc(primerPago.Value).Date : hoy;
+
+            return (dia1, hoy, HoraArgentina.InicioDiaUtc(dia1), HoraArgentina.InicioDiaUtc(hoy).AddDays(1));
+        }
+
         private async Task<List<VentaCajaDTO>> ObtenerVentasAsync(DateTime inicioUtc, DateTime finUtc)
         {
             var filas = await context.Pagos

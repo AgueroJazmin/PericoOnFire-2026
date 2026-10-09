@@ -152,22 +152,45 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok();
         }
 
+        // Una mesa no se puede borrar mientras tenga una comanda en curso (Abierta o PendienteCobro).
+        // Las comandas ya cerradas (Pagada o Cancelada) son historial: no bloquean el borrado,
+        // se les quita la mesa (Comanda.IdMesa es nullable) para conservar ventas, caja y arqueos.
         [Authorize(Roles = "Administracion")]
         [HttpDelete("{id:int}")]
         public async Task<ActionResult> Delete(int id)
         {
+            var mesa = await context.Mesas.FirstOrDefaultAsync(m => m.Id == id);
+            if (mesa == null)
+                return NotFound();
+
+            var comandas = await context.Comandas
+                .Where(c => c.IdMesa == id)
+                .ToListAsync();
+
+            var enCurso = comandas.FirstOrDefault(c =>
+                c.Estado == EnumEstadoComanda.Abierta ||
+                c.Estado == EnumEstadoComanda.PendienteCobro);
+
+            if (enCurso != null)
+            {
+                var estado = enCurso.Estado == EnumEstadoComanda.Abierta ? "abierta" : "pendiente de cobro";
+                return Conflict(new { error = $"No se puede eliminar la mesa: tiene una comanda {estado}. Cerrala o cobrala primero." });
+            }
+
             try
             {
-                var resultado = await repositorio.Delete(id);
+                // Se desvincula el historial y se borra la mesa en un solo SaveChanges (atómico).
+                foreach (var comanda in comandas)
+                    comanda.IdMesa = null;
 
-                if (!resultado)
-                    return NotFound();
+                context.Mesas.Remove(mesa);
+                await context.SaveChangesAsync();
 
                 return Ok();
             }
-            catch (InvalidOperationException ex)
+            catch (DbUpdateException)
             {
-                return Conflict(new { error = ex.Message });
+                return Conflict(new { error = "No se puede eliminar la mesa: hay elementos relacionados que dependen de este registro." });
             }
         }
     }
