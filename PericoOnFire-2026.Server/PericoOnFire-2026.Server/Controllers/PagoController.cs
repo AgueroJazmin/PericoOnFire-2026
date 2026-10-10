@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PericoOnFire_2026.BD.Datos;
@@ -16,10 +17,12 @@ namespace PericoOnFire_2026.Server.Controllers
     public class PagosController : ControllerBase
     {
         private readonly MiDbContext context;
+        private readonly ILogger<PagosController> logger;
 
-        public PagosController(MiDbContext context)
+        public PagosController(MiDbContext context, ILogger<PagosController> logger)
         {
             this.context = context;
+            this.logger = logger;
         }
 
         //Cuentas que el mozo ya cerró (PendienteCobro) y están esperando que caja cobre.
@@ -81,8 +84,13 @@ namespace PericoOnFire_2026.Server.Controllers
         [HttpPost("Registrar")]
         public async Task<ActionResult<PagoRegistradoDTO>> Registrar(RegistrarPagoDTO dto)
         {
+            try
+            {
             return await OperacionAtomica.EjecutarAsync<ActionResult<PagoRegistradoDTO>>(context, async () =>
             {
+            var cuenta = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var cajero = await context.Usuarios.AsNoTracking().FirstOrDefaultAsync(u => u.IdApplicationUser == cuenta && u.Activo);
+            if (cajero == null) return Conflict("Tu cuenta no tiene un empleado activo asociado. Revisá la configuración del usuario antes de cobrar.");
             var turno = await CajaActual.ObtenerTurnoAbiertoAsync(context);
             if (turno == null)
                 return Conflict("La caja está cerrada. Abrí un turno antes de cobrar.");
@@ -116,7 +124,7 @@ namespace PericoOnFire_2026.Server.Controllers
                 .Select(l => new Pago
                 {
                     IdComanda = comanda.Id,
-                    IdUsuarioCaja = dto.IdUsuarioCaja,
+                    IdUsuarioCaja = cajero.Id,
                     IdTurnoCaja = turno.Id,
                     TipoPago = l.TipoPago,
                     MontoTotal = total,
@@ -150,6 +158,12 @@ namespace PericoOnFire_2026.Server.Controllers
             });
         
             });
+            }
+            catch (DbUpdateException ex)
+            {
+                logger.LogError(ex, "Error al guardar el cobro de comanda {IdComanda}", dto.IdComanda);
+                return Conflict("No se pudo guardar el cobro. Actualizá Caja y comprobá si figura pagada antes de reintentar. El detalle quedó registrado en el servidor.");
+            }
         }
 
         //Cubre el caso de una comanda que llegó a PendienteCobro sin nada para cobrar
