@@ -1,5 +1,7 @@
 .bar-panel { display:flex; flex-direction:column; gap:12px; min-width:0; }
 .bar-content { display:grid; grid-template-columns:minmax(0,1.6fr) minmax(190px,1fr); gap:16px; align-items:start; }
+.bar-main { display:flex; flex-direction:column; gap:12px; min-width:0; }
+.bar-main > .bar-card { width:100%; max-width:300px; box-sizing:border-box; }
 .bar-notices { display:flex; flex-direction:column; gap:12px; min-width:0; }
 .bar-card { min-width:0; padding:16px; background:white; border:1px solid #e1e1e1; border-radius:12px; box-shadow:0 3px 12px #00000005; }
 .bar-heading { display:flex; align-items:center; gap:9px; margin-bottom:12px; }
