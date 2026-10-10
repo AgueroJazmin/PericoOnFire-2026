@@ -7,7 +7,7 @@
 @inject PericoOnFire_2026.Shared.SerPolling.PollingService Polling
 @inject NavigationManager NavManager
 @inject IHttpServicio http
-@rendermode InteractiveAuto
+@rendermode InteractiveWebAssembly
 @attribute [Authorize(Roles = "Administracion")]
 
 <div class="config-layout">
@@ -1417,6 +1417,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Las llamadas autenticadas usan la cookie del navegador.
+        // El prerenderizado del servidor solo prepara la vista y la sesión.
+        if (!OperatingSystem.IsBrowser()) return;
+
         await CargarCategorias();
         await CargarSubcategorias();
         await CargarProductos();

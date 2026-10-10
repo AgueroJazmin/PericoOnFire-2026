@@ -7,11 +7,15 @@
 @implements IAsyncDisposable
 @inject PericoOnFire_2026.Shared.SerPolling.PollingService Polling
 @inject IHttpServicio http
-@rendermode InteractiveAuto
+@rendermode InteractiveWebAssembly
 @attribute [Authorize(Roles = "Mozo,Administracion")]
 
 <main class="perico-main">
-    @if (!salas.Any())
+    @if (cargandoInicial)
+    {
+        <p class="text-muted" role="status">Cargando mesas…</p>
+    }
+    else if (!salas.Any())
     {
         <p class="text-muted sin-salas-aviso">
             Todavía no hay salas configuradas. Pedile a un Administrador que las cargue en
@@ -1302,6 +1306,7 @@
 </style>
 
 @code {
+    private bool cargandoInicial = true;
     private List<MesaDTO> mesas = new();
     private List<SalaDTO> salas = new();
     private List<ProductoListadoDTO> productos = new();
@@ -1330,12 +1335,20 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await CargarMesas();
-        await CargarSalas();
-        await CargarProductos();
-        await CargarUsuarioActual();
+        // Las llamadas autenticadas usan la cookie del navegador.
+        // El prerenderizado del servidor solo prepara la vista y la sesión.
+        if (!OperatingSystem.IsBrowser()) return;
 
-        Polling.Iniciar(ActualizarPanel, TimeSpan.FromSeconds(2));
+        try
+        {
+            await CargarMesas();
+            await CargarSalas();
+            await CargarProductos();
+            await CargarUsuarioActual();
+    
+            Polling.Iniciar(ActualizarPanel, TimeSpan.FromSeconds(2));
+        }
+        finally { cargandoInicial = false; }
     }
 
     private async Task CargarSalas()

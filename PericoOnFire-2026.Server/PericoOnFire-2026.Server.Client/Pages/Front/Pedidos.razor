@@ -7,7 +7,7 @@
 @inject PericoOnFire_2026.Shared.SerPolling.PollingService Polling
 @inject IHttpServicio http
 @inject AuthenticationStateProvider AuthStateProvider
-@rendermode InteractiveAuto
+@rendermode InteractiveWebAssembly
 @attribute [Authorize(Roles = "Administracion,Barra,Delivery")]
 
 <div class="pedidos-pagina">
@@ -1254,6 +1254,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Las llamadas autenticadas usan la cookie del navegador.
+        // El prerenderizado del servidor solo prepara la vista y la sesión.
+        if (!OperatingSystem.IsBrowser()) return;
+
         await CargarRolActual();
         await CargarUsuarioActual();
         await CargarProductos();

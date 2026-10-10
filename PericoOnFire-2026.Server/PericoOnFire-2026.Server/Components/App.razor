@@ -36,5 +36,6 @@
     private HttpContext HttpContext { get; set; } = default!;
 
     private IComponentRenderMode? PageRenderMode =>
-        HttpContext.AcceptsInteractiveRouting() ? InteractiveAuto : null;
+        // Conserva el prerenderizado para transferir la sesión al navegador.
+        HttpContext.AcceptsInteractiveRouting() ? InteractiveWebAssembly : null;
 }

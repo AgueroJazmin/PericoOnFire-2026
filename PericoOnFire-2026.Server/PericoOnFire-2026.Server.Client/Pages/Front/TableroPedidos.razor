@@ -6,7 +6,7 @@
 @implements IAsyncDisposable
 @inject PericoOnFire_2026.Shared.SerPolling.PollingService Polling
 @inject IHttpServicio http
-@rendermode InteractiveAuto
+@rendermode InteractiveWebAssembly
 
 <div class="tablero">
     <h4>@TituloSector</h4>
@@ -293,6 +293,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Las llamadas autenticadas usan la cookie del navegador.
+        // El prerenderizado del servidor solo prepara la vista y la sesión.
+        if (!OperatingSystem.IsBrowser()) return;
+
         await CargarPedidos();
         Polling.Iniciar(CargarPedidos, TimeSpan.FromSeconds(3));
     }
