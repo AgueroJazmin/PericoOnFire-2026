@@ -17,6 +17,20 @@
         </div>
     </section>
 
+    <div class="bar-content">
+    <section class="bar-foto-card" aria-label="Fotos del bar">
+        <img class="bar-foto" src="@UrlFoto" alt="Foto del bar" @onerror="FotoNoDisponible" />
+        @if(fotos.Count > 1)
+        {
+            <div class="bar-foto-controles">
+                <button aria-label="Foto anterior" @onclick="Anterior">‹</button>
+                <span>@(fotoActual + 1) / @fotos.Count</span>
+                <button @onclick="() => rotar = !rotar">@(rotar ? "Pausar" : "Rotar")</button>
+                <button aria-label="Foto siguiente" @onclick="Siguiente">›</button>
+            </div>
+        }
+    </section>
+    <div class="bar-notices">
     <section class="bar-card">
         <div class="bar-heading"><span class="bar-icon">!</span><h3>Para atender</h3></div>
         @if (!Mesas.Any(m => m.TienePedidoListo || m.TienePedidoCancelado || m.Estado == EnumEstadoMesa.PendienteCobro))
@@ -45,21 +59,8 @@
         }
     </section>
 
-    <section class="bar-card bar-foto-card">
-        <div class="bar-heading"><span class="bar-icon">▧</span><h3>Perico en imágenes</h3>
-            <AuthorizeView Roles="Administracion"><Authorized><a class="bar-editar" href="/configuracion?tab=panel">Editar</a></Authorized></AuthorizeView>
-        </div>
-        <img class="bar-foto" src="@UrlFoto" alt="Foto del bar" @onerror="FotoNoDisponible" />
-        @if(fotos.Count > 1)
-        {
-            <div class="bar-foto-controles">
-                <button aria-label="Foto anterior" @onclick="Anterior">‹</button>
-                <span>@(fotoActual + 1) / @fotos.Count</span>
-                <button @onclick="() => rotar = !rotar">@(rotar ? "Pausar" : "Rotar")</button>
-                <button aria-label="Foto siguiente" @onclick="Siguiente">›</button>
-            </div>
-        }
-    </section>
+    </div>
+    </div>
     @if(!string.IsNullOrEmpty(error)) { <p class="bar-error" role="status">@error</p> }
 </aside>
 
