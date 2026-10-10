@@ -1,0 +1,15 @@
+.panel-config { padding:1.2rem; color:#292929; }
+.panel-config header h2 { font-size:1.45rem; font-weight:800; margin:0; }.panel-config header p { color:#666; margin:.4rem 0 1rem; }
+.panel-config-card { background:white; border:1px solid #ddd; border-radius:12px; padding:1.2rem; margin-bottom:1rem; }
+.panel-config-heading { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-bottom:1rem; }
+.panel-config-heading h3 { font-size:1.05rem; font-weight:800; margin:0; }.panel-config-heading p { color:#777; font-size:.85rem; margin:.4rem 0 0; }
+.subir-foto { display:block; margin-bottom:1rem; font-size:.9rem; font-weight:700; }.subir-foto ::deep input { display:block; margin-top:.5rem; max-width:100%; }
+.fotos-config { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:1rem; }
+.fotos-config figure { margin:0; border:1px solid #ddd; border-radius:9px; overflow:hidden; }.fotos-config img { width:100%; height:135px; object-fit:cover; }
+.fotos-config figcaption { display:flex; align-items:center; gap:.5rem; justify-content:space-between; padding:.6rem; font-size:.8rem; }.fotos-config figcaption span { min-width:0; overflow-wrap:anywhere; }
+.cumple-config-row { display:grid; grid-template-columns:minmax(160px,1fr) 85px 150px auto auto; align-items:end; gap:.75rem; padding:.85rem 0; border-bottom:1px solid #eee; }
+.cumple-config-row strong { align-self:center; overflow-wrap:anywhere; }.cumple-config-row label { display:flex; flex-direction:column; gap:.25rem; font-size:.8rem; }
+.cumple-config-row input,.cumple-config-row select { width:100%; min-height:44px; padding:.4rem .6rem; border:1px solid #bbb; border-radius:7px; background:white; }
+.cumple-config-row button { min-height:44px; }
+@media(max-width:850px) { .cumple-config-row { grid-template-columns:85px minmax(0,1fr) auto; }.cumple-config-row strong { grid-column:1/-1; }.cumple-config-row button:last-child { grid-column:1/-1; justify-self:start; } }
+@media(max-width:480px) { .panel-config { padding:.7rem; }.panel-config-card { padding:.85rem; }.panel-config-heading { flex-direction:column; align-items:flex-start; }.cumple-config-row { grid-template-columns:80px minmax(0,1fr); }.cumple-config-row button { grid-column:1/-1; }.fotos-config { grid-template-columns:1fr; } }

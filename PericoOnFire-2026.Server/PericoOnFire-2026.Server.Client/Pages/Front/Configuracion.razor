@@ -27,6 +27,7 @@
                 @onclick='() => CambiarTab("mesas")'>
             Mesas
         </button>
+        <button class="tab-btn @(tabActiva == "panel" ? "tab-activa" : "")" @onclick='() => CambiarTab("panel")'>Panel del bar</button>
     </div>
 
     @if (tabActiva == "general")
@@ -813,6 +814,11 @@
         </div>
     }
 
+    @if (tabActiva == "panel")
+    {
+        @if (!string.IsNullOrWhiteSpace(Mensaje)) { <p class="alert alert-info mx-3">@Mensaje</p> }
+        <ConfiguracionPanelBar CambiosPendientes="PanelCambiosPendientes" />
+    }
 </div>
 
 <style>
@@ -1323,7 +1329,12 @@
 </style>
 
 @code {
-    private bool HayCambiosPendientes => editandoDistribucion || salaEditandoNombreId != null ||
+    [SupplyParameterFromQuery(Name = "tab")] public string? TabSolicitada { get; set; }
+    protected override void OnParametersSet() { if (TabSolicitada == "panel" && !HayCambiosPendientes) tabActiva = "panel"; }
+
+    private bool panelCambiosPendientes;
+    private void PanelCambiosPendientes(bool cambios) { panelCambiosPendientes = cambios; if (!cambios) Mensaje = ""; }
+    private bool HayCambiosPendientes => panelCambiosPendientes || editandoDistribucion || salaEditandoNombreId != null ||
         editandoCategoriaId != null || editandoSubcategoriaId != null || editandoProductoId != null || usuarioEditandoId != null;
     private async Task AntesDeNavegar(Microsoft.AspNetCore.Components.Routing.LocationChangingContext args)
     {
@@ -1483,6 +1494,7 @@
 
     private void CambiarTab(string tab)
     {
+        if (panelCambiosPendientes) { Mensaje = "Guardá los cumpleaños antes de cambiar de pestaña."; return; }
         if (salaEditandoNombreId != null) { MensajeMesas = "Guardá o cancelá el nombre antes de cambiar de pestaña."; return; }
         if (editandoDistribucion) { MensajeMesas = "Guardá o cancelá la distribución antes de cambiar de pestaña."; return; }
         tabActiva = tab;

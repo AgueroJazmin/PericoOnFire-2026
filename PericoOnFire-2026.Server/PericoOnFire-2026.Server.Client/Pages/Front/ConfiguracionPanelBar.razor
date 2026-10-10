@@ -1,0 +1,113 @@
+@using PericoOnFire_2026.Shared.DTOs
+@using PericoOnFire_2026.Servicio.ServicioHttp
+@inject IHttpServicio http
+@inject IJSRuntime JS
+
+<section class="panel-config">
+    <header><h2>Panel del bar</h2><p>Personalizá las fotos y los cumpleaños que se muestran junto a las mesas.</p></header>
+    @if (!string.IsNullOrEmpty(mensaje)) { <p class="alert @(error ? "alert-danger" : "alert-success")" role="status">@mensaje</p> }
+    <section class="panel-config-card">
+        <div class="panel-config-heading"><div><h3>Fotos del bar</h3><p>Hasta 8 fotos JPG, PNG o WebP, de hasta 5 MB cada una. Rotan cada 8 segundos.</p></div></div>
+        <label class="subir-foto">@(subiendo ? "Subiendo foto…" : "Agregar foto")
+            <InputFile OnChange="SubirFoto" accept="image/jpeg,image/png,image/webp" disabled="@subiendo" />
+        </label>
+        <div class="fotos-config">
+            @foreach(var foto in fotos)
+            {
+                <figure><img src="@($"api/ConfiguracionSalon/Foto?id={foto.Id}")" alt="@foto.Nombre" />
+                    <figcaption><span>@foto.Nombre</span><button type="button" class="btn btn-sm btn-outline-danger" disabled="@subiendo" @onclick="() => QuitarFoto(foto)">Quitar</button></figcaption>
+                </figure>
+            }
+        </div>
+        @if(fotos.Count == 0){<p class="text-muted">Mientras no cargues fotos, se mostrará la imagen del bar que ya tiene la aplicación.</p>}
+    </section>
+
+    <section class="panel-config-card">
+        <div class="panel-config-heading"><div><h3>Cumpleaños del equipo</h3><p>Guardá solo el día y el mes. El saludo aparecerá automáticamente en Comandas.</p></div><button class="btn btn-outline-secondary" disabled="@(cargando || pendientes.Count > 0)" @onclick="Cargar">Actualizar</button></div>
+        @if(cargando){<p role="status">Cargando empleados…</p>}
+        else
+        {
+            @foreach(var empleado in empleados)
+            {
+                <div class="cumple-config-row">
+                    <strong>@empleado.Nombre</strong>
+                    <label>Día<input type="number" min="1" max="31" placeholder="Día" @bind="empleado.Dia" @bind:after="() => MarcarCambio(empleado.Id)" disabled="@(guardando == empleado.Id)" /></label>
+                    <label>Mes<select @bind="empleado.Mes" @bind:after="() => MarcarCambio(empleado.Id)" disabled="@(guardando == empleado.Id)">
+                        <option value="">Sin fecha</option>
+                        @for(var i = 0; i < meses.Length; i++){<option value="@(i + 1)">@meses[i]</option>}
+                    </select></label>
+                    <button class="btn btn-danger" disabled="@(guardando != null || !pendientes.Contains(empleado.Id))" @onclick="() => Guardar(empleado)">@(guardando == empleado.Id ? "Guardando…" : "Guardar")</button>
+                    <button class="btn btn-outline-secondary" disabled="@(guardando != null)" @onclick="() => Limpiar(empleado)">Sin cumpleaños</button>
+                </div>
+            }
+            @if(empleados.Count == 0){<p class="text-muted">No hay empleados activos para mostrar.</p>}
+        }
+    </section>
+</section>
+
+@code {
+    [Parameter] public EventCallback<bool> CambiosPendientes { get; set; }
+    private List<FotoPanelDTO> fotos = new();
+    private List<CumpleanosEmpleadoDTO> empleados = new();
+    private readonly HashSet<string> pendientes = new();
+    private string? guardando, mensaje;
+    private bool cargando = true, subiendo, error;
+    private readonly string[] meses = { "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre" };
+
+    protected override async Task OnInitializedAsync() { if(OperatingSystem.IsBrowser()) await Cargar(); }
+    private async Task Cargar()
+    {
+        cargando = true;
+        try {
+            var imagenes = await http.Get<List<FotoPanelDTO>>("api/ConfiguracionSalon/Fotos");
+            var equipo = await http.Get<List<CumpleanosEmpleadoDTO>>("api/PanelBar/Empleados");
+            if (imagenes.Error || equipo.Error) { Avisar(imagenes.Error ? imagenes.ObtenerError() : equipo.ObtenerError(), true); return; }
+            fotos = imagenes.Respuesta ?? new(); empleados = equipo.Respuesta ?? new();
+        } catch(System.Net.Http.HttpRequestException) { Avisar("No se pudieron cargar los datos. Revisá la conexión y tocá Actualizar.", true); }
+        finally { cargando = false; }
+    }
+    private void Avisar(string? texto, bool fallo = false) { mensaje = texto; error = fallo; }
+    private async Task MarcarCambio(string id) { pendientes.Add(id); await CambiosPendientes.InvokeAsync(true); }
+    private async Task Limpiar(CumpleanosEmpleadoDTO e) { e.Dia = null; e.Mes = null; await MarcarCambio(e.Id); }
+    private async Task Guardar(CumpleanosEmpleadoDTO e)
+    {
+        if(guardando != null) return;
+        guardando = e.Id;
+        try {
+            var r = await http.Put($"api/PanelBar/Empleados/{e.Id}/Cumpleanos", new GuardarCumpleanosDTO { Dia = e.Dia, Mes = e.Mes });
+            if(r.Error) { Avisar(r.ObtenerError(), true); return; }
+            pendientes.Remove(e.Id);
+            await CambiosPendientes.InvokeAsync(pendientes.Count > 0);
+            Avisar($"Cumpleaños de {e.Nombre} guardado.");
+        } catch(System.Net.Http.HttpRequestException) { Avisar("No se pudo confirmar el guardado. Volvé a intentarlo.", true); }
+        finally { guardando = null; }
+    }
+    private async Task SubirFoto(InputFileChangeEventArgs args)
+    {
+        if(subiendo) return;
+        var archivo = args.File;
+        if(archivo.Size > 5 * 1024 * 1024) { Avisar("La foto debe pesar como máximo 5 MB.", true); return; }
+        subiendo = true;
+        try {
+            using var contenido = new MemoryStream();
+            await using var stream = archivo.OpenReadStream(5 * 1024 * 1024);
+            await stream.CopyToAsync(contenido);
+            var dto = new FotoSalonDTO { ContenidoBase64 = Convert.ToBase64String(contenido.ToArray()), MimeType = archivo.ContentType, NombreArchivo = archivo.Name };
+            var r = await http.Post("api/ConfiguracionSalon/Fotos", dto);
+            if(r.Error) { Avisar(r.ObtenerError(), true); return; }
+            var lista = await http.Get<List<FotoPanelDTO>>("api/ConfiguracionSalon/Fotos");
+            if(!lista.Error) fotos = lista.Respuesta ?? new();
+            Avisar("Foto agregada. Ya está disponible en Comandas.");
+        } catch(Exception ex) when(ex is System.Net.Http.HttpRequestException || ex is IOException) { Avisar("No se pudo confirmar la carga. Actualizá las fotos antes de volver a subirla.", true); }
+        finally { subiendo = false; }
+    }
+    private async Task QuitarFoto(FotoPanelDTO foto)
+    {
+        if(!await JS.InvokeAsync<bool>("confirm", "¿Quitar esta foto del panel?")) return;
+        try {
+            var r = await http.Delete($"api/ConfiguracionSalon/Fotos/{foto.Id}");
+            if(r.Error) { Avisar(r.ObtenerError(), true); return; }
+            fotos.Remove(foto); Avisar("Foto quitada.");
+        } catch(System.Net.Http.HttpRequestException) { Avisar("No se pudo confirmar la eliminación. Actualizá las fotos.", true); }
+    }
+}

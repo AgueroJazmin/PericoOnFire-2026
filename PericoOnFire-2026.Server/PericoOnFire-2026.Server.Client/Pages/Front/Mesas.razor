@@ -13,7 +13,8 @@
 @if (sinConexion) { <p class="alert alert-warning m-2" role="status">No se pudo actualizar la información. Reintentando…</p> }
 
 <main class="perico-main">
-    <div class="mb-3"><a class="btn btn-outline-dark" href="/comandas-finalizadas">Comandas finalizadas</a></div>
+    <div class="comandas-disposicion">
+    <div class="comandas-mapa">
     @if (cargandoInicial)
     {
         <p class="text-muted" role="status">Cargando mesas…</p>
@@ -66,6 +67,9 @@
         }
         </div>
     }
+    </div>
+    <div class="comandas-lateral"><PanelBar Mesas="@mesas" AlSeleccionarMesa="SeleccionarMesa" /></div>
+    </div>
 </main>
 
 @if (mesaSeleccionada != null)
@@ -1312,6 +1316,15 @@
     .mesa-estado-texto { display: block; flex-shrink: 0; font-size: .65rem; line-height: 1.2; font-weight: 600; white-space: nowrap; }
     .valor-numero-mesa { display: block; flex-shrink: 0; line-height: 1.1; }
     fieldset.selector-productos { padding:0; margin:0; border:0; min-width:0; }
+
+    .comandas-disposicion { display:flex; align-items:flex-start; flex-wrap:wrap; gap:1.2rem; }
+    .comandas-mapa { flex:0 0 auto; min-width:0; max-width:100%; }
+    .comandas-lateral { flex:1 1 270px; min-width:260px; max-width:360px; }
+    @@media(max-width:780px) {
+        .comandas-disposicion { flex-direction:column; gap:1rem; }
+        .comandas-mapa { width:100%; }
+        .comandas-lateral { flex:none; width:100%; min-width:0; max-width:none; }
+    }
 </style>
 
 @code {

@@ -1269,6 +1269,10 @@
 </style>
 
 @code {
+    [SupplyParameterFromQuery(Name = "tipo")] public string? TipoSolicitado { get; set; }
+    private EnumTipoServicio TipoPorAcceso => string.Equals(TipoSolicitado, "delivery", StringComparison.OrdinalIgnoreCase) ? EnumTipoServicio.Delivery : EnumTipoServicio.TakeAway;
+    protected override void OnParametersSet() { if (!carrito.Any() && string.IsNullOrWhiteSpace(nombreCliente)) tipoNuevoPedido = TipoPorAcceso; }
+
     private bool sinConexion;
     private void ConexionCambiada(bool error) { sinConexion = error; _ = InvokeAsync(StateHasChanged); }
 
@@ -1471,7 +1475,7 @@
     {
         CancelarObservacion();
         MensajeForm = null;
-        tipoNuevoPedido = EnumTipoServicio.TakeAway;
+        tipoNuevoPedido = TipoPorAcceso;
         nombreCliente = "";
         telefonoCliente = "";
         direccionCliente = "";
