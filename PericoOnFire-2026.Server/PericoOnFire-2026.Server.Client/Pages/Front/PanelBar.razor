@@ -49,9 +49,9 @@
     </section>
 
     <section class="bar-card bar-cumple">
-        <div class="bar-heading"><span class="bar-icon">🎂</span><h3>El equipo</h3></div>
+        <div class="bar-heading"><span class="bar-icon">🎂</span><h3>Cumpleaños</h3></div>
         @if (!cargado) { <p class="bar-empty">Cargando cumpleaños…</p> }
-        else if (!cumpleanos.Any()) { <p class="bar-empty">Cargá los cumpleaños en Configuración → Panel del bar.</p> }
+        else if (!cumpleanos.Any()) { <p class="bar-empty">Agregá cumpleaños en Configuración → Panel del bar.</p> }
         else
         {
             @foreach(var empleado in cumpleanos.Where(e => e.Proximo == HoraArgentina.HoyLocal))
