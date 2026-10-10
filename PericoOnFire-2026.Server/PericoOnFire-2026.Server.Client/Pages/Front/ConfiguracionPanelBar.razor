@@ -23,15 +23,32 @@
     </section>
 
     <section class="panel-config-card">
-        <div class="panel-config-heading"><div><h3>Cumpleaños del equipo</h3><p>Guardá solo el día y el mes. El saludo aparecerá automáticamente en Comandas.</p></div><button class="btn btn-outline-secondary" disabled="@(cargando || pendientes.Count > 0)" @onclick="Cargar">Actualizar</button></div>
+        <div class="panel-config-heading"><div><h3>Cumpleaños de otras personas</h3><p>Agregá empleados sin usuario, clientes o proveedores.</p></div><button class="btn btn-danger" disabled="@(editandoPersona != null || guardandoPersona)" @onclick="NuevaPersona">Agregar persona</button></div>
+        @foreach(var persona in personas)
+        {
+            <div class="cumple-config-row"><strong>@persona.Nombre · @persona.Tipo</strong><span>@persona.Dia/@persona.Mes</span><button class="btn btn-outline-secondary" disabled="@(editandoPersona != null || guardandoPersona)" @onclick="() => EditarPersona(persona)">Editar</button></div>
+        }
+        @if(editandoPersona is { } edicion)
+        {
+            <div class="row g-2 mt-2">
+                <label class="col-12 col-md-6">Nombre<input class="form-control" maxlength="100" @bind="edicion.Nombre" disabled="@guardandoPersona" /></label>
+                <label class="col-12 col-md-6">Tipo<select class="form-select" @bind="edicion.Tipo" disabled="@guardandoPersona"><option>Empleado</option><option>Cliente</option><option>Proveedor</option><option>Otro</option></select></label>
+                <label class="col-6">Día<input class="form-control" type="number" min="1" max="31" @bind="edicion.Dia" disabled="@guardandoPersona" /></label>
+                <label class="col-6">Mes<select class="form-select" @bind="edicion.Mes" disabled="@guardandoPersona">@for(var i = 0; i < meses.Length; i++){<option value="@(i + 1)">@meses[i]</option>}</select></label>
+                <div class="col-12 d-flex gap-2"><button class="btn btn-danger" disabled="@guardandoPersona" @onclick="GuardarPersona">@(guardandoPersona ? "Guardando…" : "Guardar")</button><button class="btn btn-outline-secondary" disabled="@guardandoPersona" @onclick="CancelarPersona">Cancelar</button></div>
+            </div>
+        }
+    </section>
+    <section class="panel-config-card">
+        <div class="panel-config-heading"><div><h3>Cumpleaños del equipo</h3><p>Guardá solo el día y el mes. El saludo aparecerá automáticamente en Comandas.</p></div><button class="btn btn-outline-secondary" disabled="@(cargando || pendientes.Count > 0 || editandoPersona != null)" @onclick="Cargar">Actualizar</button></div>
         @if(cargando){<p role="status">Cargando empleados…</p>}
         else
         {
             @foreach(var empleado in empleados)
             {
                 <div class="cumple-config-row">
-                    <strong>@empleado.Nombre</strong>
-                    <label>Día<input type="number" min="1" max="31" placeholder="Día" @bind="empleado.Dia" @bind:after="() => MarcarCambio(empleado.Id)" disabled="@(guardando == empleado.Id)" /></label>
+                    <strong>@empleado.Nombre <button class="btn btn-sm btn-outline-secondary" disabled="@(guardando != null)" @onclick="() => editandoEmpleados.Add(empleado.Id)">Editar</button></strong>
+                    <label>Día<input type="number" min="1" max="31" placeholder="Día" @bind="empleado.Dia" @bind:after="() => MarcarCambio(empleado.Id)" disabled="@(guardando == empleado.Id || !editandoEmpleados.Contains(empleado.Id))" /></label>
                     <label>Mes<select @bind="empleado.Mes" @bind:after="() => MarcarCambio(empleado.Id)" disabled="@(guardando == empleado.Id)">
                         <option value="">Sin fecha</option>
                         @for(var i = 0; i < meses.Length; i++){<option value="@(i + 1)">@meses[i]</option>}
@@ -47,9 +64,13 @@
 
 @code {
     [Parameter] public EventCallback<bool> CambiosPendientes { get; set; }
+    private List<CumpleanosPersonaDTO> personas = new();
+    private CumpleanosPersonaDTO? editandoPersona;
+    private bool guardandoPersona;
     private List<FotoPanelDTO> fotos = new();
     private List<CumpleanosEmpleadoDTO> empleados = new();
     private readonly HashSet<string> pendientes = new();
+    private readonly HashSet<string> editandoEmpleados = new();
     private string? guardando, mensaje;
     private bool cargando = true, subiendo, error;
     private readonly string[] meses = { "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre" };
@@ -63,8 +84,38 @@
             var equipo = await http.Get<List<CumpleanosEmpleadoDTO>>("api/PanelBar/Empleados");
             if (imagenes.Error || equipo.Error) { Avisar(imagenes.Error ? imagenes.ObtenerError() : equipo.ObtenerError(), true); return; }
             fotos = imagenes.Respuesta ?? new(); empleados = equipo.Respuesta ?? new();
+            await CargarPersonas();
         } catch(System.Net.Http.HttpRequestException) { Avisar("No se pudieron cargar los datos. Revisá la conexión y tocá Actualizar.", true); }
         finally { cargando = false; }
+    }
+
+    private async Task CargarPersonas()
+    {
+        var r = await http.Get<List<CumpleanosPersonaDTO>>("api/PanelBar/Personas");
+        if(r.Error) { Avisar(r.ObtenerError(), true); return; }
+        personas = r.Respuesta ?? new();
+    }
+    private async Task NuevaPersona() { editandoPersona = new() { Dia = 1, Mes = 1 }; await CambiosPendientes.InvokeAsync(true); }
+    private async Task EditarPersona(CumpleanosPersonaDTO p)
+    {
+        editandoPersona = new() { Id = p.Id, Nombre = p.Nombre, Tipo = p.Tipo, Dia = p.Dia, Mes = p.Mes };
+        await CambiosPendientes.InvokeAsync(true);
+    }
+    private async Task CancelarPersona() { editandoPersona = null; await CambiosPendientes.InvokeAsync(pendientes.Count > 0); }
+    private async Task GuardarPersona()
+    {
+        if(editandoPersona == null || guardandoPersona) return;
+        guardandoPersona = true;
+        try
+        {
+            var r = await http.Post("api/PanelBar/Personas", editandoPersona);
+            if(r.Error) { Avisar(r.ObtenerError(), true); return; }
+            await CancelarPersona();
+            await CargarPersonas();
+            Avisar("Cumpleaños guardado.");
+        }
+        catch(System.Net.Http.HttpRequestException) { Avisar("No se pudo confirmar el guardado. Actualizá antes de volver a agregar la persona.", true); }
+        finally { guardandoPersona = false; }
     }
     private void Avisar(string? texto, bool fallo = false) { mensaje = texto; error = fallo; }
     private async Task MarcarCambio(string id) { pendientes.Add(id); await CambiosPendientes.InvokeAsync(true); }
@@ -77,7 +128,8 @@
             var r = await http.Put($"api/PanelBar/Empleados/{e.Id}/Cumpleanos", new GuardarCumpleanosDTO { Dia = e.Dia, Mes = e.Mes });
             if(r.Error) { Avisar(r.ObtenerError(), true); return; }
             pendientes.Remove(e.Id);
-            await CambiosPendientes.InvokeAsync(pendientes.Count > 0);
+            editandoEmpleados.Remove(e.Id);
+            await CambiosPendientes.InvokeAsync(pendientes.Count > 0 || editandoPersona != null);
             Avisar($"Cumpleaños de {e.Nombre} guardado.");
         } catch(System.Net.Http.HttpRequestException) { Avisar("No se pudo confirmar el guardado. Volvé a intentarlo.", true); }
         finally { guardando = null; }
