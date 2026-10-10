@@ -13,6 +13,12 @@
 @if (sinConexion) { <p class="alert alert-warning m-2" role="status">No se pudo actualizar la información. Reintentando…</p> }
 
 <main class="perico-main">
+    @if (cargandoInicial)
+    {
+        <div class="mesas-carga" role="status" aria-live="polite"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Cargando mesas…</div>
+    }
+    else
+    {
     <div class="comandas-disposicion">
     <div class="comandas-mapa">
     @if (cargandoInicial)
@@ -70,6 +76,7 @@
     </div>
     <div class="comandas-lateral"><PanelBar Mesas="@mesas" AlSeleccionarMesa="SeleccionarMesa" /></div>
     </div>
+    }
 </main>
 
 @if (mesaSeleccionada != null)
@@ -1317,6 +1324,7 @@
     .valor-numero-mesa { display: block; flex-shrink: 0; line-height: 1.1; }
     fieldset.selector-productos { padding:0; margin:0; border:0; min-width:0; }
 
+    .mesas-carga { min-height:420px; display:flex; gap:12px; align-items:center; justify-content:center; color:#666; }
     .comandas-disposicion { display:flex; align-items:flex-start; flex-wrap:wrap; gap:1.2rem; }
     .comandas-mapa { flex:0 0 auto; min-width:0; max-width:100%; }
     .comandas-lateral { flex:1 1 520px; min-width:0; max-width:none; }
