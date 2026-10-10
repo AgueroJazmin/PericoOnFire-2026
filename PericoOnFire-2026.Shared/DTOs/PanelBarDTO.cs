@@ -17,3 +17,12 @@ public class GuardarCumpleanosDTO
     public int? Dia { get; set; }
     public int? Mes { get; set; }
 }
+
+public class CumpleanosPersonaDTO
+{
+    public int Id { get; set; }
+    public string Nombre { get; set; } = "";
+    public string Tipo { get; set; } = "Cliente";
+    public int Dia { get; set; }
+    public int Mes { get; set; }
+}
