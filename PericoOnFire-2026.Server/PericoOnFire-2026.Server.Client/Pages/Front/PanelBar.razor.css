@@ -1,7 +1,8 @@
-.bar-panel { display:flex; flex-direction:column; gap:12px; min-width:0; }
-.bar-card { padding:16px; background:white; border:1px solid #e1e1e1; border-radius:12px; box-shadow:0 3px 12px #00000005; }
+.bar-panel { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:12px; min-width:0; }
+.bar-panel > :first-child, .bar-foto-card, .bar-error { grid-column:1/-1; }
+.bar-card { min-width:0; padding:16px; background:white; border:1px solid #e1e1e1; border-radius:12px; box-shadow:0 3px 12px #00000005; }
 .bar-heading { display:flex; align-items:center; gap:9px; margin-bottom:12px; }
-.bar-heading h3 { margin:0; font-size:.96rem; font-weight:800; color:#282828; }
+.bar-heading h3 { overflow-wrap:anywhere; margin:0; font-size:.96rem; font-weight:800; color:#282828; }
 .bar-icon { display:grid; place-items:center; width:28px; height:28px; flex-shrink:0; border-radius:8px; color:#c21717; background:#fff0ee; font-weight:800; }
 .bar-accesos { display:grid; gap:8px; }
 .bar-accesos a { display:flex; align-items:center; gap:10px; min-height:44px; padding:9px 12px; border:1px solid #ebdedd; border-radius:8px; background:#fffafa; color:#333; text-decoration:none; font-size:.86rem; font-weight:650; }
@@ -20,5 +21,5 @@
 .bar-foto-controles { display:flex; align-items:center; justify-content:space-between; gap:7px; margin-top:8px; font-size:.78rem; color:#777; }
 .bar-foto-controles button { min-width:38px; min-height:38px; padding:5px 9px; border:1px solid #ddd; border-radius:7px; background:#fff; color:#333; }
 .bar-error { color:#85521d; font-size:.78rem; margin:0; }
-@media(max-width:780px) { .bar-panel { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; }.bar-card { padding:13px; }.bar-foto { height:140px; } }
+@media(max-width:780px) { .bar-card { padding:13px; }.bar-foto { height:140px; } }
 @media(max-width:520px) { .bar-panel { grid-template-columns:minmax(0,1fr); }.bar-foto { height:160px; } }
