@@ -633,9 +633,20 @@
         <div class="mesas-config">
             <div class="section-header">
                 <h3>Salas y mesas</h3>
+                @if (!editandoDistribucion)
+                {
+                    <button class="btn btn-dark" disabled="@(salaSeleccionadaId == null || !MesasSalaActual.Any())" @onclick="IniciarDistribucion">Editar distribución</button>
+                }
+                else
+                {
+                    <div class="distribucion-acciones">
+                        <button class="btn btn-success" disabled="@(guardandoDistribucion || !distribucionModificada)" @onclick="GuardarDistribucion">@(guardandoDistribucion ? "Guardando..." : "Guardar distribución")</button>
+                        <button class="btn btn-outline-secondary" disabled="@guardandoDistribucion" @onclick="CancelarDistribucion">Cancelar</button>
+                    </div>
+                }
             </div>
 
-            <div class="salas-tabs">
+            <fieldset class="salas-tabs" disabled="@editandoDistribucion">
                 @foreach (var s in salas.OrderBy(s => s.Orden))
                 {
                     <button class="sala-tab @(salaSeleccionadaId == s.Id ? "sala-tab-activa" : "")"
@@ -657,7 +668,12 @@
                 {
                     <button class="btn btn-sm btn-dark" @onclick="() => mostrarFormNuevaSala = true">+ Nueva sala</button>
                 }
-            </div>
+            </fieldset>
+
+            @if (editandoDistribucion)
+            {
+                <p class="distribucion-ayuda" role="status">Arrastrá una mesa o tocala y después tocá su destino. Si está ocupado, intercambian lugares. @(mesaParaMover == null ? "" : $"Mesa {mesaParaMover.NumeroMesa} seleccionada.")</p>
+            }
 
             @if (!string.IsNullOrWhiteSpace(MensajeMesas))
             {
@@ -685,27 +701,38 @@
                                     var columnaActual = columna;
                                     var mesaEnCelda = MesasSalaActual.FirstOrDefault(m => m.Fila == filaActual && m.Columna == columnaActual);
 
-                                    if (mesaEnCelda != null)
-                                    {
-                                        <button class="celda-mesa tamanio-@mesaEnCelda.Tamanio.ToString().ToLower() forma-@mesaEnCelda.Forma.ToString().ToLower()
-                                            @(mesaSeleccionadaConfig?.Id == mesaEnCelda.Id ? "celda-mesa-activa" : "")"
-                                                @onclick="() => SeleccionarMesaConfig(mesaEnCelda)">
-                                            @mesaEnCelda.NumeroMesa
-                                        </button>
-                                    }
-                                    else
-                                    {
-                                        <button class="celda-vacia" title="Agregar mesa acá"
-                                                @onclick="() => CrearMesaEnCelda(filaActual, columnaActual)">
-                                            +
-                                        </button>
-                                    }
+                                    <div class="posicion-mesa"
+                                         @ondragover:preventDefault="true"
+                                         @ondrop="() => MoverMesa(filaActual, columnaActual)">
+                                        @if (mesaEnCelda != null)
+                                        {
+                                            <button type="button" disabled="@guardandoDistribucion"
+                                                    draggable="@(editandoDistribucion ? "true" : "false")"
+                                                    @ondragstart="() => ElegirMesaParaMover(mesaEnCelda)"
+                                                    @ondragend="() => mesaParaMover = null"
+                                                    class="celda-mesa tamanio-@mesaEnCelda.Tamanio.ToString().ToLower() forma-@mesaEnCelda.Forma.ToString().ToLower()
+                                                        @(mesaSeleccionadaConfig?.Id == mesaEnCelda.Id || mesaParaMover?.Id == mesaEnCelda.Id ? "celda-mesa-activa" : "")"
+                                                    aria-label="@($"Mesa {mesaEnCelda.NumeroMesa}, fila {filaActual + 1}, columna {columnaActual + 1}")"
+                                                    @onclick="() => PulsarMesa(mesaEnCelda)">
+                                                @mesaEnCelda.NumeroMesa
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button type="button" disabled="@guardandoDistribucion" class="celda-vacia"
+                                                    title="@(editandoDistribucion ? "Mover mesa acá" : "Agregar mesa acá")"
+                                                    aria-label="@($"Celda vacía, fila {filaActual + 1}, columna {columnaActual + 1}")"
+                                                    @onclick="() => PulsarCelda(filaActual, columnaActual)">
+                                                @(editandoDistribucion ? "·" : "+")
+                                            </button>
+                                        }
+                                    </div>
                                 }
                             </div>
                         }
                     </div>
 
-                    <div class="panel-mesa-config">
+                    <fieldset class="panel-mesa-config" disabled="@editandoDistribucion">
                         <div class="panel-mesa-header">
                             @(salas.First(s => s.Id == salaSeleccionadaId).Nombre)
                             <button class="btn-cerrar" title="Eliminar sala" @onclick="() => EliminarSala(salaSeleccionadaId!.Value)">
@@ -756,7 +783,7 @@
                                 </button>
                             </div>
                         }
-                    </div>
+                    </fieldset>
                 </div>
             }
         </div>
@@ -765,6 +792,17 @@
 </div>
 
 <style>
+    .distribucion-acciones { display: flex; gap: .5rem; flex-wrap: wrap; }
+    .distribucion-ayuda { padding: .8rem; background: #fff8ec; border-left: 4px solid #f0a000; }
+    .posicion-mesa { width: 78px; height: 78px; flex: 0 0 78px; display: flex; align-items: center; justify-content: center; }
+    .posicion-mesa:has([draggable="true"]) { cursor: grab; }
+    .posicion-mesa:focus-within { outline: 2px solid #f0a000; outline-offset: 2px; }
+    .editor-salon > * { min-width: 0; }
+    .panel-mesa-config:disabled { opacity: .5; }
+    @@media (max-width: 900px) {
+        .editor-salon { grid-template-columns: minmax(0, 1fr); }
+    }
+
     .config-layout {
         background: #f4f4f4;
         min-height: calc(100vh - 64px);
@@ -1301,8 +1339,8 @@
 
     // Número de filas/columnas de la grilla que se muestra por sala (si algún día
     // hace falta una sala más grande, alcanza con subir estas dos constantes).
-    private const int FilasGrilla = 6;
-    private const int ColumnasGrilla = 8;
+    private int FilasGrilla => Math.Max(6, MesasSalaActual.Select(m => m.Fila + 1).DefaultIfEmpty(0).Max());
+    private int ColumnasGrilla => Math.Max(8, MesasSalaActual.Select(m => m.Columna + 1).DefaultIfEmpty(0).Max());
 
     private int numeroEditado;
     private int salaDestinoEditada;
@@ -1310,7 +1348,7 @@
     private EnumTamanioMesa tamanioEditada;
 
     private IEnumerable<MesaDTO> MesasSalaActual =>
-        mesas.Where(m => m.IdSala == salaSeleccionadaId);
+        (editandoDistribucion ? borradorMesas : mesas).Where(m => m.IdSala == salaSeleccionadaId);
 
     //Esto es lo que yo agrego para que ande roles con lo que yo hice de mi page
     private List<UsuarioRolDTO>? usuariosRol;
@@ -1407,6 +1445,7 @@
 
     private void CambiarTab(string tab)
     {
+        if (editandoDistribucion) { MensajeMesas = "Guardá o cancelá la distribución antes de cambiar de pestaña."; return; }
         tabActiva = tab;
         seccionActiva = "";
         Mensaje = "";
@@ -1750,14 +1789,121 @@
         }
     }
 
+
+    private bool editandoDistribucion;
+    private bool guardandoDistribucion;
+    private bool distribucionModificada;
+    private List<MesaDTO> borradorMesas = new();
+    private MesaDTO? mesaParaMover;
+
+    private void IniciarDistribucion()
+    {
+        borradorMesas = mesas.Select(m => new MesaDTO
+        {
+            Id = m.Id, NumeroMesa = m.NumeroMesa, IdSala = m.IdSala,
+            Fila = m.Fila, Columna = m.Columna, Forma = m.Forma, Tamanio = m.Tamanio
+        }).ToList();
+        mesaSeleccionadaConfig = null;
+        mesaParaMover = null;
+        MensajeMesas = null;
+        distribucionModificada = false;
+        editandoDistribucion = true;
+    }
+
+    private void ElegirMesaParaMover(MesaDTO mesa)
+    {
+        if (editandoDistribucion && !guardandoDistribucion) mesaParaMover = mesa;
+    }
+
+    private void PulsarMesa(MesaDTO mesa)
+    {
+        if (!editandoDistribucion) { SeleccionarMesaConfig(mesa); return; }
+        if (guardandoDistribucion) return;
+        if (mesaParaMover == null) ElegirMesaParaMover(mesa);
+        else MoverMesa(mesa.Fila, mesa.Columna);
+    }
+
+    private async Task PulsarCelda(int fila, int columna)
+    {
+        if (editandoDistribucion) MoverMesa(fila, columna);
+        else await CrearMesaEnCelda(fila, columna);
+    }
+
+    private void MoverMesa(int fila, int columna)
+    {
+        if (!editandoDistribucion || guardandoDistribucion || mesaParaMover == null) return;
+        var origen = mesaParaMover;
+        var destino = MesasSalaActual.FirstOrDefault(m => m.Fila == fila && m.Columna == columna);
+        if (destino != null)
+        {
+            destino.Fila = origen.Fila;
+            destino.Columna = origen.Columna;
+        }
+        origen.Fila = fila;
+        origen.Columna = columna;
+        mesaParaMover = null;
+        distribucionModificada = MesasSalaActual.Any(m =>
+        {
+            var original = mesas.First(o => o.Id == m.Id);
+            return m.Fila != original.Fila || m.Columna != original.Columna;
+        });
+    }
+
+    private void CancelarDistribucion()
+    {
+        if (guardandoDistribucion) return;
+        editandoDistribucion = false;
+        borradorMesas.Clear();
+        mesaParaMover = null;
+        distribucionModificada = false;
+        MensajeMesas = "Movimientos descartados.";
+    }
+
+    private async Task GuardarDistribucion()
+    {
+        if (guardandoDistribucion || !distribucionModificada || salaSeleccionadaId == null) return;
+        guardandoDistribucion = true;
+        MensajeMesas = null;
+        try
+        {
+            var dto = new DistribucionMesasDTO
+            {
+                IdSala = salaSeleccionadaId.Value,
+                Mesas = MesasSalaActual.Select(m =>
+                {
+                    var original = mesas.First(o => o.Id == m.Id);
+                    return new PosicionMesaDTO
+                    {
+                        Id = m.Id, Fila = m.Fila, Columna = m.Columna,
+                        FilaOriginal = original.Fila, ColumnaOriginal = original.Columna
+                    };
+                }).ToList()
+            };
+            var resp = await http.Put<DistribucionMesasDTO>("api/Mesa/Distribucion", dto);
+            if (resp.Error) { MensajeMesas = resp.ObtenerError(); return; }
+            editandoDistribucion = false;
+            mesaParaMover = null;
+            borradorMesas.Clear();
+            distribucionModificada = false;
+            await CargarMesas();
+            MensajeMesas = "Distribución guardada. Ya se muestra en Comandas.";
+        }
+        catch (Exception)
+        {
+            MensajeMesas = "No se pudo confirmar el guardado. Revisá la conexión e intentá de nuevo. Si ya se guardó, cancelá y recargá la página.";
+        }
+        finally { guardandoDistribucion = false; }
+    }
+
     //Nuevos metodos para mesas
     private async Task CargarMesas()
     {
+        if (editandoDistribucion) return;
         var resp = await http.Get<List<MesaDTO>>("api/Mesa");
 
         if (!resp.Error && resp.Respuesta != null)
         {
-            mesas = resp.Respuesta;
+            if (!editandoDistribucion) mesas = resp.Respuesta;
         }
         else
         {
@@ -1767,10 +1913,12 @@
 
     private async Task CargarSalas()
     {
+        if (editandoDistribucion) return;
         var resp = await http.Get<List<SalaDTO>>("api/Sala");
 
         if (!resp.Error && resp.Respuesta != null)
         {
+            if (editandoDistribucion) return;
             salas = resp.Respuesta;
             if (salaSeleccionadaId == null && salas.Any())
                 salaSeleccionadaId = salas.OrderBy(s => s.Orden).First().Id;

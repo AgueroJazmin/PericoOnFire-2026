@@ -128,6 +128,44 @@ namespace PericoOnFire_2026.Server.Controllers
             });
         }
 
+        // Guarda únicamente posiciones; las mesas conservan su identidad y consumo.
+        [Authorize(Roles = "Administracion")]
+        [HttpPut("Distribucion")]
+        public async Task<ActionResult> GuardarDistribucion(DistribucionMesasDTO dto)
+        {
+            if (dto.Mesas == null || dto.Mesas.Count == 0 ||
+                dto.Mesas.Any(p => p.Fila < 0 || p.Columna < 0 || p.Fila > 99 || p.Columna > 99) ||
+                dto.Mesas.Select(p => p.Id).Distinct().Count() != dto.Mesas.Count ||
+                dto.Mesas.Select(p => (p.Fila, p.Columna)).Distinct().Count() != dto.Mesas.Count)
+                return BadRequest("La distribución contiene posiciones inválidas o repetidas.");
+
+            await using var transaction = await context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+            var mesasSala = await context.Mesas.Where(m => m.IdSala == dto.IdSala).ToListAsync();
+            var posiciones = dto.Mesas.ToDictionary(p => p.Id);
+            if (mesasSala.Count != posiciones.Count || mesasSala.Any(m =>
+                !posiciones.TryGetValue(m.Id, out var p) ||
+                m.Fila != p.FilaOriginal || m.Columna != p.ColumnaOriginal))
+                return Conflict("La distribución cambió mientras editabas. Cancelá y recargá para ver la versión actual.");
+
+            foreach (var mesa in mesasSala)
+            {
+                var posicion = posiciones[mesa.Id];
+                mesa.Fila = posicion.Fila;
+                mesa.Columna = posicion.Columna;
+            }
+
+            try
+            {
+                await context.SaveChangesAsync();
+                await transaction.CommitAsync();
+                return Ok();
+            }
+            catch (DbUpdateException)
+            {
+                return Conflict("No se pudo guardar la distribución. Cancelá y recargá antes de volver a intentarlo.");
+            }
+        }
+
         [HttpPut("{id:int}")]
         public async Task<ActionResult> Put(int id, MesaDTO dto)
         {
