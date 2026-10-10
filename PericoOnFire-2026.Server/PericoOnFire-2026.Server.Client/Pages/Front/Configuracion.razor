@@ -635,7 +635,7 @@
                 <h3>Salas y mesas</h3>
                 @if (!editandoDistribucion)
                 {
-                    <button class="btn btn-dark" disabled="@(salaSeleccionadaId == null || !MesasSalaActual.Any())" @onclick="IniciarDistribucion">Editar distribución</button>
+                    <button class="btn btn-dark" disabled="@(salaSeleccionadaId == null || !MesasSalaActual.Any() || salaEditandoNombreId != null || guardandoNombreSala)" @onclick="IniciarDistribucion">Editar distribución</button>
                 }
                 else
                 {
@@ -646,13 +646,32 @@
                 }
             </div>
 
-            <fieldset class="salas-tabs" disabled="@editandoDistribucion">
+            <fieldset class="salas-tabs" disabled="@(editandoDistribucion || guardandoNombreSala)">
                 @foreach (var s in salas.OrderBy(s => s.Orden))
                 {
-                    <button class="sala-tab @(salaSeleccionadaId == s.Id ? "sala-tab-activa" : "")"
-                            @onclick="() => SeleccionarSala(s.Id)">
-                        @s.Nombre
-                    </button>
+                    <div class="sala-tab-grupo" @key="s.Id">
+                        @if (salaEditandoNombreId == s.Id)
+                        {
+                            <input class="form-control form-control-sm input-nueva-sala"
+                                   aria-label="Nombre de la sala" maxlength="60"
+                                   @bind="nombreSalaEditado" @bind:event="oninput"
+                                   @onkeyup="TeclaNombreSala" />
+                            <button type="button" class="btn btn-sm btn-success" @onclick="GuardarNombreSala">Guardar</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="CancelarNombreSala">Cancelar</button>
+                        }
+                        else
+                        {
+                            <button class="sala-tab @(salaSeleccionadaId == s.Id ? "sala-tab-activa" : "")"
+                                    @onclick="() => SeleccionarSala(s.Id)">
+                                @s.Nombre
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                    title="Editar nombre" aria-label="@($"Editar nombre de {s.Nombre}")"
+                                    @onclick="() => EditarNombreSala(s)">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        }
+                    </div>
                 }
 
                 @if (mostrarFormNuevaSala)
@@ -792,6 +811,8 @@
 </div>
 
 <style>
+    .sala-tab-grupo { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; max-width: 100%; }
+
     .distribucion-acciones { display: flex; gap: .5rem; flex-wrap: wrap; }
     .distribucion-ayuda { padding: .8rem; background: #fff8ec; border-left: 4px solid #f0a000; }
     .posicion-mesa { width: 78px; height: 78px; flex: 0 0 78px; display: flex; align-items: center; justify-content: center; }
@@ -1449,6 +1470,7 @@
 
     private void CambiarTab(string tab)
     {
+        if (salaEditandoNombreId != null) { MensajeMesas = "Guardá o cancelá el nombre antes de cambiar de pestaña."; return; }
         if (editandoDistribucion) { MensajeMesas = "Guardá o cancelá la distribución antes de cambiar de pestaña."; return; }
         tabActiva = tab;
         seccionActiva = "";
@@ -1934,6 +1956,62 @@
         salaSeleccionadaId = idSala;
         mesaSeleccionadaConfig = null;
         MensajeMesas = null;
+    }
+
+    private int? salaEditandoNombreId;
+    private string nombreSalaEditado = "";
+    private bool guardandoNombreSala;
+
+    private void EditarNombreSala(SalaDTO sala)
+    {
+        if (editandoDistribucion || guardandoNombreSala) return;
+        salaEditandoNombreId = sala.Id;
+        nombreSalaEditado = sala.Nombre;
+        MensajeMesas = null;
+    }
+
+    private void CancelarNombreSala()
+    {
+        if (guardandoNombreSala) return;
+        salaEditandoNombreId = null;
+        nombreSalaEditado = "";
+        MensajeMesas = null;
+    }
+
+    private async Task TeclaNombreSala(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await GuardarNombreSala();
+        else if (e.Key == "Escape") CancelarNombreSala();
+    }
+
+    private async Task GuardarNombreSala()
+    {
+        if (salaEditandoNombreId == null || guardandoNombreSala) return;
+        var nombre = nombreSalaEditado.Trim();
+        if (string.IsNullOrWhiteSpace(nombre) || nombre.Length > 60)
+        {
+            MensajeMesas = "El nombre debe tener entre 1 y 60 caracteres.";
+            return;
+        }
+        var sala = salas.FirstOrDefault(s => s.Id == salaEditandoNombreId);
+        if (sala == null) { MensajeMesas = "La sala ya no existe. Recargá la página."; return; }
+        guardandoNombreSala = true;
+        try
+        {
+            var dto = new SalaCrearDTO { Nombre = nombre, Orden = sala.Orden };
+            var resp = await http.Put<SalaCrearDTO>($"api/Sala/{sala.Id}", dto);
+            if (resp.Error) { MensajeMesas = resp.ObtenerError(); return; }
+            sala.Nombre = nombre;
+            salaEditandoNombreId = null;
+            nombreSalaEditado = "";
+            await CargarSalas();
+            MensajeMesas = "Nombre de la sala actualizado.";
+        }
+        catch (Exception)
+        {
+            MensajeMesas = "No se pudo confirmar el cambio. Revisá la conexión y volvé a intentar.";
+        }
+        finally { guardandoNombreSala = false; }
     }
 
     private async Task CrearSala()
