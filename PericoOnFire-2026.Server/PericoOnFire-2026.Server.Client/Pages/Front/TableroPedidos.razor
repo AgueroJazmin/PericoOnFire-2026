@@ -8,6 +8,8 @@
 @inject IHttpServicio http
 @rendermode InteractiveWebAssembly
 
+@if (sinConexion) { <p class="alert alert-warning m-2" role="status">No se pudo actualizar la información. Reintentando…</p> }
+
 <div class="tablero">
     <h4>@TituloSector</h4>
 
@@ -18,7 +20,7 @@
 
     <div class="columnas @(MostrarEnPreparacion ? "" : "columnas-2")">
         <div class="columna">
-            <h6>Pendientes</h6>
+            <h6>Pendientes · @pedidos.Count(p => p.Estado == EnumEstadoPedido.Pendiente)</h6>
             @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.Pendiente))
             {
                 <div class="pedido-card @ClaseAlerta(pedido)">
@@ -48,7 +50,7 @@
         @if (MostrarEnPreparacion)
         {
             <div class="columna">
-                <h6>En preparación</h6>
+                <h6>En preparación · @pedidos.Count(p => p.Estado == EnumEstadoPedido.EnPreparacion)</h6>
                 @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.EnPreparacion))
                 {
                     <div class="pedido-card @ClaseAlerta(pedido)">
@@ -68,24 +70,30 @@
 
         <div class="columna">
             <div class="columna-header">
-                <h6>Listos</h6>
+                <h6>Listos · @pedidos.Count(p => p.Estado == EnumEstadoPedido.ListoParaRetirar)</h6>
                 @if (pedidos.Any(p => p.Estado == EnumEstadoPedido.Entregado))
                 {
-                    <button class="btn-tacho" title="Borrar pedidos ya entregados" @onclick="VaciarEntregados">
+                    <button class="btn-tacho" title="Archivar pedidos entregados (se conserva el historial)" @onclick="VaciarEntregados">
                         🗑
                     </button>
                 }
             </div>
-            @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.ListoParaRetirar
-                                                     || p.Estado == EnumEstadoPedido.Entregado))
+            @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.ListoParaRetirar))
             {
-                <div class="pedido-card @(pedido.Estado == EnumEstadoPedido.Entregado ? "pedido-entregado" : "pedido-listo")">
-                    @RenderCard(pedido)
-                    @if (pedido.Estado == EnumEstadoPedido.Entregado)
+                <div class="pedido-card pedido-listo">@RenderCard(pedido)</div>
+            }
+            @if (pedidos.Any(p => p.Estado == EnumEstadoPedido.Entregado))
+            {
+                <details class="entregados-tablero">
+                    <summary>Entregados · @pedidos.Count(p => p.Estado == EnumEstadoPedido.Entregado)</summary>
+                    @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.Entregado))
                     {
-                        <span class="etiqueta-entregado">Entregado ✓</span>
+                        <div class="pedido-card pedido-entregado">
+                            @RenderCard(pedido)
+                            <span class="etiqueta-entregado">Entregado ✓</span>
+                        </div>
                     }
-                </div>
+                </details>
             }
         </div>
     </div>
@@ -268,9 +276,13 @@
             font-size: 1.15rem;
         }
     }
+    .entregados-tablero > summary { cursor:pointer; padding:.6rem 0; font-weight:700; color:#555; }
 </style>
 
 @code {
+    private bool sinConexion;
+    private void ConexionCambiada(bool error) { sinConexion = error; _ = InvokeAsync(StateHasChanged); }
+
     [Parameter] public EnumSectorDestino Sector { get; set; }
     [Parameter] public string TituloSector { get; set; } = "";
     [Parameter] public int MinutosAlertaPendiente { get; set; } = 10;
@@ -296,9 +308,11 @@
         // Las llamadas autenticadas usan la cookie del navegador.
         // El prerenderizado del servidor solo prepara la vista y la sesión.
         if (!OperatingSystem.IsBrowser()) return;
+        Polling.ConexionCambiada += ConexionCambiada;
 
-        await CargarPedidos();
-        Polling.Iniciar(CargarPedidos, TimeSpan.FromSeconds(3));
+        try { await CargarPedidos(); }
+        catch (System.Net.Http.HttpRequestException) { sinConexion = true; }
+        finally { Polling.Iniciar(CargarPedidos, TimeSpan.FromSeconds(3)); }
     }
 
     private async Task CargarPedidos()
@@ -461,6 +475,206 @@
 
     public async ValueTask DisposeAsync()
     {
+        Polling.ConexionCambiada -= ConexionCambiada;
+        await Polling.DisposeAsync();
+    }
+}
+    private bool sinConexion;
+    private void ConexionCambiada(bool error) { sinConexion = error; _ = InvokeAsync(StateHasChanged); }
+
+    [Parameter] public EnumSectorDestino Sector { get; set; }
+    [Parameter] public string TituloSector { get; set; } = "";
+    [Parameter] public int MinutosAlertaPendiente { get; set; } = 10;
+    [Parameter] public int MinutosAlertaPreparacion { get; set; } = 30;
+
+    // Barra no usa el paso intermedio "En preparación": para Barra los tragos/bebidas
+    // pasan directo de Pendiente a Listo. Cocina sí lo sigue usando.
+    [Parameter] public bool MostrarEnPreparacion { get; set; } = true;
+
+    // Cocina necesita ver, a modo de referencia, qué bebida pidió la misma mesa/cliente
+    // aunque la prepare Barra. Barra no necesita ver el detalle de comida en gris.
+    [Parameter] public bool MostrarItemsOtroSector { get; set; } = false;
+
+    private List<PedidoDTO> pedidos = new();
+    private string? Mensaje;
+
+    private Confirmacion? confirmacionCancelacion;
+    private PedidoDTO? pedidoACancelar;
+    private string motivoCancelacion = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Las llamadas autenticadas usan la cookie del navegador.
+        // El prerenderizado del servidor solo prepara la vista y la sesión.
+        if (!OperatingSystem.IsBrowser()) return;
+        Polling.ConexionCambiada += ConexionCambiada;
+
+        try { await CargarPedidos(); }
+        catch (System.Net.Http.HttpRequestException) { sinConexion = true; }
+        finally { Polling.Iniciar(CargarPedidos, TimeSpan.FromSeconds(3)); }
+    }
+
+    private async Task CargarPedidos()
+    {
+        var respuesta = await http.Get<List<PedidoDTO>>($"api/Pedido/Sector/{Sector}");
+        if (!respuesta.Error && respuesta.Respuesta != null)
+        {
+            // Cancelado ya no necesita seguir en el tablero: cocina/barra ya resolvió lo suyo.
+            // Entregado se mantiene visible en "Listos" hasta que se use el tacho.
+            pedidos = respuesta.Respuesta
+                .Where(p => p.Estado != EnumEstadoPedido.Cancelado)
+                .ToList();
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task Avanzar(PedidoDTO pedido, EnumEstadoPedido nuevoEstado)
+    {
+        var dto = new CambiarEstadoPedidoDTO { Estado = nuevoEstado };
+        var respuesta = await http.Put($"api/Pedido/{pedido.Id}/Estado", dto);
+
+        if (respuesta.Error)
+        {
+            Mensaje = respuesta.ObtenerError();
+            return;
+        }
+
+        await CargarPedidos();
+    }
+
+    private void PedirCancelar(PedidoDTO pedido)
+    {
+        pedidoACancelar = pedido;
+        motivoCancelacion = "";
+        confirmacionCancelacion?.Ver();
+    }
+
+    private async Task ConfirmarCancelacion()
+    {
+        if (pedidoACancelar == null || string.IsNullOrWhiteSpace(motivoCancelacion))
+            return;
+
+        var dto = new CambiarEstadoPedidoDTO
+        {
+            Estado = EnumEstadoPedido.Cancelado,
+            MotivoCancelacion = motivoCancelacion.Trim()
+        };
+
+        var respuesta = await http.Put($"api/Pedido/{pedidoACancelar.Id}/Estado", dto);
+        confirmacionCancelacion?.Ocultar();
+
+        if (respuesta.Error)
+        {
+            Mensaje = respuesta.ObtenerError();
+            return;
+        }
+
+        pedidoACancelar = null;
+        motivoCancelacion = "";
+        await CargarPedidos();
+    }
+
+    private async Task VaciarEntregados()
+    {
+        var respuesta = await http.Delete($"api/Pedido/Entregados/Sector/{Sector}");
+
+        if (respuesta.Error)
+        {
+            Mensaje = respuesta.ObtenerError();
+            return;
+        }
+
+        await CargarPedidos();
+    }
+
+    // Cuánto antes del horario deseado se considera "ya está por llegar" y se resalta en rojo.
+    private const int MinutosAvisoHoraDeseada = 15;
+
+    private string ClaseAlerta(PedidoDTO pedido)
+    {
+        var ahora = DateTime.UtcNow;
+
+        if (pedido.HoraDeseada.HasValue && pedido.HoraDeseada.Value <= ahora.AddMinutes(MinutosAvisoHoraDeseada)
+            && pedido.Estado != EnumEstadoPedido.ListoParaRetirar && pedido.Estado != EnumEstadoPedido.Entregado)
+        {
+            return "pedido-alerta";
+        }
+
+        if (pedido.Estado == EnumEstadoPedido.Pendiente)
+        {
+            var minutos = (ahora - pedido.FechaPedido).TotalMinutes;
+            return minutos >= MinutosAlertaPendiente ? "pedido-alerta" : "";
+        }
+
+        if (pedido.Estado == EnumEstadoPedido.EnPreparacion && pedido.FechaInicioPreparacion.HasValue)
+        {
+            var minutos = (ahora - pedido.FechaInicioPreparacion.Value).TotalMinutes;
+            return minutos >= MinutosAlertaPreparacion ? "pedido-alerta" : "";
+        }
+
+        return "";
+    }
+
+    private RenderFragment RenderCard(PedidoDTO pedido) => @<text>
+        <div class="pedido-mesa">
+            @if (pedido.NumeroMesa != null)
+            {
+                @($"Mesa {pedido.NumeroMesa}")
+            }
+            else if (pedido.TipoServicio == EnumTipoServicio.Delivery)
+            {
+                @(!string.IsNullOrWhiteSpace(pedido.Direccion) ? $"Delivery · {pedido.Direccion}" : "Delivery")
+            }
+            else
+            {
+                @(!string.IsNullOrWhiteSpace(pedido.NombreCliente) ? $"Take Away · {pedido.NombreCliente}" : "Take Away")
+            }
+            <span class="pedido-comanda">· @pedido.NumeroComanda</span>
+        </div>
+        @if (pedido.TipoServicio == EnumTipoServicio.Delivery && !string.IsNullOrWhiteSpace(pedido.NombreCliente))
+        {
+            <div class="pedido-cliente"> @pedido.NombreCliente</div>
+        }
+        <div class="pedido-tiempo">
+            hace @((int)(DateTime.UtcNow - pedido.FechaPedido).TotalMinutes) min
+        </div>
+        @if (pedido.HoraDeseada.HasValue)
+        {
+            <div class="pedido-hora-deseada @(pedido.HoraDeseada.Value <= DateTime.UtcNow.AddMinutes(MinutosAvisoHoraDeseada) ? "proxima" : "")">
+                🕒 Para las @pedido.HoraDeseada.Value.ToLocalTime().ToString("HH:mm")
+            </div>
+        }
+        <ul>
+            @foreach (var detalle in pedido.DetallesPedido)
+            {
+                <li class="detalle-producto">
+                    <strong>@detalle.Cantidad x @detalle.NombreProducto</strong>
+                    @if (!string.IsNullOrWhiteSpace(detalle.Observacion))
+                    {
+                        <div class="observacion-producto">⚠ @detalle.Observacion</div>
+                    }
+                </li>
+            }
+        </ul>
+        @if (MostrarItemsOtroSector && pedido.DetallesOtroSector.Any())
+        {
+            <ul class="items-otro-sector">
+                @foreach (var detalle in pedido.DetallesOtroSector)
+                {
+                    <li>@detalle.Cantidad x @detalle.NombreProducto <em>(lo prepara otro sector)</em></li>
+                }
+            </ul>
+        }
+        @if (!string.IsNullOrWhiteSpace(pedido.Observaciones))
+        {
+            <p><em>@pedido.Observaciones</em></p>
+        }
+    </text>;
+
+    public async ValueTask DisposeAsync()
+    {
+        Polling.ConexionCambiada -= ConexionCambiada;
         await Polling.DisposeAsync();
     }
 }

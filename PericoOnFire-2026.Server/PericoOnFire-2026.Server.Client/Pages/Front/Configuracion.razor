@@ -6,13 +6,18 @@
 @implements IAsyncDisposable
 @inject PericoOnFire_2026.Shared.SerPolling.PollingService Polling
 @inject NavigationManager NavManager
+@inject Microsoft.JSInterop.IJSRuntime JS
+@using Microsoft.JSInterop
 @inject IHttpServicio http
 @rendermode InteractiveWebAssembly
 @attribute [Authorize(Roles = "Administracion")]
 
+<NavigationLock ConfirmExternalNavigation="@HayCambiosPendientes" OnBeforeInternalNavigation="AntesDeNavegar" />
+
 <div class="config-layout">
 
     <div class="config-tabs">
+        <button class="tab-btn" @onclick="ActualizarTodo">Actualizar datos</button>
         <button class="tab-btn @(tabActiva == "general" ? "tab-activa" : "")"
                 @onclick='() => CambiarTab("general")'>
             Configuración general
@@ -1318,6 +1323,14 @@
 </style>
 
 @code {
+    private bool HayCambiosPendientes => editandoDistribucion || salaEditandoNombreId != null ||
+        editandoCategoriaId != null || editandoSubcategoriaId != null || editandoProductoId != null || usuarioEditandoId != null;
+    private async Task AntesDeNavegar(Microsoft.AspNetCore.Components.Routing.LocationChangingContext args)
+    {
+        if (HayCambiosPendientes && !await JS.InvokeAsync<bool>("confirm", "Hay cambios sin guardar. ¿Querés salir y descartarlos?"))
+            args.PreventNavigation();
+    }
+
     private List<CategoriaListadoDTO> categorias = new();
     private List<SubcategoriaListadoDTO> subcategorias = new();
     private List<ProductoListadoDTO> productos = new();
@@ -1449,7 +1462,7 @@
         await CargarMesas();
         await CargarSalas();
 
-        Polling.Iniciar(ActualizarTodo, TimeSpan.FromSeconds(2));
+        // Los catálogos se actualizan al entrar y después de cada modificación.
     }
 
     private async Task ActualizarTodo()
@@ -1586,6 +1599,7 @@
 
     private async Task EliminarCategoria(int id)
     {
+        if (!await JS.InvokeAsync<bool>("confirm", "¿Confirmás que querés eliminar este elemento?")) return;
         var resp = await http.Delete($"api/Categoria/{id}");
 
         if (!resp.Error)
@@ -1630,6 +1644,7 @@
 
     private async Task EliminarSubcategoria(int id)
     {
+        if (!await JS.InvokeAsync<bool>("confirm", "¿Confirmás que querés eliminar este elemento?")) return;
         var resp = await http.Delete($"api/Subcategoria/{id}");
 
         if (!resp.Error)
@@ -1677,6 +1692,7 @@
 
     private async Task EliminarProducto(int id)
     {
+        if (!await JS.InvokeAsync<bool>("confirm", "¿Confirmás que querés eliminar este elemento?")) return;
         var resp = await http.Delete($"api/Producto/{id}");
 
         if (!resp.Error)
@@ -1705,25 +1721,31 @@
         CancelarEdicion();
     }
 
-    private void MostrarCategorias()
+    private async Task MostrarCategorias()
     {
+        if (HayCambiosPendientes && !await JS.InvokeAsync<bool>("confirm", "Hay cambios sin guardar. ¿Querés descartarlos?")) return;
         seccionActiva = "categorias";
         Mensaje = "";
         CancelarEdicion();
+        await CargarCategorias();
     }
 
-    private void MostrarSubcategorias()
+    private async Task MostrarSubcategorias()
     {
+        if (HayCambiosPendientes && !await JS.InvokeAsync<bool>("confirm", "Hay cambios sin guardar. ¿Querés descartarlos?")) return;
         seccionActiva = "subcategorias";
         Mensaje = "";
         CancelarEdicion();
+        await CargarCategorias(); await CargarSubcategorias();
     }
 
-    private void MostrarProductos()
+    private async Task MostrarProductos()
     {
+        if (HayCambiosPendientes && !await JS.InvokeAsync<bool>("confirm", "Hay cambios sin guardar. ¿Querés descartarlos?")) return;
         seccionActiva = "productos";
         Mensaje = "";
         CancelarEdicion();
+        await CargarCategorias(); await CargarSubcategorias(); await CargarProductos();
     }
 
     private IEnumerable<CategoriaListadoDTO> CategoriasFiltradas =>
@@ -2036,6 +2058,7 @@
 
     private async Task EliminarSala(int idSala)
     {
+        if (!await JS.InvokeAsync<bool>("confirm", "¿Confirmás que querés eliminar este elemento?")) return;
         var resp = await http.Delete($"api/Sala/{idSala}");
 
         if (!resp.Error)
@@ -2110,6 +2133,7 @@
 
     private async Task EliminarMesaConfig(int id)
     {
+        if (!await JS.InvokeAsync<bool>("confirm", "¿Confirmás que querés eliminar este elemento?")) return;
         var resp = await http.Delete($"api/Mesa/{id}");
 
         if (!resp.Error)

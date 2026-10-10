@@ -10,7 +10,10 @@
 @rendermode InteractiveWebAssembly
 @attribute [Authorize(Roles = "Administracion,Barra,Delivery")]
 
+@if (sinConexion) { <p class="alert alert-warning m-2" role="status">No se pudo actualizar la información. Reintentando…</p> }
+
 <div class="pedidos-pagina">
+    <div class="mb-3"><a class="btn btn-outline-light" href="/comandas-finalizadas">Comandas finalizadas</a></div>
 
     <AuthorizeView Roles="Administracion,Barra">
         <Authorized>
@@ -47,8 +50,9 @@
                         <div class="alert @(MensajeFormEsExito ? "alert-success" : "alert-danger") py-2">@MensajeForm</div>
                     }
 
-                    <div class="selector-productos">
+                    <fieldset class="selector-productos" disabled="@enviandoPedido">
                         <aside class="selector-resumen">
+                            <div class="datos-cliente">
                             <strong>Tipo de pedido</strong>
                             <div class="selector-tipo">
                                 <button class="@(tipoNuevoPedido == EnumTipoServicio.TakeAway ? "activo" : "")"
@@ -61,26 +65,24 @@
                                 </button>
                             </div>
 
-                            <label class="mt-2">Nombre y apellido</label>
-                            <input class="form-control form-control-sm" maxlength="100" @bind="nombreCliente" @bind:event="oninput" />
+                            <label class="dato-cliente">Nombre y apellido<input class="form-control form-control-sm" maxlength="100" @bind="nombreCliente" @bind:event="oninput" /></label>
 
-                            <label class="mt-2">Teléfono (opcional)</label>
-                            <input class="form-control form-control-sm" maxlength="30" @bind="telefonoCliente" @bind:event="oninput" />
+                            <label class="dato-cliente">Teléfono (opcional)<input class="form-control form-control-sm" maxlength="30" @bind="telefonoCliente" @bind:event="oninput" /></label>
 
                             @if (tipoNuevoPedido == EnumTipoServicio.Delivery)
                             {
-                                <label class="mt-2">Referencia de WhatsApp</label>
-                                <input class="form-control form-control-sm" maxlength="150" placeholder="Ej.: pedido de WhatsApp de las 21:40 - Juan"
-                                       @bind="direccionCliente" @bind:event="oninput" />
+                                <label class="dato-cliente">Referencia de WhatsApp<input class="form-control form-control-sm" maxlength="150" placeholder="Ej.: pedido de WhatsApp de las 21:40 - Juan"
+                                       @bind="direccionCliente" @bind:event="oninput" /></label>
                             }
 
-                            <label class="mt-2">
-                                @(tipoNuevoPedido == EnumTipoServicio.Delivery ? "Horario de entrega (opcional)" : "Horario de retiro (opcional)")
-                            </label>
+                            <label class="dato-cliente">
+                                @(tipoNuevoPedido == EnumTipoServicio.Delivery ? "Entrega (opcional)" : "Retiro (opcional)")
                             <input type="time" class="form-control form-control-sm" value="@horaDeseadaTexto"
                                    @oninput="e => horaDeseadaTexto = e.Value?.ToString() ?? string.Empty" />
+                            </label>
                             <small class="ayuda-horario">Si lo dejás vacío, entra a cocina/barra apenas lo enviás.</small>
 
+                            </div>
                             <div class="resumen-carrito">
                                 <strong>Pedido (@CantidadTotalItems)</strong>
                                 @if (!carrito.Any())
@@ -174,7 +176,7 @@
                                 <p class="texto-vacio p-3">No hay productos activos en esta subcategoría.</p>
                             }
                         </div>
-                    </div>
+                    </fieldset>
 
                     <footer class="modal-pedido-footer">
                         <div>
@@ -682,7 +684,7 @@
         min-height: 0;
         flex: 1;
         display: grid;
-        grid-template-columns: 180px minmax(0, 1fr) 420px;
+        grid-template-columns: 150px minmax(300px, .9fr) minmax(410px, 1.1fr);
         grid-template-rows: minmax(0, 1fr);
         overflow: hidden;
     }
@@ -773,13 +775,13 @@
         position: sticky;
         bottom: 0;
         z-index: 1;
-        min-height: 140px;
-        max-height: 45%;
-        flex: 0 0 auto;
+        min-height: 180px;
+        max-height: none;
+        flex: 1 0 180px;
         display: flex;
         flex-direction: column;
         gap: .55rem;
-        margin-top: auto;
+        margin-top: 1rem;
         padding-top: 1rem;
         padding-bottom: 1rem;
         overflow-y: auto;
@@ -961,7 +963,7 @@
 
     .producto-fila {
         display: grid;
-        grid-template-columns: minmax(120px, 1fr) auto 110px;
+        grid-template-columns: minmax(0, 1fr) auto auto;
         align-items: center;
         gap: .75rem;
         padding: .75rem .8rem;
@@ -1006,7 +1008,7 @@
 
     @@media (max-width: 1100px) {
         .selector-productos {
-            grid-template-columns: 160px minmax(0, 1fr) 300px;
+            grid-template-columns: 135px minmax(280px, 1fr) minmax(330px, 1fr);
         }
 
         .modal-encabezado-contenido {
@@ -1173,9 +1175,40 @@
                 font-size: .85rem;
             }
     }
+
+    .selector-resumen { background: #f7f8fa; padding-bottom: 1rem; }
+    .resumen-carrito { position: static; padding: 1rem; border: 1px solid #d7dce2; border-radius: 10px; background: white; box-shadow: 0 3px 12px #00000008; }
+    .resumen-carrito > strong { padding-bottom: .6rem; border-bottom: 2px solid #ef1111; }
+    .carrito-item { background: #fff; border-left: 3px solid #ef1111; }
+    .carrito-item-linea { font-size: 1rem; line-height: 1.5; }
+    .carrito-item-linea > span { min-width: 0; overflow-wrap: anywhere; }
+    .carrito-acciones button { min-width: 44px; min-height: 44px; border: 1px solid #ddd; border-radius: 6px; }
+    .control-cantidad button { width: 36px; height: 36px; }
+    .producto-fila > div:first-child { min-width: 0; overflow-wrap: anywhere; }
+    .producto-fila { gap: .5rem; }
+    .producto-precio { font-size: .9rem; }
+    @@media (max-width: 900px) {
+        .resumen-carrito { min-height: 150px; margin-top: 1rem; padding: .85rem; }
+        .control-cantidad button { width: 44px; height: 44px; }
+        .modal-pedido-footer { position: sticky; bottom: 0; z-index: 5; box-shadow: 0 -4px 12px #00000012; }
+        .pedidos-pagina { padding: .5rem; }
+    }
+
+    .datos-cliente { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; flex-shrink: 0; }
+    .datos-cliente > strong, .datos-cliente > .selector-tipo, .datos-cliente > .ayuda-horario { grid-column: 1 / -1; margin: 0; }
+    .dato-cliente { display: flex; flex-direction: column; gap: .25rem; font-size: .8rem; min-width: 0; }
+    .dato-cliente input { min-height: 36px; }
+    .resumen-carrito { flex: 1 1 180px; min-height: 180px; overflow-y: auto; }
+    .selector-resumen { overflow: hidden; }
+    @@media(max-width:900px) { .selector-resumen { overflow: visible; } .resumen-carrito { flex: 0 0 auto; max-height: none; overflow: visible; } .dato-cliente input { min-height:44px; } }
+    @@media(max-width:360px) { .datos-cliente { grid-template-columns: 1fr; } }
+    fieldset.selector-productos { padding: 0; margin: 0; border: 0; min-width: 0; }
 </style>
 
 @code {
+    private bool sinConexion;
+    private void ConexionCambiada(bool error) { sinConexion = error; _ = InvokeAsync(StateHasChanged); }
+
     //lo que pidio el cliente, Nuevo pedido siempre visible arriba, calcado del modal de Mesas.razor
     private EnumTipoServicio tipoNuevoPedido = EnumTipoServicio.TakeAway;
     private string nombreCliente = "";
@@ -1257,13 +1290,18 @@
         // Las llamadas autenticadas usan la cookie del navegador.
         // El prerenderizado del servidor solo prepara la vista y la sesión.
         if (!OperatingSystem.IsBrowser()) return;
+        Polling.ConexionCambiada += ConexionCambiada;
 
+        try
+        {
         await CargarRolActual();
         await CargarUsuarioActual();
         await CargarProductos();
         ReiniciarFormularioPedido();
         await CargarSeguimiento();
-        Polling.Iniciar(CargarSeguimiento, TimeSpan.FromSeconds(4));
+        }
+        catch (System.Net.Http.HttpRequestException) { sinConexion = true; }
+        finally { Polling.Iniciar(CargarSeguimiento, TimeSpan.FromSeconds(4)); }
     }
 
     private async Task CargarRolActual()
@@ -1295,11 +1333,14 @@
 
     private async Task CargarSeguimiento()
     {
+        if (idUsuarioActual == null) await CargarUsuarioActual();
+        if (!productos.Any()) await CargarProductos();
         // El rol Delivery no tiene permiso para ver TakeAway (el server también lo
         // rechaza), así que ni se lo pedimos.
         if (!esSoloDelivery)
         {
             var respuestaTakeAway = await http.Get<List<PedidoParaLlevarDTO>>($"api/Pedido/ParaLlevar/{EnumTipoServicio.TakeAway}");
+        if (respuestaTakeAway.Error) throw new System.Net.Http.HttpRequestException("No se pudo actualizar la información.");
             if (!respuestaTakeAway.Error && respuestaTakeAway.Respuesta != null)
             {
                 takeAways = respuestaTakeAway.Respuesta;
@@ -1307,6 +1348,7 @@
         }
 
         var respuestaDelivery = await http.Get<List<PedidoParaLlevarDTO>>($"api/Pedido/ParaLlevar/{EnumTipoServicio.Delivery}");
+        if (respuestaDelivery.Error) throw new System.Net.Http.HttpRequestException("No se pudo actualizar la información.");
         if (!respuestaDelivery.Error && respuestaDelivery.Respuesta != null)
         {
             deliveries = respuestaDelivery.Respuesta;
@@ -1497,10 +1539,11 @@
             return;
         }
 
-        if (!PedidoListoParaEnviar) return;
+        if (!PedidoListoParaEnviar || enviandoPedido) return;
 
         enviandoPedido = true;
-
+        try
+        {
         var dto = new ConfirmarPedidoSinMesaDTO
         {
             IdUsuario = idUsuarioActual.Value,
@@ -1525,6 +1568,9 @@
         ReiniciarFormularioPedido();
         MensajeForm = $"Pedido {numeroGenerado} enviado.";
         await CargarSeguimiento();
+        }
+        catch (System.Net.Http.HttpRequestException) { MensajeForm = "No se pudo confirmar el envío. Revisá el seguimiento antes de volver a enviar."; }
+        finally { enviandoPedido = false; }
     }
 
     //Es de administración/barra, para marcar como retirado un pedido de TakeAway que ya lo retiró el cliente
@@ -1596,6 +1642,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        Polling.ConexionCambiada -= ConexionCambiada;
         await Polling.DisposeAsync();
     }
 }

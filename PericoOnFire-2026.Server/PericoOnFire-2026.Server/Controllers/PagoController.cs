@@ -81,6 +81,8 @@ namespace PericoOnFire_2026.Server.Controllers
         [HttpPost("Registrar")]
         public async Task<ActionResult<PagoRegistradoDTO>> Registrar(RegistrarPagoDTO dto)
         {
+            return await OperacionAtomica.EjecutarAsync<ActionResult<PagoRegistradoDTO>>(context, async () =>
+            {
             var turno = await CajaActual.ObtenerTurnoAbiertoAsync(context);
             if (turno == null)
                 return Conflict("La caja está cerrada. Abrí un turno antes de cobrar.");
@@ -146,6 +148,8 @@ namespace PericoOnFire_2026.Server.Controllers
                 MontoTotal = total,
                 Vuelto = cobro.Vuelto
             });
+        
+            });
         }
 
         //Cubre el caso de una comanda que llegó a PendienteCobro sin nada para cobrar
@@ -156,6 +160,8 @@ namespace PericoOnFire_2026.Server.Controllers
         [HttpPut("CerrarSinCobro/{idComanda:int}")]
         public async Task<ActionResult> CerrarSinCobro(int idComanda)
         {
+            return await OperacionAtomica.EjecutarAsync<ActionResult>(context, async () =>
+            {
             var comanda = await context.Comandas
                 .Include(c => c.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado))
                     .ThenInclude(p => p.DetallesPedido)
@@ -187,6 +193,8 @@ namespace PericoOnFire_2026.Server.Controllers
 
             await context.SaveChangesAsync();
             return Ok();
+        
+            });
         }
     }
 }

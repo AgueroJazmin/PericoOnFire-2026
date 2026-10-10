@@ -24,6 +24,54 @@ namespace PericoOnFire_2026.Server.Controllers
             this.context = context;
         }
 
+        [HttpGet("Finalizadas")]
+        public async Task<ActionResult<HistorialComandasDTO>> Finalizadas(
+            [FromQuery] DateTime? desde, [FromQuery] DateTime? hasta,
+            [FromQuery] EnumEstadoComanda? estado, [FromQuery] EnumTipoServicio? tipo,
+            [FromQuery] int pagina = 1)
+        {
+            var hoy = PericoOnFire_2026.Shared.Utilidades.HoraArgentina.HoyLocal;
+            var inicioLocal = (desde ?? hoy).Date;
+            var finLocal = (hasta ?? hoy).Date;
+            if (inicioLocal > finLocal || (finLocal - inicioLocal).TotalDays > 366 || pagina < 1 || pagina > 1000000)
+                return BadRequest("Revisá el rango de fechas (máximo un año).");
+            if (estado.HasValue && estado != EnumEstadoComanda.Pagada && estado != EnumEstadoComanda.Cancelada)
+                return BadRequest("Seleccioná pagadas o canceladas.");
+            var inicio = PericoOnFire_2026.Shared.Utilidades.HoraArgentina.InicioDiaUtc(inicioLocal);
+            var fin = PericoOnFire_2026.Shared.Utilidades.HoraArgentina.InicioDiaUtc(finLocal.AddDays(1));
+            var consulta = context.Comandas.AsNoTracking().Where(c =>
+                (c.Estado == EnumEstadoComanda.Pagada || c.Estado == EnumEstadoComanda.Cancelada) &&
+                (c.FechaCierre ?? c.FechaApertura) >= inicio && (c.FechaCierre ?? c.FechaApertura) < fin);
+            if (estado.HasValue) consulta = consulta.Where(c => c.Estado == estado.Value);
+            if (tipo.HasValue) consulta = consulta.Where(c => c.TipoServicio == tipo.Value);
+            var total = await consulta.CountAsync();
+            var lista = await consulta.OrderByDescending(c => c.FechaCierre ?? c.FechaApertura).ThenByDescending(c => c.Id)
+                .Skip((pagina - 1) * 30).Take(30)
+                .Include(c => c.Mesa).ThenInclude(m => m!.Sala)
+                .Include(c => c.Usuario).Include(c => c.Cliente).Include(c => c.Pagos)
+                .Include(c => c.Pedidos).ThenInclude(p => p.DetallesPedido).ThenInclude(d => d.Producto)
+                .AsSplitQuery().ToListAsync();
+            var numeros = await NumeroComandaDiario.ObtenerVariosAsync(context, lista.Select(c => (c.Id, c.FechaApertura)));
+            return Ok(new HistorialComandasDTO
+            {
+                Total = total,
+                Comandas = lista.Select(c => new ComandaHistorialDTO
+                {
+                    Id = c.Id, NumeroDiario = numeros.GetValueOrDefault(c.Id),
+                    NumeroMesa = c.Mesa?.NumeroMesa, Sala = c.Mesa?.Sala?.Nombre,
+                    Cliente = c.Cliente?.Nombre, Empleado = c.Usuario?.Nombre,
+                    FechaApertura = c.FechaApertura, FechaCierre = c.FechaCierre ?? c.FechaApertura,
+                    Estado = c.Estado, TipoServicio = c.TipoServicio, Total = c.Estado == EnumEstadoComanda.Pagada ? c.Total : 0,
+                    Pagos = c.Pagos.Select(p => $"{p.TipoPago}: ${p.MontoPagado - p.Vuelto:N2}").ToList(),
+                    Items = c.Pedidos.SelectMany(p => p.DetallesPedido.Select(d => new ItemHistorialDTO
+                    {
+                        Producto = d.Producto.Nombre, Cantidad = d.Cantidad, PrecioUnitario = d.PrecioUnitario,
+                        Estado = p.Estado, Observacion = d.Observacion, MotivoCancelacion = p.MotivoCancelacion
+                    })).ToList()
+                }).ToList()
+            });
+        }
+
         [HttpGet]
         public async Task<ActionResult<List<Comanda>>> Get()
         {
@@ -119,8 +167,8 @@ namespace PericoOnFire_2026.Server.Controllers
             if (dto.Items == null || !dto.Items.Any())
                 return BadRequest("Agregá al menos un producto antes de enviar la comanda.");
 
-            if (dto.Items.Any(i => i.Cantidad <= 0))
-                return BadRequest("La cantidad de cada producto debe ser mayor que cero.");
+            if (dto.Items.Any(i => i.Cantidad <= 0 || i.Cantidad > 999 || (i.Observacion?.Length ?? 0) > 300))
+                return BadRequest("Las cantidades deben estar entre 1 y 999 y las observaciones no pueden superar los 300 caracteres.");
 
             var idsProducto = dto.Items.Select(i => i.IdProducto).Distinct().ToList();
             var productos = await context.Productos
@@ -138,7 +186,11 @@ namespace PericoOnFire_2026.Server.Controllers
             {
                 await estrategia.ExecuteAsync(async () =>
                 {
-                    await using var transaccion = await context.Database.BeginTransactionAsync();
+                    context.ChangeTracker.Clear();
+                    await using var transaccion = await context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+                    productos = await context.Productos.Where(p => idsProducto.Contains(p.Id) && p.Activo).ToListAsync();
+                    if (productos.Count != idsProducto.Count)
+                        throw new InvalidOperationException("Hay productos que ya no están disponibles.");
 
                     var mesa = await context.Mesas.FirstOrDefaultAsync(m => m.Id == dto.IdMesa);
                     if (mesa == null)
@@ -206,7 +258,7 @@ namespace PericoOnFire_2026.Server.Controllers
 
                     mesa.Estado = EnumEstadoMesa.Ocupada;
                     await context.SaveChangesAsync();
-                    await transaccion.CommitAsync();
+                    
 
                     resultado = new ComandaConfirmadaDTO
                     {
@@ -215,6 +267,7 @@ namespace PericoOnFire_2026.Server.Controllers
                             context, comanda.Id, comanda.FechaApertura),
                         IdsPedidos = idsPedidos
                     };
+                    await transaccion.CommitAsync();
                 });
             }
             catch (InvalidOperationException ex)
@@ -240,8 +293,8 @@ namespace PericoOnFire_2026.Server.Controllers
             if (dto.Items == null || !dto.Items.Any())
                 return BadRequest("Agregá al menos un producto antes de enviar el pedido.");
 
-            if (dto.Items.Any(i => i.Cantidad <= 0))
-                return BadRequest("La cantidad de cada producto debe ser mayor que cero.");
+            if (dto.Items.Any(i => i.Cantidad <= 0 || i.Cantidad > 999 || (i.Observacion?.Length ?? 0) > 300))
+                return BadRequest("Las cantidades deben estar entre 1 y 999 y las observaciones no pueden superar los 300 caracteres.");
 
             var idsProducto = dto.Items.Select(i => i.IdProducto).Distinct().ToList();
             var productos = await context.Productos
@@ -255,9 +308,15 @@ namespace PericoOnFire_2026.Server.Controllers
             ComandaConfirmadaDTO? resultado = null;
             var estrategia = context.Database.CreateExecutionStrategy();
 
+            try
+            {
             await estrategia.ExecuteAsync(async () =>
             {
-                await using var transaccion = await context.Database.BeginTransactionAsync();
+                context.ChangeTracker.Clear();
+                    await using var transaccion = await context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
+                    productos = await context.Productos.Where(p => idsProducto.Contains(p.Id) && p.Activo).ToListAsync();
+                    if (productos.Count != idsProducto.Count)
+                        throw new InvalidOperationException("Hay productos que ya no están disponibles.");
 
                 var cliente = new Cliente
                 {
@@ -323,7 +382,7 @@ namespace PericoOnFire_2026.Server.Controllers
                     idsPedidos.Add(pedido.Id);
                 }
 
-                await transaccion.CommitAsync();
+                
 
                 resultado = new ComandaConfirmadaDTO
                 {
@@ -332,8 +391,11 @@ namespace PericoOnFire_2026.Server.Controllers
                         context, comanda.Id, comanda.FechaApertura),
                     IdsPedidos = idsPedidos
                 };
+                    await transaccion.CommitAsync();
             });
 
+            }
+            catch (InvalidOperationException ex) { return Conflict(ex.Message); }
             return Ok(resultado);
         }
 
@@ -345,6 +407,8 @@ namespace PericoOnFire_2026.Server.Controllers
             var comanda = await context.Comandas.FindAsync(id);
             if (comanda == null) return NotFound();
 
+            if (comanda.Estado != EnumEstadoComanda.Abierta)
+                return Conflict("Solo se puede cambiar el horario de una comanda abierta.");
             comanda.HoraDeseada = dto.HoraDeseada;
             await context.SaveChangesAsync();
 
@@ -357,6 +421,8 @@ namespace PericoOnFire_2026.Server.Controllers
         [HttpPut("{id:int}/Cancelar")]
         public async Task<ActionResult> Cancelar(int id)
         {
+            return await OperacionAtomica.EjecutarAsync<ActionResult>(context, async () =>
+            {
             var comanda = await context.Comandas.FindAsync(id);
             if (comanda == null) return NotFound();
 
@@ -384,6 +450,8 @@ namespace PericoOnFire_2026.Server.Controllers
 
             await context.SaveChangesAsync();
             return Ok();
+        
+            });
         }
 
         //Y se difernecia de este, Cerrar, porque se usa cuando el cliente ya consumió
@@ -391,6 +459,8 @@ namespace PericoOnFire_2026.Server.Controllers
         [HttpPut("{id:int}/Cerrar")]
         public async Task<ActionResult> Cerrar(int id)
         {
+            return await OperacionAtomica.EjecutarAsync<ActionResult>(context, async () =>
+            {
             var comanda = await context.Comandas.FindAsync(id);
             if (comanda == null) return NotFound();
 
@@ -435,6 +505,8 @@ namespace PericoOnFire_2026.Server.Controllers
 
             await context.SaveChangesAsync();
             return Ok();
+        
+            });
         }
     }
 }

@@ -12,6 +12,7 @@
 @attribute [Authorize(Roles = "Caja,Administracion")]
 
 <div class="caja-pagina">
+    <div class="mb-3"><a class="btn btn-outline-light" href="/comandas-finalizadas">Comandas finalizadas</a></div>
 
     @* ---- Estado de la caja: abierta/cerrada, lo cobrado en el turno y la apertura ---- *@
     @if (estado == null)

@@ -10,7 +10,10 @@
 @rendermode InteractiveWebAssembly
 @attribute [Authorize(Roles = "Mozo,Administracion")]
 
+@if (sinConexion) { <p class="alert alert-warning m-2" role="status">No se pudo actualizar la información. Reintentando…</p> }
+
 <main class="perico-main">
+    <div class="mb-3"><a class="btn btn-outline-dark" href="/comandas-finalizadas">Comandas finalizadas</a></div>
     @if (cargandoInicial)
     {
         <p class="text-muted" role="status">Cargando mesas…</p>
@@ -275,7 +278,7 @@
                 <div class="alert alert-danger py-2">@MensajeModal</div>
             }
 
-            <div class="selector-productos">
+            <fieldset class="selector-productos" disabled="@enviandoPedido">
                 <aside class="selector-resumen">
                     @if (esNuevaComanda)
                     {
@@ -384,7 +387,7 @@
                         <p class="texto-vacio p-3">No hay productos activos en esta subcategoría.</p>
                     }
                 </div>
-            </div>
+            </fieldset>
 
             <footer class="modal-pedido-footer">
                 <div>
@@ -1303,9 +1306,14 @@
             padding: .65rem;
         }
     }
+    .mesa-estado-texto { display: block; font-size: .65rem; line-height: 1.2; font-weight: 600; }
+    fieldset.selector-productos { padding:0; margin:0; border:0; min-width:0; }
 </style>
 
 @code {
+    private bool sinConexion;
+    private void ConexionCambiada(bool error) { sinConexion = error; _ = InvokeAsync(StateHasChanged); }
+
     private bool cargandoInicial = true;
     private List<MesaDTO> mesas = new();
     private List<SalaDTO> salas = new();
@@ -1338,6 +1346,7 @@
         // Las llamadas autenticadas usan la cookie del navegador.
         // El prerenderizado del servidor solo prepara la vista y la sesión.
         if (!OperatingSystem.IsBrowser()) return;
+        Polling.ConexionCambiada += ConexionCambiada;
 
         try
         {
@@ -1346,9 +1355,10 @@
             await CargarProductos();
             await CargarUsuarioActual();
     
-            Polling.Iniciar(ActualizarPanel, TimeSpan.FromSeconds(2));
+
         }
-        finally { cargandoInicial = false; }
+        catch (System.Net.Http.HttpRequestException) { sinConexion = true; }
+        finally { cargandoInicial = false; Polling.Iniciar(ActualizarPanel, TimeSpan.FromSeconds(2)); }
     }
 
     private async Task CargarSalas()
@@ -1364,6 +1374,9 @@
     // para que el mozo vea al toque si cocina/barra cancela o termina algo.
     private async Task ActualizarPanel()
     {
+        if (!salas.Any()) await CargarSalas();
+        if (!productos.Any()) await CargarProductos();
+        if (idUsuarioActual == null) await CargarUsuarioActual();
         await CargarMesas();
         if (comandaActual != null)
         {
@@ -1377,9 +1390,10 @@
                 title="@mesa.Estado.ToString()"
                 @onclick="@(() => SeleccionarMesa(mesa))">
             <span class="numero-mesa">@mesa.NumeroMesa</span>
+            <small class="mesa-estado-texto">@(mesa.Estado == EnumEstadoMesa.PendienteCobro ? "A cobrar" : mesa.Estado.ToString())</small>
             @if (mesa.TienePedidoListo)
             {
-                <span class="badge-notif"></span>
+                <span class="badge-notif" title="Pedido listo para retirar" aria-label="Pedido listo">✓</span>
             }
             @if (mesa.TienePedidoCancelado)
             {
@@ -1432,6 +1446,7 @@
     private async Task CargarMesas()
     {
         var respuesta = await http.Get<List<MesaDTO>>("api/Mesa");
+        if (respuesta.Error) throw new System.Net.Http.HttpRequestException("No se pudo actualizar la información.");
         if (!respuesta.Error && respuesta.Respuesta != null)
         {
             mesas = respuesta.Respuesta;
@@ -1484,6 +1499,7 @@
         if (comandaActual == null) return;
 
         var respuesta = await http.Get<List<PedidoDTO>>($"api/Pedido/Comanda/{comandaActual.Id}");
+        if (respuesta.Error) throw new System.Net.Http.HttpRequestException("No se pudo actualizar la información.");
         if (!respuesta.Error && respuesta.Respuesta != null)
         {
             pedidosActuales = respuesta.Respuesta;
@@ -1676,6 +1692,7 @@
             else
                 await EnviarPedidoAdicional();
         }
+        catch (System.Net.Http.HttpRequestException) { MensajeModal = "No se pudo confirmar el envío. Revisá los pedidos de la mesa antes de volver a enviar."; }
         finally
         {
             enviandoPedido = false;
@@ -1797,6 +1814,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        Polling.ConexionCambiada -= ConexionCambiada;
         await Polling.DisposeAsync();
     }
 }

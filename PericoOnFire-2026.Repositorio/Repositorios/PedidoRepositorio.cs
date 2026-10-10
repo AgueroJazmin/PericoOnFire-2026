@@ -55,7 +55,7 @@ namespace PericoOnFire_2026.Repositorio.Repositorios
                                                                  hermano.Estado != EnumEstadoPedido.Cancelado))
                        .ThenInclude(hermano => hermano.DetallesPedido)
                            .ThenInclude(d => d.Producto)
-                .Where(p => p.SectorDestino == sector &&
+                .Where(p => p.EstadoRegistro == EnumEstadoRegistro.activo && p.SectorDestino == sector &&
                             (p.Comanda.HoraDeseada == null || p.Comanda.HoraDeseada <= limite))
                 .OrderBy(p => p.FechaPedido)
                 .ToListAsync();
@@ -70,10 +70,13 @@ namespace PericoOnFire_2026.Repositorio.Repositorios
             if (items == null || !items.Any())
                 throw new InvalidOperationException("No hay ítems para cargar.");
 
+            if (items.Any(i => i.Cantidad <= 0 || i.Cantidad > 999 || (i.Observacion?.Length ?? 0) > 300))
+                throw new InvalidOperationException("Revisá las cantidades y las observaciones de los productos.");
+
             var idsProducto = items.Select(i => i.IdProducto).Distinct().ToList();
 
             var productos = await context.Productos
-                .Where(p => idsProducto.Contains(p.Id))
+                .Where(p => idsProducto.Contains(p.Id) && p.Activo)
                 .ToListAsync();
 
             var faltantes = idsProducto.Except(productos.Select(p => p.Id)).ToList();
@@ -88,11 +91,19 @@ namespace PericoOnFire_2026.Repositorio.Repositorios
 
             await estrategia.ExecuteAsync(async () =>
             {
-                pedidosCreados.Clear(); // por si la estrategia reintenta el bloque entero
+                pedidosCreados.Clear();
+                context.ChangeTracker.Clear();
 
-                using var transaction = await context.Database.BeginTransactionAsync();
+                using var transaction = await context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
                 try
                 {
+                    var comanda = await context.Comandas.FirstOrDefaultAsync(c => c.Id == idComanda);
+                    if (comanda == null || comanda.Estado != EnumEstadoComanda.Abierta)
+                        throw new InvalidOperationException("Solo se pueden agregar productos a una comanda abierta.");
+                    productos = await context.Productos.Where(p => idsProducto.Contains(p.Id) && p.Activo).ToListAsync();
+                    if (productos.Count != idsProducto.Count)
+                        throw new InvalidOperationException("Hay productos que ya no están disponibles.");
+
                     var gruposPorSector = items.GroupBy(i =>
                         productos.First(p => p.Id == i.IdProducto).SectorDestino);
 
@@ -159,9 +170,23 @@ namespace PericoOnFire_2026.Repositorio.Repositorios
         //Va a ser util para que el sector de cocina o barra pueda marcar un pedido como "En Preparación", "Listo para Retirar" o "Entregado".
         public async Task<bool> CambiarEstado(int id, EnumEstadoPedido nuevoEstado, string? motivoCancelacion)
         {
-            var pedido = await context.Pedidos.FindAsync(id);
+            var pedido = await context.Pedidos.Include(p => p.Comanda).FirstOrDefaultAsync(p => p.Id == id);
             if (pedido == null) return false;
 
+            if (pedido.Estado == nuevoEstado) return true;
+            var valido = (pedido.Estado, nuevoEstado) switch
+            {
+                (EnumEstadoPedido.Pendiente, EnumEstadoPedido.EnPreparacion) => pedido.SectorDestino == EnumSectorDestino.Cocina,
+                (EnumEstadoPedido.Pendiente, EnumEstadoPedido.ListoParaRetirar) => pedido.SectorDestino == EnumSectorDestino.Barra,
+                (EnumEstadoPedido.EnPreparacion, EnumEstadoPedido.ListoParaRetirar) => true,
+                (EnumEstadoPedido.ListoParaRetirar, EnumEstadoPedido.Entregado) => pedido.Comanda.TipoServicio != EnumTipoServicio.Delivery,
+                (EnumEstadoPedido.Pendiente, EnumEstadoPedido.Cancelado) => true,
+                (EnumEstadoPedido.EnPreparacion, EnumEstadoPedido.Cancelado) => true,
+                _ => false
+            };
+            if (!valido) throw new InvalidOperationException("El estado del pedido cambió. Actualizá la pantalla antes de continuar.");
+            if (nuevoEstado == EnumEstadoPedido.Cancelado && string.IsNullOrWhiteSpace(motivoCancelacion))
+                throw new InvalidOperationException("Indicá el motivo de cancelación.");
             pedido.Estado = nuevoEstado;
             pedido.MotivoCancelacion = motivoCancelacion;
 
@@ -192,15 +217,11 @@ namespace PericoOnFire_2026.Repositorio.Repositorios
         {
             var pedidos = await context.Pedidos
                .Include(p => p.DetallesPedido)
-               .Where(p => p.SectorDestino == sector && p.Estado == EnumEstadoPedido.Entregado)
+               .Where(p => p.EstadoRegistro == EnumEstadoRegistro.activo && p.SectorDestino == sector && p.Estado == EnumEstadoPedido.Entregado)
                .ToListAsync();
 
             foreach (var pedido in pedidos)
-            {
-                context.DetallesPedido.RemoveRange(pedido.DetallesPedido);
-            }
-
-            context.Pedidos.RemoveRange(pedidos);
+                pedido.EstadoRegistro = EnumEstadoRegistro.inactivo;
             await context.SaveChangesAsync();
             return pedidos.Count;
         }
@@ -217,8 +238,9 @@ namespace PericoOnFire_2026.Repositorio.Repositorios
 
             if (pedido == null) return false;
 
-            context.DetallesPedido.RemoveRange(pedido.DetallesPedido);
-            context.Pedidos.Remove(pedido);
+            if (pedido.Estado != EnumEstadoPedido.Entregado && pedido.Estado != EnumEstadoPedido.Cancelado)
+                throw new InvalidOperationException("Solo se pueden archivar pedidos entregados o cancelados.");
+            pedido.EstadoRegistro = EnumEstadoRegistro.inactivo;
             await context.SaveChangesAsync();
             return true;
         }
