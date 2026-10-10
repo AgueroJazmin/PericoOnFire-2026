@@ -412,15 +412,15 @@
 
     .salas-operativas {
         display: flex;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         align-items: flex-start;
         gap: 1rem;
     }
 
     .sala-operativa {
-        flex: 0 1 auto;
+        flex: 0 0 auto;
         width: max-content;
-        max-width: 100%;
+        max-width: none;
         box-sizing: border-box;
         background: white;
         border: 2px solid #111;
@@ -438,15 +438,16 @@
     }
 
     .grilla-salon-operativa {
+        width: max-content;
         display: flex;
         flex-direction: column;
         gap: .3rem;
-        overflow-x: auto;
-        overflow-y: visible;
+        overflow: visible;
         padding: .6rem .5rem 1rem;
     }
 
     .fila-grilla-operativa {
+        width: max-content;
         display: flex;
         gap: .3rem;
     }
@@ -1148,11 +1149,21 @@
     /* CELULARES Y PANTALLAS PEQUEÑAS */
 
     @@media (max-width: 780px) {
+        .salas-operativas {
+            flex-wrap: wrap;
+        }
+
+        .grilla-salon-operativa {
+            width: 100%;
+            overflow-x: auto;
+        }
+
         .perico-main {
             padding: .7rem;
         }
 
         .sala-operativa {
+            max-width: 100%;
             padding: .75rem;
         }
 
