@@ -6,6 +6,8 @@
 @implements IAsyncDisposable
 
 <aside class="bar-panel" aria-label="Panel del bar">
+    <div class="bar-content">
+    <div class="bar-main">
     <section class="bar-card">
         <div class="bar-heading"><span class="bar-icon">↗</span><h3>Accesos rápidos</h3></div>
         <div class="bar-accesos">
@@ -17,7 +19,6 @@
         </div>
     </section>
 
-    <div class="bar-content">
     <section class="bar-foto-card" aria-label="Fotos del bar">
         <img class="bar-foto" src="@UrlFoto" alt="Foto del bar" @onerror="FotoNoDisponible" />
         @if(fotos.Count > 1)
@@ -30,6 +31,7 @@
             </div>
         }
     </section>
+    </div>
     <div class="bar-notices">
     <section class="bar-card">
         <div class="bar-heading"><span class="bar-icon">!</span><h3>Para atender</h3></div>
