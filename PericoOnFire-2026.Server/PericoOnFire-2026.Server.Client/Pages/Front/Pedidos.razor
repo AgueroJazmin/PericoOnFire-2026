@@ -52,7 +52,8 @@
 
                     <fieldset class="selector-productos" disabled="@enviandoPedido">
                         <aside class="selector-resumen">
-                            <div class="datos-cliente">
+                            <div class="datos-cliente" role="group" aria-label="Datos del cliente">
+                            <h5>Datos del cliente</h5>
                             <strong>Tipo de pedido</strong>
                             <div class="selector-tipo">
                                 <button class="@(tipoNuevoPedido == EnumTipoServicio.TakeAway ? "activo" : "")"
@@ -1203,6 +1204,67 @@
     @@media(max-width:900px) { .selector-resumen { overflow: visible; } .resumen-carrito { flex: 0 0 auto; max-height: none; overflow: visible; } .dato-cliente input { min-height:44px; } }
     @@media(max-width:360px) { .datos-cliente { grid-template-columns: 1fr; } }
     fieldset.selector-productos { padding: 0; margin: 0; border: 0; min-width: 0; }
+
+    /* Datos y consumo ocupan columnas independientes con todo el alto del panel. */
+    .selector-productos { grid-template-columns: 150px minmax(300px, .9fr) minmax(550px, 1.1fr); }
+    .selector-resumen {
+        display: grid;
+        grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
+        grid-template-rows: minmax(0, 1fr);
+        align-items: stretch;
+        gap: .85rem;
+        padding: .85rem;
+        overflow: hidden;
+    }
+    .datos-cliente {
+        display: flex;
+        flex-direction: column;
+        gap: .65rem;
+        min-width: 0;
+        min-height: 0;
+        overflow-y: auto;
+        padding-right: .35rem;
+    }
+    .datos-cliente h5 { margin: 0; font-size: 1rem; font-weight: 800; }
+    .datos-cliente > strong { text-align: left; font-size: .8rem; color: #555; }
+    .datos-cliente .selector-tipo { flex-shrink: 0; flex-wrap: wrap; margin: 0; }
+    .datos-cliente .selector-tipo button { min-height: 40px; min-width: 95px; }
+    .datos-cliente .dato-cliente { flex-shrink: 0; }
+    .resumen-carrito {
+        position: static;
+        flex: none;
+        align-self: stretch;
+        min-width: 0;
+        min-height: 0;
+        max-height: none;
+        height: 100%;
+        margin: 0;
+        padding: .85rem;
+        overflow-y: auto;
+    }
+    .resumen-carrito > strong { flex-shrink: 0; position: sticky; top: -.85rem; z-index: 2; background: #fff; padding-top: .5rem; }
+    .carrito-item { flex-shrink: 0; }
+    .carrito-item-linea { align-items: flex-start; flex-wrap: wrap; }
+    .carrito-item-linea > span { flex: 1 1 130px; }
+    .carrito-acciones { margin-left: auto; }
+    @@media (max-width: 1100px) {
+        .modal-pedido { height: auto; overflow: visible; }
+        .selector-productos { display: flex; flex-direction: column; overflow: visible; }
+        .selector-productos > * { flex: 0 0 auto; }
+        .subcategorias { order: 1; display: flex; flex-direction: row; flex-wrap: wrap; overflow: visible; border-right: 0; border-bottom: 1px solid #ddd; }
+        .subcategorias button { width: auto; flex: 1 1 120px; }
+        .productos-modal { order: 2; max-height: 380px; }
+        .selector-resumen { order: 3; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); grid-template-rows: minmax(360px, auto); overflow: visible; border-left: 0; }
+        .datos-cliente { overflow: visible; }
+        .resumen-carrito { max-height: 460px; min-height: 360px; height: auto; overflow-y: auto; }
+    }
+    @@media (max-width: 700px) {
+        .selector-resumen { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; gap: 1rem; }
+        .resumen-carrito { height: auto; max-height: none; min-height: 180px; overflow: visible; }
+        .resumen-carrito > strong { position: static; }
+        .modal-pedido-footer { position: sticky; bottom: 0; z-index: 5; }
+    }
+
 </style>
 
 @code {
