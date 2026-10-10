@@ -91,12 +91,13 @@ namespace PericoOnFire_2026.Server.Controllers
                 }
             }
 
-            var resultado = await repositorio.CambiarEstado(id, dto.Estado, dto.MotivoCancelacion);
-
-            if (!resultado)
-                return NotFound();
-
-            return Ok();
+            try
+            {
+                var resultado = await repositorio.CambiarEstado(id, dto.Estado, dto.MotivoCancelacion);
+                if (!resultado) return NotFound();
+                return Ok();
+            }
+            catch (InvalidOperationException ex) { return Conflict(ex.Message); }
         }
 
         //Este endpoint borra los pedidos ya entregados de un sector,

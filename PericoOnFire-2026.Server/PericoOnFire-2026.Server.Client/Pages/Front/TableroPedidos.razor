@@ -6,7 +6,9 @@
 @implements IAsyncDisposable
 @inject PericoOnFire_2026.Shared.SerPolling.PollingService Polling
 @inject IHttpServicio http
-@rendermode InteractiveAuto
+@rendermode InteractiveWebAssembly
+
+@if (sinConexion) { <p class="alert alert-warning m-2" role="status">No se pudo actualizar la información. Reintentando…</p> }
 
 <div class="tablero">
     <h4>@TituloSector</h4>
@@ -18,7 +20,7 @@
 
     <div class="columnas @(MostrarEnPreparacion ? "" : "columnas-2")">
         <div class="columna">
-            <h6>Pendientes</h6>
+            <h6>Pendientes · @pedidos.Count(p => p.Estado == EnumEstadoPedido.Pendiente)</h6>
             @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.Pendiente))
             {
                 <div class="pedido-card @ClaseAlerta(pedido)">
@@ -48,7 +50,7 @@
         @if (MostrarEnPreparacion)
         {
             <div class="columna">
-                <h6>En preparación</h6>
+                <h6>En preparación · @pedidos.Count(p => p.Estado == EnumEstadoPedido.EnPreparacion)</h6>
                 @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.EnPreparacion))
                 {
                     <div class="pedido-card @ClaseAlerta(pedido)">
@@ -68,24 +70,30 @@
 
         <div class="columna">
             <div class="columna-header">
-                <h6>Listos</h6>
+                <h6>Listos · @pedidos.Count(p => p.Estado == EnumEstadoPedido.ListoParaRetirar)</h6>
                 @if (pedidos.Any(p => p.Estado == EnumEstadoPedido.Entregado))
                 {
-                    <button class="btn-tacho" title="Borrar pedidos ya entregados" @onclick="VaciarEntregados">
+                    <button class="btn-tacho" title="Archivar pedidos entregados (se conserva el historial)" @onclick="VaciarEntregados">
                         🗑
                     </button>
                 }
             </div>
-            @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.ListoParaRetirar
-                                                     || p.Estado == EnumEstadoPedido.Entregado))
+            @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.ListoParaRetirar))
             {
-                <div class="pedido-card @(pedido.Estado == EnumEstadoPedido.Entregado ? "pedido-entregado" : "pedido-listo")">
-                    @RenderCard(pedido)
-                    @if (pedido.Estado == EnumEstadoPedido.Entregado)
+                <div class="pedido-card pedido-listo">@RenderCard(pedido)</div>
+            }
+            @if (pedidos.Any(p => p.Estado == EnumEstadoPedido.Entregado))
+            {
+                <details class="entregados-tablero">
+                    <summary>Entregados · @pedidos.Count(p => p.Estado == EnumEstadoPedido.Entregado)</summary>
+                    @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.Entregado))
                     {
-                        <span class="etiqueta-entregado">Entregado ✓</span>
+                        <div class="pedido-card pedido-entregado">
+                            @RenderCard(pedido)
+                            <span class="etiqueta-entregado">Entregado ✓</span>
+                        </div>
                     }
-                </div>
+                </details>
             }
         </div>
     </div>
@@ -268,9 +276,13 @@
             font-size: 1.15rem;
         }
     }
+    .entregados-tablero > summary { cursor:pointer; padding:.6rem 0; font-weight:700; color:#555; }
 </style>
 
 @code {
+    private bool sinConexion;
+    private void ConexionCambiada(bool error) { sinConexion = error; _ = InvokeAsync(StateHasChanged); }
+
     [Parameter] public EnumSectorDestino Sector { get; set; }
     [Parameter] public string TituloSector { get; set; } = "";
     [Parameter] public int MinutosAlertaPendiente { get; set; } = 10;
@@ -293,13 +305,20 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await CargarPedidos();
-        Polling.Iniciar(CargarPedidos, TimeSpan.FromSeconds(3));
+        // Las llamadas autenticadas usan la cookie del navegador.
+        // El prerenderizado del servidor solo prepara la vista y la sesión.
+        if (!OperatingSystem.IsBrowser()) return;
+        Polling.ConexionCambiada += ConexionCambiada;
+
+        try { await CargarPedidos(); }
+        catch (System.Net.Http.HttpRequestException) { sinConexion = true; }
+        finally { Polling.Iniciar(CargarPedidos, TimeSpan.FromSeconds(3)); }
     }
 
     private async Task CargarPedidos()
     {
         var respuesta = await http.Get<List<PedidoDTO>>($"api/Pedido/Sector/{Sector}");
+        if (respuesta.Error) throw new System.Net.Http.HttpRequestException("No se pudo actualizar la información.");
         if (!respuesta.Error && respuesta.Respuesta != null)
         {
             // Cancelado ya no necesita seguir en el tablero: cocina/barra ya resolvió lo suyo.
@@ -457,6 +476,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        Polling.ConexionCambiada -= ConexionCambiada;
         await Polling.DisposeAsync();
     }
 }

@@ -67,38 +67,33 @@ namespace PericoOnFire_2026.Repositorio.Seguridad
                     $"Ya existe un usuario con el email '{dto.Email}'.");
             }
 
-            //Armar el ApplicationUser
-            //EmailConfirmed = true es importante ya que saltea el paso de confirmación
-            //porque el admin ya validó al empleado, por lo que no necesita confirmar nada.
-            var nuevoUser = new ApplicationUser
+            var estrategia = context.Database.CreateExecutionStrategy();
+            return await estrategia.ExecuteAsync(async () =>
             {
-                UserName = dto.Email,
-                Email = dto.Email,
-                EmailConfirmed = true
-            };
-
-            // 4. CreateAsync hashea la contraseña automáticamente
-            //    Si la contraseña no cumple las reglas de Identity (longitud,
-            //    mayúsculas, etc.) nos devuelve los errores detallados.
-            var resultadoCrear = await userManager.CreateAsync(nuevoUser, dto.Contrasena);
-
-            if (!resultadoCrear.Succeeded)
-            {
-                // Traducimos los errores de Identity a español para que el admin
-                // entienda qué salió mal (ej: "Passwords must have at least one digit")
-                var errores = resultadoCrear.Errors
-                    .Select(e => TraducirErrorIdentity(e.Code))
-                    .ToList();
-
-                return ResultadoCrearEmpleado.ConErrores(errores);
-            }
-
-            // 5. Asignar el rol en el mismo acto que se crea la cuenta
-            await userManager.AddToRoleAsync(nuevoUser, dto.Rol);
-
-            await userManager.AddClaimAsync(nuevoUser, new System.Security.Claims.Claim("nombre", dto.Nombre));
-
-            return ResultadoCrearEmpleado.Ok();
+                context.ChangeTracker.Clear();
+                await using var tx = await context.Database.BeginTransactionAsync();
+                var nuevoUser = new ApplicationUser
+                {
+                    UserName = dto.Email, Email = dto.Email, EmailConfirmed = true
+                };
+                var resultadoCrear = await userManager.CreateAsync(nuevoUser, dto.Contrasena);
+                if (!resultadoCrear.Succeeded)
+                    return ResultadoCrearEmpleado.ConErrores(resultadoCrear.Errors.Select(e => TraducirErrorIdentity(e.Code)));
+                var rol = await userManager.AddToRoleAsync(nuevoUser, dto.Rol);
+                if (!rol.Succeeded)
+                    return ResultadoCrearEmpleado.ConErrores(rol.Errors.Select(e => TraducirErrorIdentity(e.Code)));
+                var claim = await userManager.AddClaimAsync(nuevoUser, new System.Security.Claims.Claim("nombre", dto.Nombre));
+                if (!claim.Succeeded)
+                    return ResultadoCrearEmpleado.ConErrores(claim.Errors.Select(e => TraducirErrorIdentity(e.Code)));
+                context.Usuarios.Add(new PericoOnFire_2026.BD.Datos.Entity.Usuario
+                {
+                    IdApplicationUser = nuevoUser.Id, Nombre = dto.Nombre.Trim(),
+                    Activo = true, EstadoRegistro = EnumEstadoRegistro.activo
+                });
+                await context.SaveChangesAsync();
+                await tx.CommitAsync();
+                return ResultadoCrearEmpleado.Ok();
+            });
         }
 
         //En este Task se le asigna un rol a un usario que ya existe
