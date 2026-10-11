@@ -2,7 +2,7 @@
 @using PericoOnFire_2026.Servicio.ServicioHttp
 @using PericoOnFire_2026.Shared.DTOs
 @using PericoOnFire_2026.Shared.ENUM
-@rendermode InteractiveAuto
+@rendermode InteractiveWebAssembly
 @inject IHttpServicio http
 
 <div class="page-wrapper">
@@ -211,6 +211,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Las llamadas autenticadas usan la cookie del navegador.
+        // El prerenderizado del servidor solo prepara la vista y la sesión.
+        if (!OperatingSystem.IsBrowser()) return;
+
         await ObtenerUsuarios();
     }
 

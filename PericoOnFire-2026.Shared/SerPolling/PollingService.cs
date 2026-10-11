@@ -8,6 +8,7 @@ namespace PericoOnFire_2026.Shared.SerPolling
     {
         private CancellationTokenSource? cts;
         private Task? loopTask;
+        public event Action<bool>? ConexionCambiada;
 
         public void Iniciar(Func<Task> accion, TimeSpan intervalo)
         {
@@ -24,7 +25,17 @@ namespace PericoOnFire_2026.Shared.SerPolling
             {
                 while (await localTimer.WaitForNextTickAsync(token))
                 {
-                    await accion();
+                    try
+                    {
+                        await accion();
+                        ConexionCambiada?.Invoke(false);
+                    }
+                    catch (OperationCanceledException) when (token.IsCancellationRequested) { break; }
+                    catch (Exception)
+                    {
+                        ConexionCambiada?.Invoke(true);
+                        // Una falla temporal no detiene las actualizaciones siguientes.
+                    }
                 }
             }
             catch (OperationCanceledException)

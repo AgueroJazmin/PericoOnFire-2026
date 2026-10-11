@@ -1,6 +1,5 @@
 ﻿@page "/comandas"
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Components.Forms
 @using PericoOnFire_2026.Shared.DTOs
 @using PericoOnFire_2026.Shared.ENUM
 @using PericoOnFire_2026.Servicio.ServicioHttp
@@ -8,36 +7,25 @@
 @implements IAsyncDisposable
 @inject PericoOnFire_2026.Shared.SerPolling.PollingService Polling
 @inject IHttpServicio http
-@rendermode InteractiveAuto
+@rendermode InteractiveWebAssembly
 @attribute [Authorize(Roles = "Mozo,Administracion")]
 
+@if (sinConexion) { <p class="alert alert-warning m-2" role="status">No se pudo actualizar la información. Reintentando…</p> }
+
 <main class="perico-main">
-    <div class="mesas-topbar">
-        <div class="foto-salon-flotante">
-            <img src="@UrlFotoSalon"
-                 class="perico-img"
-                 alt="Imagen decorativa del salón"
-                 onerror="this.onerror=null;this.src='img/perico-pizza.jpg';" />
-
-            <AuthorizeView Roles="Administracion">
-                <Authorized>
-                    <label class="editar-foto" title="Cambiar imagen del salón">
-                        <span>✎</span> Cambiar foto
-                        <InputFile OnChange="CambiarFotoSalon"
-                                   accept="image/jpeg,image/png,image/webp"
-                                   class="input-foto-oculto" />
-                    </label>
-                </Authorized>
-            </AuthorizeView>
-
-            @if (!string.IsNullOrWhiteSpace(MensajeFoto))
-            {
-                <div class="mensaje-foto">@MensajeFoto</div>
-            }
-        </div>
-    </div>
-
-    @if (!salas.Any())
+    @if (cargandoInicial)
+    {
+        <div class="mesas-carga" role="status" aria-live="polite"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Cargando mesas…</div>
+    }
+    else
+    {
+    <div class="comandas-disposicion">
+    <div class="comandas-mapa">
+    @if (cargandoInicial)
+    {
+        <p class="text-muted" role="status">Cargando mesas…</p>
+    }
+    else if (!salas.Any())
     {
         <p class="text-muted sin-salas-aviso">
             Todavía no hay salas configuradas. Pedile a un Administrador que las cargue en
@@ -46,6 +34,7 @@
     }
     else
     {
+        <div class="salas-operativas">
         @foreach (var sala in salas.OrderBy(s => s.Orden))
         {
             var mesasDeSala = mesas.Where(m => m.IdSala == sala.Id).ToList();
@@ -82,6 +71,11 @@
                 }
             </section>
         }
+        </div>
+    }
+    </div>
+    <div class="comandas-lateral"><PanelBar Mesas="@mesas" AlSeleccionarMesa="SeleccionarMesa" /></div>
+    </div>
     }
 </main>
 
@@ -295,7 +289,7 @@
                 <div class="alert alert-danger py-2">@MensajeModal</div>
             }
 
-            <div class="selector-productos">
+            <fieldset class="selector-productos" disabled="@enviandoPedido">
                 <aside class="selector-resumen">
                     @if (esNuevaComanda)
                     {
@@ -404,7 +398,7 @@
                         <p class="texto-vacio p-3">No hay productos activos en esta subcategoría.</p>
                     }
                 </div>
-            </div>
+            </fieldset>
 
             <footer class="modal-pedido-footer">
                 <div>
@@ -429,92 +423,30 @@
         overflow-y: auto;
     }
 
-    .contenedor-padre {
-        display: flex;
-        justify-content: flex-end; /* Alinea todo el bloque hacia la derecha */
-        width: 100%;
-    }
-
-    .mesas-topbar {
-        position: relative;
-        width: 220px; /* Ancho fijo igual al alto para que sea cuadrada (o ajusta según prefieras) */
-        height: 220px;
-        border-radius: 14px;
-        overflow: hidden;
-        margin-bottom: 1.4rem;
-        margin-left: auto;
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
-    }
-
-    .foto-salon-flotante {
-        position: absolute;
-        inset: 0;
-    }
-        /* Capa oscura sutil sobre la imagen para legibilidad y elegancia */
-        .foto-salon-flotante::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.6) 100%);
-            pointer-events: none;
-            z-index: 1;
-        }
-
-        .foto-salon-flotante .perico-img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-
-        .foto-salon-flotante .editar-foto {
-            position: absolute;
-            right: .6rem;
-            bottom: .6rem;
-            padding: .4rem .7rem;
-            border-radius: 30px;
-            background: rgba(0, 0, 0, 0.75);
-            backdrop-filter: blur(4px);
-            color: white;
-            font-size: .75rem;
-            text-align: center;
-            cursor: pointer;
-            z-index: 2;
-        }
-
-        .foto-salon-flotante .input-foto-oculto {
-            position: absolute;
-            inset: 0;
-            opacity: 0;
-            cursor: pointer;
-            z-index: 3;
-        }
-
-        .foto-salon-flotante .mensaje-foto {
-            position: absolute;
-            left: .8rem;
-            bottom: .8rem;
-            padding: .35rem .6rem;
-            border-radius: 5px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            font-size: .78rem;
-            text-align: center;
-            z-index: 4;
-        }
-
     .sin-salas-aviso {
         text-align: center;
         margin-top: 3rem;
     }
 
+    .salas-operativas {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
     .sala-operativa {
+        flex: 0 0 auto;
+        width: max-content;
+        max-width: none;
+        box-sizing: border-box;
         background: white;
         border: 2px solid #111;
         border-radius: 10px;
         padding: 1.3rem;
-        margin-bottom: 1.4rem;
-        overflow: visible;
+        margin-bottom: 0;
+        min-width: 0;
+        overflow: hidden;
     }
 
     .sala-operativa-titulo {
@@ -524,15 +456,16 @@
     }
 
     .grilla-salon-operativa {
+        width: max-content;
         display: flex;
         flex-direction: column;
         gap: .3rem;
-        overflow-x: auto;
-        overflow-y: visible;
+        overflow: visible;
         padding: .6rem .5rem 1rem;
     }
 
     .fila-grilla-operativa {
+        width: max-content;
         display: flex;
         gap: .3rem;
     }
@@ -541,8 +474,8 @@
            cuadraditos de las puntas) sobresalen del cuerpo de la mesa, y si la celda
            queda muy justa, la celda de al lado o el borde del salón se las come. */
     .celda-operativa {
-        width: 168px;
-        height: 128px;
+        width: 148px;
+        height: 116px;
         flex-shrink: 0;
         display: flex;
         align-items: center;
@@ -589,6 +522,9 @@
 
         /* Número de la mesa */
         .mesa .numero-mesa {
+            flex-direction: column;
+            gap: 3px;
+            line-height: 1.1;
             position: absolute;
             inset: 0;
             display: flex;
@@ -1230,24 +1166,31 @@
                 font-size: 1.05rem;
             }
 
+    /* Cada salón conserva su distribución; solo su grilla se desplaza si no entra. */
     /* CELULARES Y PANTALLAS PEQUEÑAS */
 
     @@media (max-width: 780px) {
+        .salas-operativas {
+            flex-wrap: wrap;
+        }
+
+        .grilla-salon-operativa {
+            width: 100%;
+            overflow-x: auto;
+        }
+
         .perico-main {
             padding: .7rem;
         }
 
-        .mesas-topbar {
-            height: 150px;
+        .sala-operativa {
+            max-width: 100%;
+            padding: .75rem;
         }
 
         .celda-operativa {
-            width: 128px;
-            height: 100px;
-        }
-
-        .celda-operativa, .mesa {
-            transform: scale(0.86);
+            width: 148px;
+            height: 116px;
         }
 
         .panel-mesa {
@@ -1377,9 +1320,26 @@
             padding: .65rem;
         }
     }
+    .mesa-estado-texto { display: block; flex-shrink: 0; font-size: .65rem; line-height: 1.2; font-weight: 600; white-space: nowrap; }
+    .valor-numero-mesa { display: block; flex-shrink: 0; line-height: 1.1; }
+    fieldset.selector-productos { padding:0; margin:0; border:0; min-width:0; }
+
+    .mesas-carga { min-height:420px; display:flex; gap:12px; align-items:center; justify-content:center; color:#666; }
+    .comandas-disposicion { display:flex; align-items:flex-start; flex-wrap:wrap; gap:1.2rem; }
+    .comandas-mapa { flex:0 0 auto; min-width:0; max-width:100%; }
+    .comandas-lateral { flex:1 1 520px; min-width:0; max-width:none; }
+    @@media(max-width:780px) {
+        .comandas-disposicion { flex-direction:column; gap:1rem; }
+        .comandas-mapa { width:100%; }
+        .comandas-lateral { flex:none; width:100%; min-width:0; max-width:none; }
+    }
 </style>
 
 @code {
+    private bool sinConexion;
+    private void ConexionCambiada(bool error) { sinConexion = error; _ = InvokeAsync(StateHasChanged); }
+
+    private bool cargandoInicial = true;
     private List<MesaDTO> mesas = new();
     private List<SalaDTO> salas = new();
     private List<ProductoListadoDTO> productos = new();
@@ -1401,11 +1361,6 @@
     private string subcategoriaSeleccionada = "";
     private ItemPedidoDTO? itemEditandoObservacion;
     private string textoObservacion = "";
-    private string? MensajeFoto;
-    private long versionFoto = DateTime.UtcNow.Ticks;
-
-    private string UrlFotoSalon => $"api/ConfiguracionSalon/Foto?v={versionFoto}";
-
     private Confirmacion? confirmacion;
     private string tituloConfirmacion = "";
     private string mensajeConfirmacion = "";
@@ -1413,12 +1368,22 @@
 
     protected override async Task OnInitializedAsync()
     {
-        await CargarMesas();
-        await CargarSalas();
-        await CargarProductos();
-        await CargarUsuarioActual();
+        // Las llamadas autenticadas usan la cookie del navegador.
+        // El prerenderizado del servidor solo prepara la vista y la sesión.
+        if (!OperatingSystem.IsBrowser()) return;
+        Polling.ConexionCambiada += ConexionCambiada;
 
-        Polling.Iniciar(ActualizarPanel, TimeSpan.FromSeconds(2));
+        try
+        {
+            await CargarMesas();
+            await CargarSalas();
+            await CargarProductos();
+            await CargarUsuarioActual();
+    
+
+        }
+        catch (System.Net.Http.HttpRequestException) { sinConexion = true; }
+        finally { cargandoInicial = false; Polling.Iniciar(ActualizarPanel, TimeSpan.FromSeconds(2)); }
     }
 
     private async Task CargarSalas()
@@ -1434,6 +1399,9 @@
     // para que el mozo vea al toque si cocina/barra cancela o termina algo.
     private async Task ActualizarPanel()
     {
+        if (!salas.Any()) await CargarSalas();
+        if (!productos.Any()) await CargarProductos();
+        if (idUsuarioActual == null) await CargarUsuarioActual();
         await CargarMesas();
         if (comandaActual != null)
         {
@@ -1446,10 +1414,13 @@
         <button class="mesa forma-@mesa.Forma.ToString().ToLower() tamanio-@mesa.Tamanio.ToString().ToLower() estado-@mesa.Estado"
                 title="@mesa.Estado.ToString()"
                 @onclick="@(() => SeleccionarMesa(mesa))">
-            <span class="numero-mesa">@mesa.NumeroMesa</span>
+            <span class="numero-mesa">
+                <span class="valor-numero-mesa">@mesa.NumeroMesa</span>
+                <small class="mesa-estado-texto">@(mesa.Estado == EnumEstadoMesa.PendienteCobro ? "A cobrar" : mesa.Estado.ToString())</small>
+            </span>
             @if (mesa.TienePedidoListo)
             {
-                <span class="badge-notif"></span>
+                <span class="badge-notif" title="Pedido listo para retirar" aria-label="Pedido listo">✓</span>
             }
             @if (mesa.TienePedidoCancelado)
             {
@@ -1502,6 +1473,7 @@
     private async Task CargarMesas()
     {
         var respuesta = await http.Get<List<MesaDTO>>("api/Mesa");
+        if (respuesta.Error) throw new System.Net.Http.HttpRequestException("No se pudo actualizar la información.");
         if (!respuesta.Error && respuesta.Respuesta != null)
         {
             mesas = respuesta.Respuesta;
@@ -1554,6 +1526,7 @@
         if (comandaActual == null) return;
 
         var respuesta = await http.Get<List<PedidoDTO>>($"api/Pedido/Comanda/{comandaActual.Id}");
+        if (respuesta.Error) throw new System.Net.Http.HttpRequestException("No se pudo actualizar la información.");
         if (!respuesta.Error && respuesta.Respuesta != null)
         {
             pedidosActuales = respuesta.Respuesta;
@@ -1600,53 +1573,6 @@
         esNuevaComanda = true;
         cantidadComensales = 1;
         AbrirModalPedido();
-    }
-
-    private async Task CambiarFotoSalon(InputFileChangeEventArgs evento)
-    {
-        const long tamanioMaximo = 5 * 1024 * 1024;
-        var archivo = evento.File;
-        var tiposPermitidos = new[] { "image/jpeg", "image/png", "image/webp" };
-
-        if (!tiposPermitidos.Contains(archivo.ContentType.ToLowerInvariant()))
-        {
-            MensajeFoto = "Elegí una imagen JPG, PNG o WebP.";
-            return;
-        }
-
-        if (archivo.Size > tamanioMaximo)
-        {
-            MensajeFoto = "La imagen debe pesar menos de 5 MB.";
-            return;
-        }
-
-        try
-        {
-            await using var stream = archivo.OpenReadStream(tamanioMaximo);
-            using var memoria = new MemoryStream();
-            await stream.CopyToAsync(memoria);
-
-            var dto = new FotoSalonDTO
-            {
-                ContenidoBase64 = Convert.ToBase64String(memoria.ToArray()),
-                MimeType = archivo.ContentType,
-                NombreArchivo = archivo.Name
-            };
-
-            var respuesta = await http.Put("api/ConfiguracionSalon/Foto", dto);
-            if (respuesta.Error)
-            {
-                MensajeFoto = respuesta.ObtenerError();
-                return;
-            }
-
-            versionFoto = DateTime.UtcNow.Ticks;
-            MensajeFoto = "Foto actualizada correctamente.";
-        }
-        catch (IOException)
-        {
-            MensajeFoto = "No se pudo leer la imagen seleccionada.";
-        }
     }
 
     private void AbrirModalPedidoAdicional()
@@ -1793,6 +1719,7 @@
             else
                 await EnviarPedidoAdicional();
         }
+        catch (System.Net.Http.HttpRequestException) { MensajeModal = "No se pudo confirmar el envío. Revisá los pedidos de la mesa antes de volver a enviar."; }
         finally
         {
             enviandoPedido = false;
@@ -1914,6 +1841,7 @@
 
     public async ValueTask DisposeAsync()
     {
+        Polling.ConexionCambiada -= ConexionCambiada;
         await Polling.DisposeAsync();
     }
 }

@@ -1,0 +1,101 @@
+@page "/comandas-finalizadas"
+@using Microsoft.AspNetCore.Authorization
+@using PericoOnFire_2026.Shared.DTOs
+@using PericoOnFire_2026.Shared.ENUM
+@using PericoOnFire_2026.Shared.Utilidades
+@using PericoOnFire_2026.Servicio.ServicioHttp
+@inject IHttpServicio http
+@rendermode InteractiveWebAssembly
+@attribute [Authorize]
+
+<section class="historial">
+    <header><div><h2>Comandas finalizadas</h2><p>Consultá los consumos y pagos de días anteriores.</p></div><a class="btn btn-outline-secondary" href="/comandas">Volver a mesas</a></header>
+    <form class="filtros" @onsubmit="Filtrar" @onsubmit:preventDefault>
+        <label>Desde<input type="date" @bind="desde" /></label>
+        <label>Hasta<input type="date" @bind="hasta" /></label>
+        <label>Estado<select @bind="estado"><option value="">Todas</option><option value="3">Pagadas</option><option value="4">Canceladas</option></select></label>
+        <label>Servicio<select @bind="tipo"><option value="">Todos</option>@foreach(var servicio in Enum.GetValues<EnumTipoServicio>()){<option value="@((int)servicio)">@servicio</option>}</select></label>
+        <button class="btn btn-danger" type="submit" disabled="@cargando">Buscar</button>
+        <button class="btn btn-outline-secondary" type="button" @onclick="Hoy" disabled="@cargando">Hoy</button>
+        <button class="btn btn-outline-secondary" type="button" @onclick="Ayer" disabled="@cargando">Ayer</button>
+    </form>
+    @if (!string.IsNullOrEmpty(error)) { <p class="alert alert-danger" role="alert">@error</p> }
+    @if(cargando) { <p role="status">Cargando historial…</p> }
+    else
+    {
+        <p class="text-muted">@resultado.Total comandas · página @pagina</p>
+        @if(resultado.Comandas.Count == 0) { <p class="vacio">No hay comandas finalizadas para estos filtros.</p> }
+        @foreach(var comanda in resultado.Comandas)
+        {
+            <details class="comanda-historial">
+                <summary>
+                    <span><strong>Comanda @comanda.NumeroDiario</strong><small>@HoraArgentina.DesdeUtc(comanda.FechaApertura).ToString("dd/MM/yyyy HH:mm")</small></span>
+                    <span>@(comanda.NumeroMesa.HasValue ? $"Mesa {comanda.NumeroMesa} · {comanda.Sala}" : $"{comanda.TipoServicio} · {comanda.Cliente}")</span>
+                    <span class="estado @(comanda.Estado == EnumEstadoComanda.Cancelada ? "cancelada" : "")">@comanda.Estado</span>
+                    <strong>$@comanda.Total.ToString("N2")</strong>
+                </summary>
+                <div class="detalle">
+                    <p>Atendió: @(comanda.Empleado ?? "Sin dato") · Finalizada: @HoraArgentina.DesdeUtc(comanda.FechaCierre).ToString("dd/MM/yyyy HH:mm")</p>
+                    @foreach(var item in comanda.Items)
+                    {
+                        <div class="item-historial">
+                            <div><strong>@item.Cantidad × @item.Producto</strong><small>@item.Estado</small>
+                            @if(!string.IsNullOrEmpty(item.Observacion)){<p class="observacion">@item.Observacion</p>}
+                            @if(!string.IsNullOrEmpty(item.MotivoCancelacion)){<p class="observacion">Cancelación: @item.MotivoCancelacion</p>}
+                            </div><span>$@((item.Cantidad * item.PrecioUnitario).ToString("N2"))</span>
+                        </div>
+                    }
+                    @if(comanda.Pagos.Count > 0){<p class="pagos"><strong>Pagos:</strong> @string.Join(" · ", comanda.Pagos)</p>}
+                </div>
+            </details>
+        }
+        <nav class="paginacion" aria-label="Páginas del historial">
+            <button class="btn btn-outline-secondary" disabled="@(pagina <= 1 || cargando)" @onclick="Anterior">Anterior</button>
+            <button class="btn btn-outline-secondary" disabled="@(pagina * 30 >= resultado.Total || cargando)" @onclick="Siguiente">Siguiente</button>
+        </nav>
+    }
+</section>
+<style>
+.historial{background:#f5f6f8;min-height:calc(100vh - 70px);padding:1.25rem;color:#222}
+.historial header{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1rem}
+.historial h2{font-size:1.5rem;font-weight:800;margin:0}
+.historial header p{margin:.3rem 0;color:#666}
+.filtros{display:flex;align-items:end;flex-wrap:wrap;gap:.75rem;background:white;border:1px solid #ddd;border-radius:10px;padding:1rem;margin-bottom:1rem}
+.filtros label{display:flex;flex-direction:column;gap:.3rem;font-weight:600;font-size:.9rem}
+.filtros input,.filtros select{min-height:44px;border:1px solid #bbb;border-radius:6px;padding:.4rem .6rem;background:white}
+.comanda-historial{background:white;border:1px solid #ddd;border-radius:10px;margin-bottom:.65rem}
+.comanda-historial summary{display:grid;grid-template-columns:180px minmax(0,1fr) 110px 130px;align-items:center;gap:1rem;padding:1rem;cursor:pointer}
+.comanda-historial small{display:block;color:#666;font-size:.8rem;margin-top:.2rem}
+.estado{font-size:.8rem;font-weight:700;background:#e4f5e8;color:#246337;border-radius:20px;padding:.3rem .65rem;text-align:center}
+.estado.cancelada{background:#fff0ed;color:#a03628}
+.detalle{padding:0 1rem 1rem;border-top:1px solid #eee}
+.detalle>p{margin:1rem 0;color:#555;font-size:.9rem}
+.item-historial{display:flex;justify-content:space-between;gap:1rem;padding:.6rem 0;border-bottom:1px solid #eee}
+.observacion{margin:.3rem 0 0;color:#805200}
+.paginacion{display:flex;justify-content:flex-end;gap:.5rem;margin-top:1rem}
+.vacio{padding:2rem;background:white;border-radius:10px;text-align:center}
+@@media(max-width:700px){.historial{padding:.65rem}.historial header{align-items:flex-start;flex-direction:column}.filtros label{flex:1 1 130px}.comanda-historial summary{grid-template-columns:minmax(0,1fr) auto;gap:.6rem;padding:.8rem}.comanda-historial summary>span:nth-child(2){grid-row:2;grid-column:1}.comanda-historial summary>strong{grid-column:2;grid-row:2}.item-historial{font-size:.9rem}}
+</style>
+@code {
+    private DateTime desde = HoraArgentina.HoyLocal;
+    private DateTime hasta = HoraArgentina.HoyLocal;
+    private string estado = "", tipo = "", error = "";
+    private int pagina = 1;
+    private bool cargando = true;
+    private HistorialComandasDTO resultado = new();
+    protected override async Task OnInitializedAsync() { if(OperatingSystem.IsBrowser()) await Cargar(); }
+    private async Task Filtrar() { pagina = 1; await Cargar(); }
+    private async Task Hoy() { desde = hasta = HoraArgentina.HoyLocal; await Filtrar(); }
+    private async Task Ayer() { desde = hasta = HoraArgentina.HoyLocal.AddDays(-1); await Filtrar(); }
+    private async Task Anterior() { if(pagina > 1){ pagina--; await Cargar(); } }
+    private async Task Siguiente() { pagina++; await Cargar(); }
+    private async Task Cargar()
+    {
+        cargando = true; error = "";
+        try {
+            var r = await http.Get<HistorialComandasDTO>($"api/Comanda/Finalizadas?desde={desde:yyyy-MM-dd}&hasta={hasta:yyyy-MM-dd}&pagina={pagina}&estado={estado}&tipo={tipo}");
+            if(r.Error) error = r.ObtenerError(); else resultado = r.Respuesta ?? new();
+        } catch(System.Net.Http.HttpRequestException) { error = "No se pudo cargar el historial. Revisá la conexión y volvé a buscar."; }
+        finally { cargando = false; }
+    }
+}

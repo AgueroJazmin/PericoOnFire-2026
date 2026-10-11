@@ -1,0 +1,130 @@
+@using PericoOnFire_2026.Shared.DTOs
+@using PericoOnFire_2026.Shared.ENUM
+@using PericoOnFire_2026.Shared.Utilidades
+@using PericoOnFire_2026.Servicio.ServicioHttp
+@inject IHttpServicio http
+@implements IAsyncDisposable
+
+<aside class="bar-panel" aria-label="Panel del bar">
+    <div class="bar-content">
+    <div class="bar-main">
+    <section class="bar-card">
+        <div class="bar-heading"><span class="bar-icon">↗</span><h3>Accesos rápidos</h3></div>
+        <div class="bar-accesos">
+            <AuthorizeView Roles="Administracion,Barra"><Authorized>
+                <a href="/pedidos?tipo=takeaway"><span>🥡</span>Nuevo Take Away</a>
+                <a href="/pedidos?tipo=delivery"><span>🛵</span>Nuevo Delivery</a>
+            </Authorized></AuthorizeView>
+            <a href="/comandas-finalizadas"><span>▤</span>Comandas finalizadas</a>
+        </div>
+    </section>
+
+    <section class="bar-foto-card" aria-label="Fotos del bar">
+        <img class="bar-foto" src="@UrlFoto" alt="Foto del bar" @onerror="FotoNoDisponible" />
+        @if(fotos.Count > 1)
+        {
+            <div class="bar-foto-controles">
+                <button aria-label="Foto anterior" @onclick="Anterior">‹</button>
+                <span>@(fotoActual + 1) / @fotos.Count</span>
+                <button @onclick="() => rotar = !rotar">@(rotar ? "Pausar" : "Rotar")</button>
+                <button aria-label="Foto siguiente" @onclick="Siguiente">›</button>
+            </div>
+        }
+    </section>
+    </div>
+    <div class="bar-notices">
+    <section class="bar-card">
+        <div class="bar-heading"><span class="bar-icon">!</span><h3>Para atender</h3></div>
+        @if (!Mesas.Any(m => m.TienePedidoListo || m.TienePedidoCancelado || m.Estado == EnumEstadoMesa.PendienteCobro))
+        {
+            <p class="bar-empty">Todo al día. Los avisos de las mesas aparecerán acá.</p>
+        }
+        @foreach(var mesa in Mesas.Where(m => m.TienePedidoListo || m.TienePedidoCancelado || m.Estado == EnumEstadoMesa.PendienteCobro).OrderBy(m => m.NumeroMesa))
+        {
+            <button class="bar-aviso" @onclick="() => AlSeleccionarMesa.InvokeAsync(mesa)">
+                <strong>Mesa @mesa.NumeroMesa</strong>
+                <span>@(mesa.TienePedidoCancelado ? "Revisar cancelación" : mesa.TienePedidoListo ? "Pedido listo" : "Pendiente de cobro") →</span>
+            </button>
+        }
+    </section>
+
+    <section class="bar-card bar-cumple">
+        <div class="bar-heading"><span class="bar-icon">🎂</span><h3>Cumpleaños</h3></div>
+        @if (!cargado) { <p class="bar-empty">Cargando cumpleaños…</p> }
+        else if (!cumpleanos.Any()) { <p class="bar-empty">Agregá cumpleaños en Configuración → Panel del bar.</p> }
+        else
+        {
+            @foreach(var empleado in cumpleanos.Where(e => e.Proximo == HoraArgentina.HoyLocal))
+            { <div class="bar-cumple-hoy"><strong>¡Hoy cumple @empleado.Nombre!</strong><span>Que tengas un gran día 🎉</span></div> }
+            @if(cumpleanos.FirstOrDefault(e => e.Proximo > HoraArgentina.HoyLocal) is { } proximo)
+            { <p class="bar-proximo"><span>Próximo cumpleaños</span><strong>@proximo.Nombre</strong><small>@proximo.Proximo!.Value.ToString("dd/MM")</small></p> }
+        }
+    </section>
+
+    </div>
+    </div>
+    @if(!string.IsNullOrEmpty(error)) { <p class="bar-error" role="status">@error</p> }
+</aside>
+
+@code {
+    [Parameter] public List<MesaDTO> Mesas { get; set; } = new();
+    [Parameter] public EventCallback<MesaDTO> AlSeleccionarMesa { get; set; }
+    private List<FotoPanelDTO> fotos = new();
+    private List<CumpleanosEmpleadoDTO> cumpleanos = new();
+    private int fotoActual;
+    private bool rotar = true, fotoFallida, cargado;
+    private string? error;
+    private readonly CancellationTokenSource cancelacion = new();
+    private Task? tarea;
+    private string UrlFoto => !fotoFallida && fotos.Count > 0 ? $"api/ConfiguracionSalon/Foto?id={fotos[fotoActual].Id}" : "img/perico-pizza.jpg";
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!OperatingSystem.IsBrowser()) return;
+        await Cargar();
+        if (!cancelacion.IsCancellationRequested) tarea = RotarFotos();
+    }
+
+    private async Task Cargar()
+    {
+        try
+        {
+            var imagenes = await http.Get<List<FotoPanelDTO>>("api/ConfiguracionSalon/Fotos");
+            var fechas = await http.Get<List<CumpleanosEmpleadoDTO>>("api/PanelBar/Cumpleanos");
+            if (imagenes.Error || fechas.Error) { error = "No se pudo actualizar el panel. Volveremos a intentarlo."; return; }
+            var idActual = fotos.Count > 0 ? fotos[fotoActual].Id : (int?)null;
+            fotos = imagenes.Respuesta ?? new();
+            fotoActual = Math.Max(0, fotos.FindIndex(f => f.Id == idActual));
+            fotoFallida = false;
+            cumpleanos = fechas.Respuesta ?? new();
+            cargado = true; error = null;
+        }
+        catch (System.Net.Http.HttpRequestException) { error = "No se pudo actualizar el panel. Volveremos a intentarlo."; }
+    }
+
+    private async Task RotarFotos()
+    {
+        using var reloj = new PeriodicTimer(TimeSpan.FromSeconds(8));
+        var ticks = 0;
+        try {
+            while (await reloj.WaitForNextTickAsync(cancelacion.Token))
+            {
+                await InvokeAsync(async () =>
+                {
+                    if (rotar && fotos.Count > 1) { fotoActual = (fotoActual + 1) % fotos.Count; fotoFallida = false; }
+                    if (++ticks % 8 == 0) await Cargar();
+                    StateHasChanged();
+                });
+            }
+        } catch (OperationCanceledException) when (cancelacion.IsCancellationRequested) { }
+    }
+    private void Anterior() { if (fotos.Count == 0) return; rotar = false; fotoActual = (fotoActual + fotos.Count - 1) % fotos.Count; fotoFallida = false; }
+    private void Siguiente() { if (fotos.Count == 0) return; rotar = false; fotoActual = (fotoActual + 1) % fotos.Count; fotoFallida = false; }
+    private void FotoNoDisponible() { fotoFallida = true; }
+    public async ValueTask DisposeAsync()
+    {
+        cancelacion.Cancel();
+        if (tarea != null) await tarea;
+        cancelacion.Dispose();
+    }
+}

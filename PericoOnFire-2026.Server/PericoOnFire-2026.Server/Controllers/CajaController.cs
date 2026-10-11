@@ -55,6 +55,8 @@ namespace PericoOnFire_2026.Server.Controllers
         [HttpPost("Abrir")]
         public async Task<ActionResult<TurnoCajaDTO>> Abrir(AbrirCajaDTO dto)
         {
+            return await OperacionAtomica.EjecutarAsync<ActionResult<TurnoCajaDTO>>(context, async () =>
+            {
             var montoInicial = Math.Round(dto.MontoInicial, 2);
             if (montoInicial < 0)
                 return Conflict("El monto inicial no puede ser negativo.");
@@ -94,6 +96,8 @@ namespace PericoOnFire_2026.Server.Controllers
             await context.SaveChangesAsync();
 
             return Ok(ArmarTurnoDTO(turno, usuario.Nombre, null));
+        
+            });
         }
 
         //Este es el arqueo: se compara el efectivo que el sistema espera en el cajón con el que
@@ -101,6 +105,8 @@ namespace PericoOnFire_2026.Server.Controllers
         [HttpPost("Cerrar")]
         public async Task<ActionResult<TurnoCajaDTO>> Cerrar(CerrarCajaDTO dto)
         {
+            return await OperacionAtomica.EjecutarAsync<ActionResult<TurnoCajaDTO>>(context, async () =>
+            {
             var montoContado = Math.Round(dto.MontoContado, 2);
             if (montoContado < 0)
                 return Conflict("El efectivo contado no puede ser negativo.");
@@ -147,6 +153,8 @@ namespace PericoOnFire_2026.Server.Controllers
             await context.SaveChangesAsync();
 
             return Ok(ArmarTurnoDTO(turno, estado.Turno?.NombreUsuarioApertura, usuario.Nombre));
+        
+            });
         }
 
         //Los arqueos ya hechos, del más nuevo al más viejo.
@@ -209,6 +217,8 @@ namespace PericoOnFire_2026.Server.Controllers
         [HttpPost("Movimientos")]
         public async Task<ActionResult<MovimientoCajaDTO>> PostMovimiento(MovimientoCajaCrearDTO dto)
         {
+            return await OperacionAtomica.EjecutarAsync<ActionResult<MovimientoCajaDTO>>(context, async () =>
+            {
             var turno = await CajaActual.ObtenerTurnoAbiertoAsync(context);
             if (turno == null)
                 return Conflict("La caja está cerrada. Abrí un turno para registrar movimientos.");
@@ -267,6 +277,8 @@ namespace PericoOnFire_2026.Server.Controllers
                 Motivo = movimiento.Motivo,
                 Observaciones = movimiento.Observaciones,
                 NombreUsuario = usuario.Nombre
+            });
+        
             });
         }
 

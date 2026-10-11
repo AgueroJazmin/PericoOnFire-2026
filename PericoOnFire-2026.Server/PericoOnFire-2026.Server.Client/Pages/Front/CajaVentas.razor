@@ -405,6 +405,10 @@
 
     protected override async Task OnInitializedAsync()
     {
+        // Las llamadas autenticadas usan la cookie del navegador.
+        // El prerenderizado del servidor solo prepara la vista y la sesión.
+        if (!OperatingSystem.IsBrowser()) return;
+
         await Cargar();
     }
 
