@@ -1333,6 +1333,28 @@
         .comandas-mapa { width:100%; }
         .comandas-lateral { flex:none; width:100%; min-width:0; max-width:none; }
     }
+
+    /* Ajuste al ancho real del navegador, incluido zoom al 100 %. */
+    .perico-main { padding: .85rem; min-width: 0; }
+    .comandas-disposicion { gap: .85rem; }
+    .comandas-lateral { flex: 1 1 340px; }
+    .salas-operativas { gap: .65rem; }
+    .sala-operativa { padding: .65rem; max-width: 100%; }
+    .sala-operativa-titulo { font-size: 1.2rem; margin-bottom: .6rem; }
+    .grilla-salon-operativa { max-width: 100%; overflow-x: auto; }
+    .modal-pedido { width: min(1180px, calc(100vw - 2rem)); height: min(650px, calc(100dvh - 2rem)); max-height: calc(100dvh - 2rem); }
+    .selector-productos { grid-template-columns: 180px minmax(0, 1fr) minmax(270px, .85fr); }
+    .subcategorias button { overflow-wrap:normal; word-break:normal; }
+    .selector-productos > * { min-width: 0; }
+    .producto-fila { grid-template-columns: minmax(0,1fr) auto; gap: .5rem; }
+    .producto-fila > div:first-child { min-width: 0; overflow-wrap: anywhere; }
+    .producto-fila .control-cantidad { grid-column: 1/-1; justify-self: end; }
+    .modal-pedido-footer { flex-wrap: wrap; }
+    @@media(max-width:780px) {
+        .comandas-lateral { flex: none; }
+        .modal-pedido { width:100%; height:calc(100dvh - 1rem); max-height:calc(100dvh - 1rem); }
+    }
+
 </style>
 
 @code {
