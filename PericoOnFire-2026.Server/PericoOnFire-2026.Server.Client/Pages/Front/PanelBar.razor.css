@@ -25,3 +25,14 @@
 .bar-error { color:#85521d; font-size:.78rem; margin:0; }
 @media(max-width:780px) { .bar-card { padding:13px; } }
 @media(max-width:520px) { .bar-content { grid-template-columns:minmax(0,1fr); }.bar-foto { height:240px; } }
+
+.bar-panel { container-type:inline-size; container-name:panelbar; }
+.bar-content { grid-template-columns:minmax(0,1.2fr) minmax(170px,1fr); gap:12px; }
+.bar-card { padding:12px; }
+.bar-foto { height:auto; aspect-ratio:4/3; }
+.bar-foto-controles { flex-wrap:wrap; }
+@container panelbar (max-width:460px) {
+    .bar-content { grid-template-columns:minmax(0,1fr); }
+    .bar-main > .bar-card { max-width:none; }
+    .bar-notices { display:flex; flex-direction:column; }
+}
