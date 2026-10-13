@@ -144,7 +144,7 @@ namespace PericoOnFire_2026.Server.Controllers
                 {
                     if (!dto.IdMesa.HasValue) return BadRequest("Seleccioná una mesa.");
                     mesa = await context.Mesas.FindAsync(dto.IdMesa.Value);
-                    if (mesa == null) return NotFound("La mesa no existe.");
+                    if (mesa == null || mesa.EstadoRegistro != EnumEstadoRegistro.activo) return NotFound("La mesa no existe o fue retirada.");
                     if (mesa.Estado != EnumEstadoMesa.Libre ||
                         await context.Comandas.AnyAsync(c => c.IdMesa == mesa.Id &&
                             (c.Estado == EnumEstadoComanda.Abierta || c.Estado == EnumEstadoComanda.PendienteCobro)))
@@ -198,8 +198,8 @@ namespace PericoOnFire_2026.Server.Controllers
                         throw new InvalidOperationException("Hay productos que ya no están disponibles.");
 
                     var mesa = await context.Mesas.FirstOrDefaultAsync(m => m.Id == dto.IdMesa);
-                    if (mesa == null)
-                        throw new InvalidOperationException("La mesa seleccionada no existe.");
+                    if (mesa == null || mesa.EstadoRegistro != EnumEstadoRegistro.activo)
+                        throw new InvalidOperationException("La mesa seleccionada no existe o fue retirada.");
 
                     var tieneComandaAbierta = await context.Comandas.AnyAsync(c =>
                         c.IdMesa == dto.IdMesa &&
