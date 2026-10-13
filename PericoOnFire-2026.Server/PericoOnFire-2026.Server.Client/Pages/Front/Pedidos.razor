@@ -1266,6 +1266,20 @@
         .modal-pedido-footer { position: sticky; bottom: 0; z-index: 5; }
     }
 
+
+    .pedidos-pagina, .panel-nuevo-pedido { min-width:0; }
+    .selector-productos > *, .selector-resumen > * { min-width:0; }
+    .modal-pedido-footer { flex-wrap:wrap; }
+    .producto-fila { grid-template-columns:minmax(0,1fr) auto; }
+    .producto-fila .control-cantidad { grid-column:1/-1; justify-self:end; }
+    @@media(min-width:1101px) {
+        .selector-productos { grid-template-columns:180px minmax(240px,.85fr) minmax(460px,1.15fr); }
+        .selector-resumen { padding:.65rem; gap:.65rem; grid-template-columns:minmax(180px,.85fr) minmax(0,1.15fr); }
+        .modal-pedido { height:min(720px,calc(100dvh - 7rem)); min-height:0; }
+        .modal-pedido-header, .modal-pedido-footer { padding:.6rem .8rem; }
+        .categorias-superiores button { min-width:105px; padding:.45rem .65rem; }
+    }
+
 </style>
 
 @code {
