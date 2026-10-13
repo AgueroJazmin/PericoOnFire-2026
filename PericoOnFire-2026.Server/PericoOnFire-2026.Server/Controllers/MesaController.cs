@@ -30,7 +30,13 @@ namespace PericoOnFire_2026.Server.Controllers
                {
                    Id = m.Id,
                    NumeroMesa = m.NumeroMesa,
-                   Estado = m.Estado,
+                   Estado = context.Comandas.Any(c => c.IdMesa == m.Id &&
+                       c.Estado == EnumEstadoComanda.PendienteCobro)
+                       ? EnumEstadoMesa.PendienteCobro
+                       : context.Comandas.Any(c => c.IdMesa == m.Id &&
+                           c.Estado == EnumEstadoComanda.Abierta)
+                           ? EnumEstadoMesa.Ocupada
+                           : m.Estado,
                    IdSala = m.IdSala,
                    NombreSala = m.Sala != null ? m.Sala.Nombre : null,
                    Fila = m.Fila,
