@@ -664,6 +664,13 @@
             grid-column: 1 / -1;
         }
     }
+
+    .caja-layout { grid-template-columns:minmax(240px,280px) minmax(0,1fr); }
+    .caja-layout > * { min-width:0; }
+    .tabla-detalle { table-layout:fixed; overflow-wrap:anywhere; }
+    .caja-tabs { flex-wrap:wrap; }
+    @@media(max-width:760px) { .caja-layout { grid-template-columns:minmax(0,1fr); } .tabla-detalle { table-layout:auto; } }
+
 </style>
 
 @code {
