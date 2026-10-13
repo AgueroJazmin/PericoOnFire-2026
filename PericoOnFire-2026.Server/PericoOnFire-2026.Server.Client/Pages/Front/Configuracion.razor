@@ -1326,6 +1326,26 @@
         }
     }
 
+
+    .config-body { grid-template-columns:230px minmax(0,1fr); }
+    .config-content, .mesas-config { min-width:0; padding:1.2rem; }
+    .usuarios-layout { grid-template-columns:minmax(0,3fr) minmax(0,2fr); }
+    .usuarios-layout > *, .form-line > *, .productos-form > * { min-width:0; }
+    .editor-salon { grid-template-columns:minmax(0,1fr) 260px; }
+    .tabla-scroll { max-width:100%; overflow-x:auto; }
+    .config-tabs { height:auto; flex-wrap:wrap; }
+    .tab-btn { min-height:42px; }
+    .section-header { gap:.75rem; flex-wrap:wrap; }
+    @@media(min-width:901px) and (max-width:1400px) {
+        .productos-form { grid-template-columns:minmax(0,2fr) 110px minmax(150px,1fr); }
+        .subcategorias-form { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+    }
+    @@media(max-width:1000px) { .usuarios-layout { grid-template-columns:minmax(0,1fr); } }
+    @@media(max-width:900px) {
+        .config-body, .editor-salon { grid-template-columns:minmax(0,1fr); }
+        .config-content, .mesas-config { padding:1rem; }
+    }
+
 </style>
 
 @code {
