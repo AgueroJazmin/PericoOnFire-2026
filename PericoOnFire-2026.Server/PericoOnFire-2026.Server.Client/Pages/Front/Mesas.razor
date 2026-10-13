@@ -79,9 +79,13 @@
     }
 </main>
 
-@if (mesaSeleccionada != null)
+@if (mesaSeleccionada != null && !(mostrarModalPedido && mesaSeleccionada.Estado == EnumEstadoMesa.Libre))
 {
-    <aside class="panel-mesa">
+    @if (mesaSeleccionada.Estado == EnumEstadoMesa.Libre)
+    {
+        <div class="mesa-libre-fondo" @onclick="CerrarPanel"></div>
+    }
+    <aside class="panel-mesa @(mesaSeleccionada.Estado == EnumEstadoMesa.Libre ? "panel-mesa-libre" : "")" role="dialog" aria-label="@($"Mesa {mesaSeleccionada.NumeroMesa}")">
         <div class="panel-header">
             <h5>Mesa @mesaSeleccionada.NumeroMesa</h5>
             <button class="btn-cerrar" @onclick="CerrarPanel">&times;</button>
@@ -96,14 +100,19 @@
         {
             <p>Cargando...</p>
         }
-        else if (comandaActual == null)
+        else if (mesaSeleccionada.Estado == EnumEstadoMesa.Libre)
         {
             <div class="panel-body">
                 <p>La mesa está libre.</p>
+                <button class="btn btn-outline-secondary me-2" @onclick="CerrarPanel">Cancelar</button>
                 <button class="btn btn-primary" @onclick="AbrirModalNuevaComanda">
                     Abrir mesa
                 </button>
             </div>
+        }
+        else if (comandaActual == null)
+        {
+            <p role="status">No se pudo cargar la comanda de esta mesa. Cerrá el panel y volvé a seleccionarla.</p>
         }
         else
         {
@@ -1372,6 +1381,10 @@
     @@media(max-width:780px) {
         .producto-fila .control-cantidad button { width:36px; height:36px; flex-basis:36px; }
     }
+
+    .mesa-libre-fondo { position:fixed; inset:0; background:#0007; z-index:1040; }
+    .panel-mesa.panel-mesa-libre { top:50%; left:50%; right:auto; bottom:auto; transform:translate(-50%,-50%); width:min(380px,calc(100vw - 2rem)); height:auto; max-height:calc(100dvh - 2rem); border:0; border-radius:10px; padding:1.25rem; z-index:1050; box-shadow:0 12px 32px #0004; }
+    .panel-mesa-libre .panel-header { margin-bottom:1rem; }
 </style>
 
 @code {
