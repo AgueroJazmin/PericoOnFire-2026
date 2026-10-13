@@ -6,6 +6,7 @@ using PericoOnFire_2026.Repositorio.Repositorios;
 using PericoOnFire_2026.Shared.DTOs;
 using PericoOnFire_2026.Shared.ENUM;
 using Microsoft.EntityFrameworkCore;
+using PericoOnFire_2026.Server.Servicios;
 
 namespace PericoOnFire_2026.Server.Controllers
 {
@@ -55,6 +56,40 @@ namespace PericoOnFire_2026.Server.Controllers
                .ToListAsync();
 
             return Ok(lista);
+        }
+
+
+        [Authorize(Roles = "Administracion")]
+        [HttpGet("Diagnostico/{numeroMesa:int}")]
+        public async Task<ActionResult> Diagnostico(int numeroMesa)
+        {
+            var mesas = await context.Mesas.AsNoTracking()
+                .Where(m => m.NumeroMesa == numeroMesa)
+                .Select(m => new { m.Id, m.NumeroMesa, Sala = m.Sala.Nombre, m.Estado })
+                .ToListAsync();
+            var ids = mesas.Select(m => m.Id).ToList();
+            var comandas = await context.Comandas.AsNoTracking()
+                .Where(c => c.IdMesa.HasValue && ids.Contains(c.IdMesa.Value))
+                .OrderByDescending(c => c.FechaApertura).Take(30)
+                .Select(c => new
+                {
+                    c.Id, c.IdMesa, c.Estado, c.FechaApertura, c.FechaCierre,
+                    Pagos = context.Pagos.Count(p => p.IdComanda == c.Id),
+                    Pedidos = c.Pedidos.Select(p => new { p.Id, p.Estado, p.SectorDestino }).ToList()
+                }).ToListAsync();
+            var numeros = await NumeroComandaDiario.ObtenerVariosAsync(context,
+                comandas.Select(c => (c.Id, c.FechaApertura)));
+            return Ok(new
+            {
+                VersionDiagnostico = "mesa-comanda-v1",
+                Mesas = mesas.Select(m => new { m.Id, m.NumeroMesa, m.Sala, EstadoGuardado = m.Estado.ToString() }),
+                Comandas = comandas.Select(c => new
+                {
+                    c.Id, c.IdMesa, Numero = $"COM-{numeros.GetValueOrDefault(c.Id):D3}",
+                    Estado = c.Estado.ToString(), c.FechaApertura, c.FechaCierre, c.Pagos,
+                    Pedidos = c.Pedidos.Select(p => new { p.Id, Estado = p.Estado.ToString(), Sector = p.SectorDestino.ToString() })
+                })
+            });
         }
 
         [HttpGet("{id:int}")]
