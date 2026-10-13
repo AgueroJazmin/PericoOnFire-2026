@@ -1583,6 +1583,11 @@
         if (!respuesta.Error && respuesta.Respuesta != null)
         {
             mesas = respuesta.Respuesta;
+            if (mesaSeleccionada != null)
+            {
+                var actualizada = mesas.FirstOrDefault(m => m.Id == mesaSeleccionada.Id);
+                if (actualizada != null) mesaSeleccionada = actualizada;
+            }
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -1621,6 +1626,10 @@
             {
                 comandaActual = respuesta.Respuesta;
                 await CargarPedidos();
+            }
+            else if (respuesta.Error)
+            {
+                Mensaje = respuesta.ObtenerError();
             }
         }
 
@@ -1880,7 +1889,7 @@
     {
         if (mesaSeleccionada == null || idUsuarioActual == null) return;
 
-        var numeroMesa = mesaSeleccionada.NumeroMesa;
+        var idMesa = mesaSeleccionada.Id;
         var dto = new ConfirmarComandaDTO
         {
             IdMesa = mesaSeleccionada.Id,
@@ -1893,13 +1902,14 @@
         if (respuesta.Error || respuesta.Respuesta == null)
         {
             MensajeModal = respuesta.ObtenerError();
+            await CargarMesas();
             return;
         }
 
         mostrarModalPedido = false;
         carrito = new();
         await CargarMesas();
-        var mesaActualizada = mesas.FirstOrDefault(m => m.NumeroMesa == numeroMesa);
+        var mesaActualizada = mesas.FirstOrDefault(m => m.Id == idMesa);
         if (mesaActualizada != null)
             await SeleccionarMesa(mesaActualizada);
 
