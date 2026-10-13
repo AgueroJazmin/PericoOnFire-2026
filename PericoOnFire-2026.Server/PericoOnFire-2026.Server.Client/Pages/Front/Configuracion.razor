@@ -637,6 +637,17 @@
     @if (tabActiva == "mesas")
     {
         <div class="mesas-config">
+            @if (mesas.GroupBy(m => new { m.IdSala, m.NumeroMesa }).Any(g => g.Count() > 1))
+            {
+                <div class="alert alert-warning">
+                    <strong>Hay mesas duplicadas que la grilla puede ocultar.</strong>
+                    @foreach (var grupo in mesas.GroupBy(m => new { m.IdSala, m.NumeroMesa }).Where(g => g.Count() > 1))
+                    {
+                        <div>Mesa @grupo.Key.NumeroMesa · @grupo.First().NombreSala · Identificadores: @string.Join(", ", grupo.Select(m => m.Id))</div>
+                    }
+                    <button class="btn btn-primary mt-2" disabled="@(corrigiendoDuplicadas || editandoDistribucion)" @onclick="CorregirDuplicadas">@(corrigiendoDuplicadas ? "Corrigiendo…" : "Corregir duplicadas")</button>
+                </div>
+            }
             <div class="section-header">
                 <h3>Salas y mesas</h3>
                 @if (!editandoDistribucion)
@@ -1351,6 +1362,23 @@
 <PericoOnFire_2026.Server.Client.Shared.Confirmacion @ref="confirmacionGeneral" Titulo="Confirmar" textOk="Sí, continuar" textCancelar="Volver" />
 
 @code {
+
+    private bool corrigiendoDuplicadas;
+    private async Task CorregirDuplicadas()
+    {
+        if (corrigiendoDuplicadas || editandoDistribucion) return;
+        if (!await confirmacionGeneral!.PreguntarAsync("Se conservará la mesa con cuenta abierta y se retirará la duplicada sin borrar comandas ni pagos. ¿Continuar?")) return;
+        corrigiendoDuplicadas = true;
+        try
+        {
+            var r = await http.Post("api/Mesa/ResolverDuplicadas", new { });
+            MensajeMesas = r.Error ? r.ObtenerError() : "Duplicadas retiradas de la grilla; el historial se conserva.";
+            await CargarMesas();
+            mesaSeleccionadaConfig = null;
+        }
+        catch (System.Net.Http.HttpRequestException) { MensajeMesas = "No se pudo confirmar la reparación. Actualizá las mesas antes de reintentar."; }
+        finally { corrigiendoDuplicadas = false; }
+    }
     private PericoOnFire_2026.Server.Client.Shared.Confirmacion? confirmacionGeneral;
     [SupplyParameterFromQuery(Name = "tab")] public string? TabSolicitada { get; set; }
     protected override void OnParametersSet() { if (TabSolicitada == "panel" && !HayCambiosPendientes) tabActiva = "panel"; }
