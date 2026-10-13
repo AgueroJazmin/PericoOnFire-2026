@@ -145,6 +145,10 @@
                                 <div class="pedido-card pedido-card-pendiente">
 
                                     <span class="pedido-estado">Pendiente</span>
+                                    @if (comandaActual.Estado == EnumEstadoComanda.Abierta)
+                                    {
+                                        <button class="btn btn-sm btn-outline-primary w-100 my-2" @onclick="() => AbrirEdicionPendientes(pedidosPendientes)">Editar pendientes</button>
+                                    }
 
                                     <ul>
                                         @foreach (var productoAgrupado in pedidosPendientes
@@ -419,7 +423,7 @@
                 </div>
                 <button class="btn btn-outline-secondary" @onclick="CerrarModalPedido" disabled="@enviandoPedido">Cancelar</button>
                 <button class="btn btn-success" @onclick="ConfirmarPedido" disabled="@(!carrito.Any() || enviandoPedido)">
-                    @(enviandoPedido ? "Enviando..." : "Enviar a cocina/barra")
+                    @(enviandoPedido ? "Guardando..." : idsPedidosEditando.Any() ? "Guardar cambios" : "Enviar a cocina/barra")
                 </button>
             </footer>
         </section>
@@ -1449,6 +1453,8 @@
     private string? MensajeModal;
     private bool mostrarModalPedido;
     private bool esNuevaComanda;
+    private List<int> idsPedidosEditando = new();
+    private List<DetallePedidoDTO> detallesAntesDeEditar = new();
     private bool enviandoPedido;
     private int cantidadComensales = 1;
     private string categoriaSeleccionada = "";
@@ -1561,7 +1567,9 @@
     private int CantidadTotalItems => carrito.Sum(i => i.Cantidad);
 
     private decimal TotalCarrito => carrito.Sum(i =>
-        (productos.FirstOrDefault(p => p.Id == i.IdProducto)?.Precio ?? 0) * i.Cantidad);
+        (idsPedidosEditando.Any()
+            ? detallesAntesDeEditar.FirstOrDefault(d => d.IdProducto == i.IdProducto)?.PrecioUnitario ?? productos.FirstOrDefault(p => p.Id == i.IdProducto)?.Precio ?? 0
+            : productos.FirstOrDefault(p => p.Id == i.IdProducto)?.Precio ?? 0) * i.Cantidad);
 
     // La mesa solo se puede cerrar cuando ningún pedido quedó pendiente, en preparación
     // o listo sin retirar; los cancelados no cuentan porque ya no van a llegar a la mesa.
@@ -1681,6 +1689,8 @@
 
     private void AbrirModalPedido()
     {
+        idsPedidosEditando = new();
+        detallesAntesDeEditar = new();
         carrito = new();
         CancelarObservacion();
         MensajeModal = null;
@@ -1805,6 +1815,44 @@
         if (cantidadComensales > 1) cantidadComensales--;
     }
 
+
+    private void AbrirEdicionPendientes(List<PedidoDTO> pendientes)
+    {
+        if (comandaActual == null || pendientes.Any(p => p.Estado != EnumEstadoPedido.Pendiente)) return;
+        esNuevaComanda = false;
+        AbrirModalPedido();
+        idsPedidosEditando = pendientes.Select(p => p.Id).ToList();
+        detallesAntesDeEditar = pendientes.SelectMany(p => p.DetallesPedido).ToList();
+        carrito = detallesAntesDeEditar.Select(d => new ItemPedidoDTO
+        {
+            IdProducto = d.IdProducto, Cantidad = d.Cantidad, Observacion = d.Observacion
+        }).ToList();
+    }
+
+    private async Task GuardarEdicionPendientes()
+    {
+        if (comandaActual == null) return;
+        var dto = new EditarPedidoPendienteDTO
+        {
+            IdsPedidos = idsPedidosEditando.ToList(),
+            DetallesOriginales = detallesAntesDeEditar,
+            Items = carrito
+        };
+        var respuesta = await http.Put($"api/Pedido/Comanda/{comandaActual.Id}/EditarPendientes", dto);
+        if (respuesta.Error)
+        {
+            MensajeModal = respuesta.ObtenerError();
+            return;
+        }
+        mostrarModalPedido = false;
+        idsPedidosEditando = new();
+        detallesAntesDeEditar = new();
+        carrito = new();
+        await CargarPedidos();
+        await CargarMesas();
+        Mensaje = "Pedido pendiente actualizado.";
+    }
+
     private async Task ConfirmarPedido()
     {
         if (!carrito.Any() || enviandoPedido) return;
@@ -1814,7 +1862,9 @@
 
         try
         {
-            if (esNuevaComanda)
+            if (idsPedidosEditando.Any())
+                await GuardarEdicionPendientes();
+            else if (esNuevaComanda)
                 await ConfirmarNuevaComanda();
             else
                 await EnviarPedidoAdicional();
