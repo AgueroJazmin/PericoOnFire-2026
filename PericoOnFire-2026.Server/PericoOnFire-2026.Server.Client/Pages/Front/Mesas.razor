@@ -260,7 +260,7 @@
 @if (mostrarModalPedido && mesaSeleccionada != null)
 {
     <div class="modal-pedido-fondo" @onclick="CerrarModalPedido">
-        <section class="modal-pedido" role="dialog" aria-modal="true" aria-label="Seleccionar productos" @onclick:stopPropagation="true">
+        <section class="modal-pedido mesa-pedido-modal" role="dialog" aria-modal="true" aria-label="Seleccionar productos" @onclick:stopPropagation="true">
             <header class="modal-pedido-header">
                 <div class="modal-encabezado-contenido">
 
@@ -1385,6 +1385,48 @@
     .mesa-libre-fondo { position:fixed; inset:0; background:#0007; z-index:1040; }
     .panel-mesa.panel-mesa-libre { top:50%; left:50%; right:auto; bottom:auto; transform:translate(-50%,-50%); width:min(380px,calc(100vw - 2rem)); height:auto; max-height:calc(100dvh - 2rem); border:0; border-radius:10px; padding:1.25rem; z-index:1050; box-shadow:0 12px 32px #0004; }
     .panel-mesa-libre .panel-header { margin-bottom:1rem; }
+
+    /* En celular solo el cuerpo del pedido se desplaza. */
+    @@media(max-width:780px) {
+        .modal-pedido-fondo:has(.mesa-pedido-modal) { padding:.5rem; }
+        .mesa-pedido-modal { width:100%; height:calc(100dvh - 1rem); max-height:calc(100dvh - 1rem); min-height:0; }
+        .mesa-pedido-modal .modal-pedido-header,
+        .mesa-pedido-modal .modal-pedido-footer { flex:0 0 auto; }
+        .mesa-pedido-modal .selector-productos {
+            display:flex; flex-direction:column; flex:1 1 auto;
+            min-height:0; overflow-y:auto; overflow-x:hidden;
+        }
+        .mesa-pedido-modal .selector-productos > * { flex:0 0 auto; min-width:0; }
+        .mesa-pedido-modal .subcategorias {
+            order:1; min-height:0; height:auto; overflow:visible;
+            display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+        }
+        .mesa-pedido-modal .productos-modal {
+            order:2; min-height:0; height:auto; max-height:none; overflow:visible; margin:.6rem;
+        }
+        .mesa-pedido-modal .productos-buscador { position:static; padding:.5rem; }
+        .mesa-pedido-modal .productos-titulo { position:static; }
+        .mesa-pedido-modal .selector-resumen {
+            order:3; display:flex; flex-direction:column;
+            min-height:0; height:auto; overflow:visible; padding:.75rem;
+        }
+        .mesa-pedido-modal .resumen-carrito {
+            flex:0 0 auto; min-height:0; height:auto; max-height:none;
+            overflow:visible; position:static;
+        }
+        .mesa-pedido-modal .resumen-carrito > strong { position:static; }
+        .mesa-pedido-modal .carrito-item { flex:0 0 auto; }
+        .mesa-pedido-modal .carrito-item-linea { flex-wrap:wrap; }
+        .mesa-pedido-modal .carrito-item-linea > span { min-width:0; overflow-wrap:anywhere; }
+        .mesa-pedido-modal .modal-pedido-footer { position:static; padding:.6rem .75rem; }
+        .mesa-pedido-modal .modal-pedido-footer .btn { min-width:0; }
+        .mesa-pedido-modal .producto-fila { grid-template-columns:minmax(0,1fr) auto auto; }
+        .mesa-pedido-modal .producto-fila .control-cantidad { grid-column:auto; }
+    }
+    @@media(max-width:360px) {
+        .mesa-pedido-modal .producto-fila { grid-template-columns:minmax(0,1fr) auto; }
+        .mesa-pedido-modal .producto-fila .control-cantidad { grid-column:1/-1; justify-self:end; }
+    }
 </style>
 
 @code {
