@@ -66,13 +66,13 @@
                                 </button>
                             </div>
 
-                            <label class="dato-cliente">Nombre y apellido<input class="form-control form-control-sm" maxlength="100" @bind="nombreCliente" @bind:event="oninput" /></label>
+                            <label class="dato-cliente">Nombre y apellido (obligatorio)<input class="form-control form-control-sm" maxlength="100" required aria-required="true" @bind="nombreCliente" @bind:event="oninput" /></label>
 
                             <label class="dato-cliente">Teléfono (opcional)<input class="form-control form-control-sm" maxlength="30" @bind="telefonoCliente" @bind:event="oninput" /></label>
 
                             @if (tipoNuevoPedido == EnumTipoServicio.Delivery)
                             {
-                                <label class="dato-cliente">Referencia de WhatsApp<input class="form-control form-control-sm" maxlength="150" placeholder="Ej.: pedido de WhatsApp de las 21:40 - Juan"
+                                <label class="dato-cliente">Referencia de WhatsApp (obligatoria)<input class="form-control form-control-sm" maxlength="150" required aria-required="true" placeholder="Ej.: pedido de WhatsApp de las 21:40 - Juan"
                                        @bind="direccionCliente" @bind:event="oninput" /></label>
                             }
 
@@ -183,6 +183,10 @@
                     </fieldset>
 
                     <footer class="modal-pedido-footer">
+                        @if (!PedidoListoParaEnviar && !enviandoPedido)
+                        {
+                            <p class="pedido-datos-faltantes" role="status">@DatosFaltantesPedido</p>
+                        }
                         <div>
                             <span>Total</span>
                             <strong>$@TotalCarrito.ToString("N2")</strong>
@@ -1297,6 +1301,8 @@
     @@media(max-width:780px) {
         .producto-fila .control-cantidad button { width:36px; height:36px; flex-basis:36px; }
     }
+
+    .pedido-datos-faltantes { flex:0 0 100%; margin:0; padding:.4rem .6rem; background:#fff5d9; color:#6e4b00; border-radius:5px; font-size:.85rem; }
 </style>
 
 @code {
@@ -1382,6 +1388,17 @@
     private decimal TotalCarrito => carrito.Sum(i =>
         (productos.FirstOrDefault(p => p.Id == i.IdProducto)?.Precio ?? 0) * i.Cantidad);
 
+    private string DatosFaltantesPedido
+    {
+        get
+        {
+            var faltantes = new List<string>();
+            if (string.IsNullOrWhiteSpace(nombreCliente)) faltantes.Add("nombre del cliente");
+            if (tipoNuevoPedido == EnumTipoServicio.Delivery && string.IsNullOrWhiteSpace(direccionCliente)) faltantes.Add("referencia de WhatsApp");
+            if (!carrito.Any()) faltantes.Add("al menos un producto");
+            return "Para enviar, completá: " + string.Join(", ", faltantes) + ".";
+        }
+    }
     private bool PedidoListoParaEnviar =>
         !string.IsNullOrWhiteSpace(nombreCliente) &&
         carrito.Any() &&
