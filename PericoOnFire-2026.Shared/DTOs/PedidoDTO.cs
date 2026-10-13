@@ -36,4 +36,11 @@ namespace PericoOnFire_2026.Shared.DTOs
         //sin botones de acción sobre ellos
         public List<DetallePedidoDTO> DetallesOtroSector { get; set; } = new();
     }
+
+    public class EditarPedidoPendienteDTO
+    {
+        public List<int> IdsPedidos { get; set; } = new();
+        public List<DetallePedidoDTO> DetallesOriginales { get; set; } = new();
+        public List<ItemPedidoDTO> Items { get; set; } = new();
+    }
 }
