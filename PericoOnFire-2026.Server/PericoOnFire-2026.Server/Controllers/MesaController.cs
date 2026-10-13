@@ -50,6 +50,7 @@ namespace PericoOnFire_2026.Server.Controllers
                        p.Comanda.IdMesa == m.Id &&
                        p.Comanda.Estado == EnumEstadoComanda.Abierta),
                    TienePedidoCancelado = context.Pedidos.Any(p =>
+                       p.EstadoRegistro == EnumEstadoRegistro.activo &&
                        p.Estado == EnumEstadoPedido.Cancelado &&
                        p.Comanda.IdMesa == m.Id &&
                        p.Comanda.Estado == EnumEstadoComanda.Abierta)
