@@ -17,8 +17,7 @@
     <AuthorizeView Roles="Administracion,Barra">
         <Authorized>
 
-            @* Carga de nuevo pedido: siempre visible arriba de la page, calcada del modal de
-     "Agregar productos" de Mesas.razor. En vez de "Cant. de comensales" va el tipo de pedido, los datos del cliente y el horario deseado. *@
+            @* Seguimiento de pedidos primero; el formulario se despliega a pedido del usuario. *@
             <div class="seguimiento-resumen" aria-label="Resumen de pedidos en curso">
                 <div><h3>Pedidos en curso</h3><p>Revisá los pedidos activos sin desplazarte por el formulario.</p></div>
                 <div class="seguimiento-contadores">
@@ -193,9 +192,6 @@
                                 <span>@tipoNuevoPedido</span>
                             </div>
 
-                </div>
-            }
-
                             <nav class="categorias categorias-superiores" aria-label="Categorías">
                                 @foreach (var categoria in CategoriasDisponibles)
                                 {
@@ -364,6 +360,8 @@
                     </footer>
                 </section>
             </div>
+                </div>
+            }
 
         </Authorized>
     </AuthorizeView>
