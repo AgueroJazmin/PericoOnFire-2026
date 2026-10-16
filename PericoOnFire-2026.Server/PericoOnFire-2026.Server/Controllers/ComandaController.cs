@@ -1,4 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+using PericoOnFire_2026.Shared.Utilidades;
 using PericoOnFire_2026.BD.Datos;
 using PericoOnFire_2026.BD.Datos.Entity;
 using PericoOnFire_2026.Shared.DTOs;
@@ -265,7 +268,25 @@ namespace PericoOnFire_2026.Server.Controllers
                     await context.SaveChangesAsync();
                     
 
-                    resultado = new ComandaConfirmadaDTO
+                    if (dto.CobrarAhora && cobro != null && cajero != null && turno != null)
+                {
+                    var ahoraPago = DateTime.UtcNow;
+                    context.Pagos.AddRange(cobro.Lineas.Select(l => new Pago
+                    {
+                        IdComanda = comanda.Id,
+                        IdUsuarioCaja = cajero.Id,
+                        IdTurnoCaja = turno.Id,
+                        TipoPago = l.TipoPago,
+                        MontoTotal = totalReal,
+                        MontoPagado = l.Monto,
+                        Vuelto = l.TipoPago == EnumTipoPago.Efectivo ? cobro.Vuelto : 0,
+                        FechaPago = ahoraPago,
+                        EstadoRegistro = EnumEstadoRegistro.activo
+                    }));
+                    await context.SaveChangesAsync();
+                }
+
+                resultado = new ComandaConfirmadaDTO
                     {
                         IdComanda = comanda.Id,
                         NumeroDiario = await NumeroComandaDiario.ObtenerAsync(
@@ -287,6 +308,7 @@ namespace PericoOnFire_2026.Server.Controllers
         //así que no hace falta la verificación de mesa. En cambio, acá se crea un cliente nuevo
         //con los datos que cargó quien tomó el pedido
         [HttpPost("ConfirmarSinMesa")]
+        [Authorize(Roles = "Administracion,Barra")]
         public async Task<ActionResult<ComandaConfirmadaDTO>> ConfirmarSinMesa(ConfirmarPedidoSinMesaDTO dto)
         {
             if (dto.TipoServicio != EnumTipoServicio.TakeAway && dto.TipoServicio != EnumTipoServicio.Delivery)
@@ -323,6 +345,26 @@ namespace PericoOnFire_2026.Server.Controllers
                     if (productos.Count != idsProducto.Count)
                         throw new InvalidOperationException("Hay productos que ya no están disponibles.");
 
+                    Usuario? cajero = null;
+                    TurnoCaja? turno = null;
+                    ResultadoCobro? cobro = null;
+                    var totalReal = dto.Items.Sum(i => productos.First(p => p.Id == i.IdProducto).Precio * i.Cantidad);
+                    if (dto.CobrarAhora)
+                    {
+                        var identity = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                        cajero = await context.Usuarios.FirstOrDefaultAsync(u => u.IdApplicationUser == identity && u.Activo);
+                        if (cajero == null)
+                            throw new InvalidOperationException("No hay un empleado activo asociado a tu usuario para registrar el cobro.");
+
+                        turno = await CajaActual.ObtenerTurnoAbiertoAsync(context);
+                        if (turno == null)
+                            throw new InvalidOperationException("La caja está cerrada. Abrí un turno de Caja antes de cobrar.");
+
+                        cobro = CobroCombinado.Evaluar(totalReal, dto.LineasPago);
+                        if (!cobro.EsValido)
+                            throw new InvalidOperationException(cobro.Error ?? "El cobro no es válido.");
+                    }
+
                 var cliente = new Cliente
                 {
                     Nombre = dto.NombreCliente,
@@ -340,12 +382,12 @@ namespace PericoOnFire_2026.Server.Controllers
                     TipoServicio = dto.TipoServicio,
                     CantidadComensales = 1,
                     Observaciones = dto.Observaciones,
-                    Estado = EnumEstadoComanda.Abierta,
+                    Estado = dto.CobrarAhora ? EnumEstadoComanda.Pagada : EnumEstadoComanda.Abierta,
                     EstadoRegistro = EnumEstadoRegistro.activo,
                     FechaApertura = DateTime.UtcNow,
+                    FechaCierre = dto.CobrarAhora ? DateTime.UtcNow : null,
                     HoraDeseada = dto.HoraDeseada,
-                    Total = dto.Items.Sum(i =>
-                        productos.First(p => p.Id == i.IdProducto).Precio * i.Cantidad)
+                    Total = totalReal
                 };
 
                 context.Comandas.Add(comanda);
