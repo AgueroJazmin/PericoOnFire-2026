@@ -64,6 +64,44 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok(await MapearPedidos(pedidos));
         }
 
+        // Vista de retiro exclusiva para el mozo: bebidas de mesas listas para entregar.
+        [HttpGet("Barra/ListosParaEntregar")]
+        [Authorize(Roles = "Mozo,Administracion")]
+        public async Task<ActionResult<List<PedidoDTO>>> GetBarraListosParaEntregar()
+        {
+            var pedidos = await repositorio.SelectBySector(EnumSectorDestino.Barra);
+            var listos = pedidos
+                .Where(p => p.Estado == EnumEstadoPedido.ListoParaRetirar &&
+                            p.Comanda != null && p.Comanda.TipoServicio == EnumTipoServicio.Mesa)
+                .ToList();
+            return Ok(await MapearPedidos(listos));
+        }
+
+        // Un clic del mozo equivale a la confirmación de entrega en la comanda.
+        [HttpPut("Barra/{id:int}/Entregar")]
+        [Authorize(Roles = "Mozo,Administracion")]
+        public async Task<ActionResult> EntregarDesdeBarra(int id)
+        {
+            var pedido = await context.Pedidos
+                .Include(p => p.Comanda)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (pedido == null) return NotFound();
+            if (pedido.SectorDestino != EnumSectorDestino.Barra ||
+                pedido.Comanda == null ||
+                pedido.Comanda.TipoServicio != EnumTipoServicio.Mesa)
+                return BadRequest("Solo se pueden entregar bebidas de mesas desde esta pantalla.");
+            if (pedido.Estado != EnumEstadoPedido.ListoParaRetirar)
+                return Conflict("El pedido ya no está listo para entregar. Actualizá la pantalla.");
+
+            try
+            {
+                await repositorio.CambiarEstado(id, EnumEstadoPedido.Entregado, null);
+                return Ok();
+            }
+            catch (InvalidOperationException ex) { return Conflict(ex.Message); }
+        }
+
         //Este endpoint permite cambiar el estado de un pedido específico.
         // Un pedido de TakeAway solo se puede marcar como retirado por el cliente (Entregado)
         // una vez que la cuenta ya se cobró en caja.
