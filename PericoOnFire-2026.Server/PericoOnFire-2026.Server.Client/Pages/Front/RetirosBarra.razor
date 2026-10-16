@@ -1,0 +1,135 @@
+@page "/retiros-barra"
+@using Microsoft.AspNetCore.Authorization
+@using PericoOnFire_2026.Shared.DTOs
+@using PericoOnFire_2026.Servicio.ServicioHttp
+@using PericoOnFire_2026.Shared.SerPolling
+@implements IAsyncDisposable
+@inject IHttpServicio http
+@inject PollingService Polling
+@rendermode InteractiveWebAssembly
+@attribute [Authorize(Roles = "Mozo,Administracion")]
+
+<main class="container-fluid p-3 text-white">
+    <h3>Bebidas listas para retirar</h3>
+    <p>Al retirar las bebidas de Barra, tocá «Entregar». La comanda de la mesa se actualiza automáticamente.</p>
+    @if (!string.IsNullOrWhiteSpace(error))
+    {
+        <p class="alert alert-warning" role="alert">@error</p>
+    }
+    <button class="btn btn-outline-light mb-3" @onclick="Actualizar" disabled="@procesando">Actualizar lista</button>
+
+    @if (cargando)
+    {
+        <p role="status">Cargando pedidos listos…</p>
+    }
+    else if (!pedidos.Any())
+    {
+        <p class="alert alert-secondary">No hay bebidas de mesas listas para retirar.</p>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var pedido in pedidos)
+            {
+                <div class="col-12 col-md-6 col-xl-4" @key="pedido.Id">
+                    <section class="card h-100 text-dark">
+                        <div class="card-body">
+                            <h5 class="card-title">Mesa @pedido.NumeroMesa</h5>
+                            <p class="text-muted">@pedido.NumeroComanda</p>
+                            <ul>
+                                @foreach (var detalle in pedido.DetallesPedido)
+                                {
+                                    <li><strong>@detalle.Cantidad × @detalle.NombreProducto</strong>
+                                        @if (!string.IsNullOrWhiteSpace(detalle.Observacion))
+                                        {
+                                            <div>@detalle.Observacion</div>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                            <button class="btn btn-success w-100"
+                                    disabled="@procesando"
+                                    @onclick="() => Entregar(pedido)">
+                                @(procesando && idProcesando == pedido.Id ? "Registrando entrega…" : "Entregar")
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            }
+        </div>
+    }
+</main>
+
+@code {
+    private List<PedidoDTO> pedidos = new();
+    private bool cargando = true;
+    private bool procesando;
+    private int? idProcesando;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!OperatingSystem.IsBrowser()) return;
+        try { await CargarPedidos(); }
+        finally { Polling.Iniciar(CargarPedidos, TimeSpan.FromSeconds(3)); }
+    }
+
+    private async Task Actualizar() => await CargarPedidos();
+
+    private async Task CargarPedidos()
+    {
+        try
+        {
+            var respuesta = await http.Get<List<PedidoDTO>>("api/Pedido/Barra/ListosParaEntregar");
+            if (respuesta.Error)
+            {
+                error = respuesta.ObtenerError();
+                return;
+            }
+            pedidos = respuesta.Respuesta ?? new();
+            error = null;
+        }
+        catch (Exception)
+        {
+            error = "No se pudo actualizar la lista. Revisá la conexión e intentá nuevamente.";
+        }
+        finally
+        {
+            cargando = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task Entregar(PedidoDTO pedido)
+    {
+        if (procesando) return;
+        procesando = true;
+        idProcesando = pedido.Id;
+        error = null;
+        try
+        {
+            var respuesta = await http.Put($"api/Pedido/Barra/{pedido.Id}/Entregar", new { });
+            if (respuesta.Error)
+            {
+                error = respuesta.ObtenerError();
+                return;
+            }
+            pedidos.RemoveAll(p => p.Id == pedido.Id);
+            await CargarPedidos();
+        }
+        catch (Exception)
+        {
+            error = "No se pudo confirmar la entrega. Actualizá la lista antes de reintentar.";
+        }
+        finally
+        {
+            procesando = false;
+            idProcesando = null;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await Polling.DisposeAsync();
+    }
+}
