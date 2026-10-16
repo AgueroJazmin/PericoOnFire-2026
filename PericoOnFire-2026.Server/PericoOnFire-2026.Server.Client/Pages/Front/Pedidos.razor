@@ -2,6 +2,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using PericoOnFire_2026.Shared.DTOs
 @using PericoOnFire_2026.Shared.ENUM
+@using PericoOnFire_2026.Shared.Utilidades
 @using PericoOnFire_2026.Servicio.ServicioHttp
 @implements IAsyncDisposable
 @inject PericoOnFire_2026.Shared.SerPolling.PollingService Polling
@@ -331,6 +332,41 @@
                         </div>
                     </fieldset>
 
+                    <div class="pago-inmediato">
+                        <label class="pago-inmediato-opcion">
+                            <input type="checkbox" @bind="cobrarAhora" disabled="@enviandoPedido" />
+                            <strong>El cliente paga ahora</strong>
+                        </label>
+                        @if (cobrarAhora)
+                        {
+                            <label class="pago-inmediato-metodo">
+                                Medio de pago
+                                <select class="form-select form-select-sm" @bind="tipoPagoInmediato" disabled="@enviandoPedido">
+                                    @foreach (var tipo in TiposPagoCaja.Habilitados)
+                                    {
+                                        <option value="@tipo">@TiposPagoCaja.Nombre(tipo)</option>
+                                    }
+                                </select>
+                            </label>
+                            @if (tipoPagoInmediato == EnumTipoPago.Efectivo)
+                            {
+                                <label class="pago-inmediato-metodo">
+                                    Efectivo recibido (opcional; vacío o cero = importe exacto)
+                                    <input type="number" class="form-control form-control-sm" min="0" step="0.01"
+                                           @bind="montoEfectivoRecibido" disabled="@enviandoPedido" />
+                                </label>
+                                @if (montoEfectivoRecibido > TotalCarrito)
+                                {
+                                    <small>Vuelto estimado: $@((montoEfectivoRecibido - TotalCarrito).ToString("N2"))</small>
+                                }
+                            }
+                            <small>El cobro se registra en el turno de Caja abierto al confirmar el pedido.</small>
+                        }
+                        else
+                        {
+                            <small>El pedido se envía sin cobrar. Podés registrarlo en Caja después.</small>
+                        }
+                    </div>
                     <footer class="modal-pedido-footer">
                         @if (!PedidoListoParaEnviar && !enviandoPedido)
                         {
@@ -342,7 +378,7 @@
                         </div>
                         <button class="btn btn-outline-secondary" @onclick="ReiniciarFormularioPedido" disabled="@enviandoPedido">Vaciar</button>
                         <button class="btn btn-success" @onclick="EnviarPedido" disabled="@(!PedidoListoParaEnviar || enviandoPedido)">
-                            @(enviandoPedido ? "Enviando..." : "Enviar a cocina/barra")
+                            @(enviandoPedido ? "Guardando..." : cobrarAhora ? "Cobrar y enviar a cocina/barra" : "Enviar a cocina/barra")
                         </button>
                     </footer>
                 </section>
@@ -1329,6 +1365,12 @@
     .pedido-formulario-toggle { min-height:44px; font-weight:700; }
     .panel-seguimiento { margin-bottom:1rem; }
 
+    .pago-inmediato { display:flex; flex-wrap:wrap; align-items:center; gap:.7rem; padding:.6rem 1rem; border-top:1px solid #ddd; background:#fff9eb; color:#222; flex-shrink:0; }
+    .pago-inmediato-opcion { display:flex; align-items:center; gap:.5rem; margin:0; }
+    .pago-inmediato-opcion input { width:18px; height:18px; }
+    .pago-inmediato-metodo { display:flex; flex-direction:column; gap:.2rem; margin:0; font-size:.84rem; min-width:180px; }
+    .pago-inmediato small { font-size:.78rem; }
+    @@media(max-width:780px) { .pago-inmediato { flex-direction:column; align-items:stretch; } }
     /* Formulario como ventana superpuesta, sin empujar los pedidos de la página. */
     .pedido-modal-fondo {
         position: fixed;
@@ -1405,6 +1447,9 @@
 
     // El formulario se abre solo al necesitar cargar un nuevo pedido.
     private bool mostrarFormularioNuevoPedido;
+    private bool cobrarAhora;
+    private EnumTipoPago tipoPagoInmediato = EnumTipoPago.Efectivo;
+    private decimal montoEfectivoRecibido;
     private EnumTipoServicio tipoNuevoPedido = EnumTipoServicio.TakeAway;
     private string nombreCliente = "";
     private string telefonoCliente = "";
@@ -1622,6 +1667,9 @@
         telefonoCliente = "";
         direccionCliente = "";
         horaDeseadaTexto = "";
+        cobrarAhora = false;
+        tipoPagoInmediato = EnumTipoPago.Efectivo;
+        montoEfectivoRecibido = 0;
         carrito = new();
         busquedaProducto = "";
         categoriaSeleccionada = CategoriasDisponibles.FirstOrDefault() ?? "";
@@ -1763,6 +1811,18 @@
             Telefono = string.IsNullOrWhiteSpace(telefonoCliente) ? null : telefonoCliente.Trim(),
             Direccion = tipoNuevoPedido == EnumTipoServicio.Delivery ? direccionCliente.Trim() : null,
             HoraDeseada = ConvertirHoraDeseada(horaDeseadaTexto),
+            CobrarAhora = cobrarAhora,
+            LineasPago = cobrarAhora
+                ? new List<LineaPagoDTO>
+                  {
+                      new LineaPagoDTO
+                      {
+                          TipoPago = tipoPagoInmediato,
+                          Monto = tipoPagoInmediato == EnumTipoPago.Efectivo && montoEfectivoRecibido > 0
+                              ? montoEfectivoRecibido : TotalCarrito
+                      }
+                  }
+                : new List<LineaPagoDTO>(),
             Items = carrito
         };
 
@@ -1776,8 +1836,9 @@
         }
 
         var numeroGenerado = respuesta.Respuesta!.NumeroComanda;
+        var fueCobrado = cobrarAhora;
         ReiniciarFormularioPedido();
-        MensajeForm = $"Pedido {numeroGenerado} enviado.";
+        MensajeForm = fueCobrado ? $"Pedido {numeroGenerado} enviado y cobrado." : $"Pedido {numeroGenerado} enviado.";
         mostrarFormularioNuevoPedido = false;
         await CargarSeguimiento();
         }
