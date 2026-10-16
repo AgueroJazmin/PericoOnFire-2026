@@ -28,6 +28,10 @@ namespace PericoOnFire_2026.Shared.DTOs
         public DateTime? HoraDeseada { get; set; }
         public string? Observaciones { get; set; }
 
+        // Cobro opcional en el mismo acto de creación. Sin pago, queda abierta.
+        public bool CobrarAhora { get; set; }
+        public List<LineaPagoDTO> LineasPago { get; set; } = new();
+
         [MinLength(1)]
         public List<ItemPedidoDTO> Items { get; set; } = new();
     }
