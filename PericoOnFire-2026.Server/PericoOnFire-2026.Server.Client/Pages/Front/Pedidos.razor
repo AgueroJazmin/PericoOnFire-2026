@@ -18,40 +18,18 @@
         <Authorized>
 
             @* Seguimiento de pedidos primero; el formulario se despliega a pedido del usuario. *@
-            <div class="seguimiento-resumen" aria-label="Resumen de pedidos en curso">
-                <div><h3>Pedidos en curso</h3><p>Revisá los pedidos activos sin desplazarte por el formulario.</p></div>
-                <div class="seguimiento-contadores">
-                    <button type="button" class="contador-pedido @(tabSeguimiento == EnumTipoServicio.TakeAway ? "seleccionado" : "")" @onclick='() => tabSeguimiento = EnumTipoServicio.TakeAway'>
-                        <span>Take Away</span><strong>@takeAways.Count</strong>
-                    </button>
-                    <button type="button" class="contador-pedido @(tabSeguimiento == EnumTipoServicio.Delivery ? "seleccionado" : "")" @onclick='() => tabSeguimiento = EnumTipoServicio.Delivery'>
-                        <span>Delivery</span><strong>@deliveries.Count</strong>
-                    </button>
-                </div>
-            </div>
-            <section class="panel-seguimiento">
-                <div class="tabs-seguimiento">
-                    <button class="@(tabSeguimiento == EnumTipoServicio.TakeAway ? "activo" : "")"
-                            @onclick='() => tabSeguimiento = EnumTipoServicio.TakeAway'>
-                        Take Away
-                    </button>
-                    <button class="@(tabSeguimiento == EnumTipoServicio.Delivery ? "activo" : "")"
-                            @onclick='() => tabSeguimiento = EnumTipoServicio.Delivery'>
-                        Delivery
-                    </button>
-                </div>
-
-                @{
-                    var listaActual = tabSeguimiento == EnumTipoServicio.TakeAway ? takeAways : deliveries;
-                }
-
-                @if (!listaActual.Any())
-                {
-                    <p class="texto-vacio">No hay pedidos de @tabSeguimiento en curso.</p>
-                }
-
-                <div class="grilla-cuentas">
-                    @foreach (var cuenta in listaActual)
+            <section class="panel-seguimiento" aria-label="Pedidos en curso">
+                <div class="seguimiento-dos-columnas">
+                    @foreach (var grupo in new[] { new { Titulo = "Take Away", Cuentas = takeAways }, new { Titulo = "Delivery", Cuentas = deliveries } })
+                    {
+                    <section class="seguimiento-columna" aria-label="@grupo.Titulo">
+                        <h3 class="seguimiento-columna-titulo">@grupo.Titulo <span>@grupo.Cuentas.Count</span></h3>
+                        @if (!grupo.Cuentas.Any())
+                        {
+                            <p class="texto-vacio">No hay pedidos en curso.</p>
+                        }
+                        <div class="grilla-cuentas">
+                    @foreach (var cuenta in grupo.Cuentas)
                     {
                         <div class="cuenta-card">
                             @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway)
@@ -164,6 +142,9 @@
                                 </button>
                             }
                         </div>
+                    }
+                        </div>
+                    </section>
                     }
                 </div>
             </section>
@@ -1330,17 +1311,16 @@
 
     .pedido-datos-faltantes { flex:0 0 100%; margin:0; padding:.4rem .6rem; background:#fff5d9; color:#6e4b00; border-radius:5px; font-size:.85rem; }
     /* Seguimiento primero: números y órdenes visibles sin abrir la carga. */
-    .seguimiento-resumen { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; padding:1rem; background:#1d1d1d; color:white; border:1px solid #444; border-radius:10px; margin-bottom:.85rem; }
-    .seguimiento-resumen h3 { margin:0 0 .3rem; font-weight:800; font-size:1.35rem; }
-    .seguimiento-resumen p { margin:0; color:#ddd; font-size:.9rem; }
-    .seguimiento-contadores { display:flex; gap:.6rem; }
-    .contador-pedido { display:flex; flex-direction:column; align-items:flex-start; gap:.15rem; min-width:112px; background:#303030; border:2px solid #555; border-radius:8px; color:white; padding:.55rem .85rem; cursor:pointer; }
-    .contador-pedido.seleccionado { border-color:#ed2525; background:#402020; }
-    .contador-pedido strong { font-size:1.5rem; line-height:1.2; }
+    /* Las dos modalidades se ven al mismo tiempo sin resumen ni pestañas. */
+    .seguimiento-dos-columnas { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1rem; }
+    .seguimiento-columna { min-width:0; padding:.85rem; background:#f7f7f7; border:1px solid #dedede; border-radius:8px; }
+    .seguimiento-columna-titulo { display:flex; justify-content:space-between; align-items:center; gap:.6rem; margin:0 0 .85rem; font-size:1.1rem; font-weight:800; padding-bottom:.65rem; border-bottom:2px solid #df222e; }
+    .seguimiento-columna-titulo span { display:inline-flex; align-items:center; justify-content:center; background:#232323; color:white; border-radius:999px; min-width:32px; padding:.2rem .55rem; font-size:.85rem; }
+    .seguimiento-columna .grilla-cuentas { grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr)); }
+    @@media(max-width:780px) { .seguimiento-dos-columnas { grid-template-columns:minmax(0,1fr); } }
     .pedido-formulario-cabecera { display:flex; align-items:center; flex-wrap:wrap; gap:.8rem; margin:1.15rem 0 .7rem; }
     .pedido-formulario-toggle { min-height:44px; font-weight:700; }
     .panel-seguimiento { margin-bottom:1rem; }
-    @@media(max-width:650px) { .seguimiento-resumen { padding:.75rem; } .seguimiento-contadores { width:100%; } .contador-pedido { flex:1; min-width:0; } }
 </style>
 
 @code {
@@ -1376,7 +1356,6 @@
     private string horaEditando = "";
 
     // ---- Seguimiento (Administracion/Barra) ----
-    private EnumTipoServicio tabSeguimiento = EnumTipoServicio.TakeAway;
     private List<PedidoParaLlevarDTO> takeAways = new();
     private List<PedidoParaLlevarDTO> deliveries = new();
 
