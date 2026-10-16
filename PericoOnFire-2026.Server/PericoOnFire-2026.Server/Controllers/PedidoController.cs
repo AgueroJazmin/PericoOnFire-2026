@@ -64,6 +64,44 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok(await MapearPedidos(pedidos));
         }
 
+        // Vista de retiro exclusiva para el mozo: bebidas de mesas listas para entregar.
+        [HttpGet("Barra/ListosParaEntregar")]
+        [Authorize(Roles = "Mozo,Administracion")]
+        public async Task<ActionResult<List<PedidoDTO>>> GetBarraListosParaEntregar()
+        {
+            var pedidos = await repositorio.SelectBySector(EnumSectorDestino.Barra);
+            var listos = pedidos
+                .Where(p => p.Estado == EnumEstadoPedido.ListoParaRetirar &&
+                            p.Comanda != null && p.Comanda.TipoServicio == EnumTipoServicio.Mesa)
+                .ToList();
+            return Ok(await MapearPedidos(listos));
+        }
+
+        // Un clic del mozo equivale a la confirmación de entrega en la comanda.
+        [HttpPut("Barra/{id:int}/Entregar")]
+        [Authorize(Roles = "Mozo,Administracion")]
+        public async Task<ActionResult> EntregarDesdeBarra(int id)
+        {
+            var pedido = await context.Pedidos
+                .Include(p => p.Comanda)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            if (pedido == null) return NotFound();
+            if (pedido.SectorDestino != EnumSectorDestino.Barra ||
+                pedido.Comanda == null ||
+                pedido.Comanda.TipoServicio != EnumTipoServicio.Mesa)
+                return BadRequest("Solo se pueden entregar bebidas de mesas desde esta pantalla.");
+            if (pedido.Estado != EnumEstadoPedido.ListoParaRetirar)
+                return Conflict("El pedido ya no está listo para entregar. Actualizá la pantalla.");
+
+            try
+            {
+                await repositorio.CambiarEstado(id, EnumEstadoPedido.Entregado, null);
+                return Ok();
+            }
+            catch (InvalidOperationException ex) { return Conflict(ex.Message); }
+        }
+
         //Este endpoint permite cambiar el estado de un pedido específico.
         // Un pedido de TakeAway solo se puede marcar como retirado por el cliente (Entregado)
         // una vez que la cuenta ya se cobró en caja.
@@ -289,6 +327,78 @@ namespace PericoOnFire_2026.Server.Controllers
             {
                 return Conflict(ex.Message);
             }
+        }
+
+
+        [HttpPut("Comanda/{idComanda:int}/EditarPendientes")]
+        [Authorize(Roles = "Mozo,Administracion")]
+        public async Task<ActionResult> EditarPendientes(int idComanda, EditarPedidoPendienteDTO dto)
+        {
+            if (dto.IdsPedidos == null || dto.IdsPedidos.Count == 0 ||
+                dto.Items == null || dto.Items.Count == 0 || dto.DetallesOriginales == null)
+                return BadRequest("El pedido debe conservar al menos un producto.");
+            if (dto.Items.Any(i => i.Cantidad < 1 || i.Cantidad > 999 || (i.Observacion?.Length ?? 0) > 300))
+                return BadRequest("Revisá las cantidades y observaciones.");
+            return await OperacionAtomica.EjecutarAsync<ActionResult>(context, async () =>
+            {
+                var comanda = await context.Comandas.FindAsync(idComanda);
+                if (comanda == null || comanda.Estado != EnumEstadoComanda.Abierta ||
+                    comanda.TipoServicio != EnumTipoServicio.Mesa)
+                    return Conflict("Solo se pueden editar pedidos de una mesa abierta.");
+                var ids = dto.IdsPedidos.Distinct().ToList();
+                var pedidos = await context.Pedidos.Include(p => p.DetallesPedido)
+                    .Where(p => ids.Contains(p.Id) && p.IdComanda == idComanda).ToListAsync();
+                if (pedidos.Count != ids.Count || pedidos.Any(p => p.Estado != EnumEstadoPedido.Pendiente))
+                    return Conflict("Cocina o Barra ya cambió el estado del pedido. Cerrá el editor y actualizá la mesa.");
+                var originales = pedidos.SelectMany(p => p.DetallesPedido).ToList();
+                if (originales.Count != dto.DetallesOriginales.Count ||
+                    originales.Any(d => !dto.DetallesOriginales.Any(o =>
+                        o.Id == d.Id && o.IdProducto == d.IdProducto && o.Cantidad == d.Cantidad &&
+                        o.PrecioUnitario == d.PrecioUnitario && o.Observacion == d.Observacion)))
+                    return Conflict("Otra persona modificó el pedido. Cerrá el editor y volvé a abrirlo.");
+                if (originales.GroupBy(d => d.IdProducto).Any(g => g.Select(d => d.PrecioUnitario).Distinct().Count() > 1))
+                    return Conflict("Estos productos tienen precios de distintas rondas. Editalos por separado.");
+                var idsProductos = dto.Items.Select(i => i.IdProducto).Distinct().ToList();
+                var productos = await context.Productos.Where(p => idsProductos.Contains(p.Id)).ToListAsync();
+                if (productos.Count != idsProductos.Count ||
+                    productos.Any(p => !p.Activo && !originales.Any(d => d.IdProducto == p.Id)))
+                    return Conflict("Hay productos que ya no están disponibles.");
+                var grupos = dto.Items.GroupBy(i => productos.First(p => p.Id == i.IdProducto).SectorDestino).ToList();
+                // Solo se reemplazan consumos pendientes; los preparados o entregados no se tocan.
+                context.DetallesPedido.RemoveRange(originales);
+                foreach (var pedido in pedidos)
+                {
+                    pedido.Estado = EnumEstadoPedido.Cancelado;
+                    pedido.MotivoCancelacion = "Reemplazado al editar el pedido pendiente.";
+                    pedido.FechaCancelado = DateTime.UtcNow;
+                }
+                foreach (var grupo in grupos)
+                {
+                    var destino = pedidos.FirstOrDefault(p => p.SectorDestino == grupo.Key);
+                    if (destino == null)
+                    {
+                        destino = new Pedido { IdComanda = idComanda, SectorDestino = grupo.Key,
+                            EstadoRegistro = EnumEstadoRegistro.activo, FechaPedido = DateTime.UtcNow };
+                        context.Pedidos.Add(destino);
+                    }
+                    destino.Estado = EnumEstadoPedido.Pendiente;
+                    destino.MotivoCancelacion = null;
+                    destino.FechaCancelado = null;
+                    // Fuerza la actualización de la fila: un inicio simultáneo de preparación genera conflicto.
+                    context.Entry(destino).Property(p => p.Estado).IsModified = true;
+                    foreach (var item in grupo)
+                    {
+                        var producto = productos.First(p => p.Id == item.IdProducto);
+                        var precio = originales.FirstOrDefault(d => d.IdProducto == item.IdProducto)?.PrecioUnitario ?? producto.Precio;
+                        context.DetallesPedido.Add(new DetallePedido { Pedido = destino,
+                            IdProducto = item.IdProducto, Cantidad = item.Cantidad,
+                            PrecioUnitario = precio, Observacion = item.Observacion,
+                            EstadoRegistro = EnumEstadoRegistro.activo });
+                    }
+                }
+                await context.SaveChangesAsync();
+                return Ok();
+            });
         }
 
         [HttpPut("{id:int}")]

@@ -321,6 +321,16 @@
         }
     }
 
+
+    .perico-main-content { min-width:0; }
+    .perico-topbar { gap:.5rem; }
+    @@media(min-width:651px) and (max-width:1000px) {
+        .perico-topbar { padding:0 .65rem; }
+        .perico-menu { gap:.2rem; }
+        .perico-link { padding:.5rem .55rem; }
+        .fecha-hora { padding:.45rem .6rem; font-size:.8rem; letter-spacing:0; }
+        .usuario-nombre { max-width:100px; }
+    }
 </style>
 
 @code {

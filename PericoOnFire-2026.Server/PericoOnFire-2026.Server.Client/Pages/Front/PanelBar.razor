@@ -19,8 +19,8 @@
         </div>
     </section>
 
-    <section class="bar-foto-card" aria-label="Fotos del bar">
-        <img class="bar-foto" src="@UrlFoto" alt="Foto del bar" @onerror="FotoNoDisponible" />
+    <section class="bar-foto-card" aria-label="Fotos del bar" style="width:100%;max-width:220px;">
+        <img class="bar-foto" width="220" height="150" style="width:100%;max-width:220px;height:150px;object-fit:cover;" src="@UrlFoto" alt="Foto del bar" @onerror="FotoNoDisponible" />
         @if(fotos.Count > 1)
         {
             <div class="bar-foto-controles">

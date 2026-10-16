@@ -66,13 +66,13 @@
                                 </button>
                             </div>
 
-                            <label class="dato-cliente">Nombre y apellido<input class="form-control form-control-sm" maxlength="100" @bind="nombreCliente" @bind:event="oninput" /></label>
+                            <label class="dato-cliente">Nombre y apellido (obligatorio)<input class="form-control form-control-sm" maxlength="100" required aria-required="true" @bind="nombreCliente" @bind:event="oninput" /></label>
 
                             <label class="dato-cliente">Teléfono (opcional)<input class="form-control form-control-sm" maxlength="30" @bind="telefonoCliente" @bind:event="oninput" /></label>
 
                             @if (tipoNuevoPedido == EnumTipoServicio.Delivery)
                             {
-                                <label class="dato-cliente">Referencia de WhatsApp<input class="form-control form-control-sm" maxlength="150" placeholder="Ej.: pedido de WhatsApp de las 21:40 - Juan"
+                                <label class="dato-cliente">Referencia de WhatsApp (obligatoria)<input class="form-control form-control-sm" maxlength="150" required aria-required="true" placeholder="Ej.: pedido de WhatsApp de las 21:40 - Juan"
                                        @bind="direccionCliente" @bind:event="oninput" /></label>
                             }
 
@@ -143,16 +143,19 @@
                             @foreach (var subcategoria in SubcategoriasDisponibles)
                             {
                                 <button class="@(subcategoria == subcategoriaSeleccionada ? "activo" : "")"
-                                        @onclick="() => subcategoriaSeleccionada = subcategoria">
+                                        @onclick="() => { busquedaProducto = string.Empty; subcategoriaSeleccionada = subcategoria; }">
                                     @subcategoria
                                 </button>
                             }
                         </nav>
 
                         <div class="productos-modal">
+                    <div class="productos-buscador">
+                        <input type="search" class="form-control" aria-label="Buscar productos en todo el menú" placeholder="Buscar en todo el menú…" @bind="busquedaProducto" @bind:event="oninput" />
+                    </div>
                             <div class="productos-titulo">
-                                <strong>@subcategoriaSeleccionada</strong>
-                                <span>@categoriaSeleccionada</span>
+                                <strong>@(string.IsNullOrWhiteSpace(busquedaProducto) ? subcategoriaSeleccionada : "Resultados")</strong>
+                                <span>@(string.IsNullOrWhiteSpace(busquedaProducto) ? categoriaSeleccionada : "Todo el menú")</span>
                             </div>
 
                             @foreach (var producto in ProductosVisibles)
@@ -161,7 +164,7 @@
                                 <article class="producto-fila">
                                     <div>
                                         <strong>@producto.Nombre</strong>
-                                        <small>@producto.SectorDestino</small>
+                                        <small>@(string.IsNullOrWhiteSpace(busquedaProducto) ? producto.SectorDestino.ToString() : producto.NombreSubcategoria)</small>
                                     </div>
                                     <span class="producto-precio">$@producto.Precio.ToString("N2")</span>
                                     <div class="control-cantidad">
@@ -174,12 +177,16 @@
 
                             @if (!ProductosVisibles.Any())
                             {
-                                <p class="texto-vacio p-3">No hay productos activos en esta subcategoría.</p>
+                                <p class="texto-vacio p-3">@(string.IsNullOrWhiteSpace(busquedaProducto) ? "No hay productos activos en esta subcategoría." : "No encontramos productos con ese nombre.")</p>
                             }
                         </div>
                     </fieldset>
 
                     <footer class="modal-pedido-footer">
+                        @if (!PedidoListoParaEnviar && !enviandoPedido)
+                        {
+                            <p class="pedido-datos-faltantes" role="status">@DatosFaltantesPedido</p>
+                        }
                         <div>
                             <span>Total</span>
                             <strong>$@TotalCarrito.ToString("N2")</strong>
@@ -1266,6 +1273,36 @@
         .modal-pedido-footer { position: sticky; bottom: 0; z-index: 5; }
     }
 
+
+    .pedidos-pagina, .panel-nuevo-pedido { min-width:0; }
+    .selector-productos > *, .selector-resumen > * { min-width:0; }
+    .modal-pedido-footer { flex-wrap:wrap; }
+    .producto-fila { grid-template-columns:minmax(0,1fr) auto; }
+    .producto-fila .control-cantidad { grid-column:1/-1; justify-self:end; }
+    @@media(min-width:1101px) {
+        .selector-productos { grid-template-columns:180px minmax(240px,.85fr) minmax(460px,1.15fr); }
+        .selector-resumen { padding:.65rem; gap:.65rem; grid-template-columns:minmax(180px,.85fr) minmax(0,1.15fr); }
+        .modal-pedido { height:min(720px,calc(100dvh - 7rem)); min-height:0; }
+        .modal-pedido-header, .modal-pedido-footer { padding:.6rem .8rem; }
+        .categorias-superiores button { min-width:105px; padding:.45rem .65rem; }
+    }
+
+
+    /* Nombre, precio y cantidad comparten la misma fila. */
+    .productos-buscador { position:sticky; top:0; z-index:3; padding:.5rem; background:white; }
+    .productos-buscador input { min-width:0; min-height:36px; font-size:.9rem; }
+    .productos-titulo { position:static; padding:.55rem .7rem; }
+    .producto-fila { grid-template-columns:minmax(0,1fr) auto auto; padding:.5rem .65rem; gap:.45rem; align-items:center; }
+    .producto-fila > div:first-child { min-width:0; font-size:.9rem; line-height:1.25; }
+    .producto-fila .control-cantidad { grid-column:auto; justify-self:end; gap:.3rem; }
+    .producto-fila .control-cantidad button { width:28px; height:28px; flex:0 0 28px; font-size:.9rem; }
+    .producto-fila .control-cantidad span { min-width:18px; font-size:.85rem; }
+    .producto-precio { font-size:.85rem; }
+    @@media(max-width:780px) {
+        .producto-fila .control-cantidad button { width:36px; height:36px; flex-basis:36px; }
+    }
+
+    .pedido-datos-faltantes { flex:0 0 100%; margin:0; padding:.4rem .6rem; background:#fff5d9; color:#6e4b00; border-radius:5px; font-size:.85rem; }
 </style>
 
 @code {
@@ -1337,9 +1374,13 @@
         .Distinct()
         .OrderBy(n => n);
 
+    private string busquedaProducto = "";
     private IEnumerable<ProductoListadoDTO> ProductosVisibles => productos
-        .Where(p => p.NombreCategoria == categoriaSeleccionada &&
-                    p.NombreSubcategoria == subcategoriaSeleccionada)
+        .Where(p => string.IsNullOrWhiteSpace(busquedaProducto)
+            ? p.NombreCategoria == categoriaSeleccionada && p.NombreSubcategoria == subcategoriaSeleccionada
+            : System.Globalization.CultureInfo.GetCultureInfo("es-AR").CompareInfo.IndexOf(
+                p.Nombre ?? "", busquedaProducto.Trim(),
+                System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace) >= 0)
         .OrderBy(p => p.Nombre);
 
     private int CantidadTotalItems => carrito.Sum(i => i.Cantidad);
@@ -1347,6 +1388,17 @@
     private decimal TotalCarrito => carrito.Sum(i =>
         (productos.FirstOrDefault(p => p.Id == i.IdProducto)?.Precio ?? 0) * i.Cantidad);
 
+    private string DatosFaltantesPedido
+    {
+        get
+        {
+            var faltantes = new List<string>();
+            if (string.IsNullOrWhiteSpace(nombreCliente)) faltantes.Add("nombre del cliente");
+            if (tipoNuevoPedido == EnumTipoServicio.Delivery && string.IsNullOrWhiteSpace(direccionCliente)) faltantes.Add("referencia de WhatsApp");
+            if (!carrito.Any()) faltantes.Add("al menos un producto");
+            return "Para enviar, completá: " + string.Join(", ", faltantes) + ".";
+        }
+    }
     private bool PedidoListoParaEnviar =>
         !string.IsNullOrWhiteSpace(nombreCliente) &&
         carrito.Any() &&
@@ -1481,12 +1533,14 @@
         direccionCliente = "";
         horaDeseadaTexto = "";
         carrito = new();
+        busquedaProducto = "";
         categoriaSeleccionada = CategoriasDisponibles.FirstOrDefault() ?? "";
         subcategoriaSeleccionada = SubcategoriasDisponibles.FirstOrDefault() ?? "";
     }
 
     private void SeleccionarCategoria(string categoria)
     {
+        busquedaProducto = "";
         categoriaSeleccionada = categoria;
         subcategoriaSeleccionada = SubcategoriasDisponibles.FirstOrDefault() ?? "";
     }

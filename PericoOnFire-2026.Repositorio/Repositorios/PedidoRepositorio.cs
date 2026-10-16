@@ -161,7 +161,9 @@ namespace PericoOnFire_2026.Repositorio.Repositorios
                        .ThenInclude(c => c.Mesa)
                 .Include(p => p.DetallesPedido)
                        .ThenInclude(d => d.Producto)
-                .Where(p => p.IdComanda == idComanda)
+                .Where(p => p.IdComanda == idComanda &&
+                    !(p.Estado == EnumEstadoPedido.Cancelado &&
+                      p.EstadoRegistro != EnumEstadoRegistro.activo))
                 .OrderBy(p => p.FechaPedido)
                 .ToListAsync();
         }
