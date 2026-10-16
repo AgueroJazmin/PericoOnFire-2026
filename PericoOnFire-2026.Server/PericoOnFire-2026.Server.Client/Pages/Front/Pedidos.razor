@@ -1789,12 +1789,30 @@
 
     private async Task MarcarRetiradoTakeAway(PedidoParaLlevarDTO cuenta)
     {
-        foreach (var pedido in cuenta.Pedidos)
+        // No repetir transiciones de pedidos ya entregados o cancelados.
+        foreach (var pedido in cuenta.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Entregado &&
+                                                        p.Estado != EnumEstadoPedido.Cancelado))
         {
             var dto = new CambiarEstadoPedidoDTO { Estado = EnumEstadoPedido.Entregado };
-            await http.Put($"api/Pedido/{pedido.IdPedido}/Estado", dto);
+            try
+            {
+                var respuesta = await http.Put($"api/Pedido/{pedido.IdPedido}/Estado", dto);
+                if (respuesta.Error)
+                {
+                    MensajeForm = $"No se pudo registrar el retiro de la comanda {cuenta.NumeroComanda}: {respuesta.ObtenerError()}";
+                    await CargarSeguimiento();
+                    return;
+                }
+            }
+            catch (System.Net.Http.HttpRequestException)
+            {
+                MensajeForm = $"No se pudo verificar el retiro de la comanda {cuenta.NumeroComanda}. Actualizá los pedidos antes de reintentar.";
+                await CargarSeguimiento();
+                return;
+            }
         }
 
+        MensajeForm = null;
         await CargarSeguimiento();
     }
 
