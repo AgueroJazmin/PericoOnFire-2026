@@ -13,13 +13,176 @@
 @if (sinConexion) { <p class="alert alert-warning m-2" role="status">No se pudo actualizar la información. Reintentando…</p> }
 
 <div class="pedidos-pagina">
-    <div class="mb-3"><a class="btn btn-outline-light" href="/comandas-finalizadas">Comandas finalizadas</a></div>
 
     <AuthorizeView Roles="Administracion,Barra">
         <Authorized>
 
             @* Carga de nuevo pedido: siempre visible arriba de la page, calcada del modal de
      "Agregar productos" de Mesas.razor. En vez de "Cant. de comensales" va el tipo de pedido, los datos del cliente y el horario deseado. *@
+            <div class="seguimiento-resumen" aria-label="Resumen de pedidos en curso">
+                <div><h3>Pedidos en curso</h3><p>Revisá los pedidos activos sin desplazarte por el formulario.</p></div>
+                <div class="seguimiento-contadores">
+                    <button type="button" class="contador-pedido @(tabSeguimiento == EnumTipoServicio.TakeAway ? "seleccionado" : "")" @onclick='() => tabSeguimiento = EnumTipoServicio.TakeAway'>
+                        <span>Take Away</span><strong>@takeAways.Count</strong>
+                    </button>
+                    <button type="button" class="contador-pedido @(tabSeguimiento == EnumTipoServicio.Delivery ? "seleccionado" : "")" @onclick='() => tabSeguimiento = EnumTipoServicio.Delivery'>
+                        <span>Delivery</span><strong>@deliveries.Count</strong>
+                    </button>
+                </div>
+            </div>
+            <section class="panel-seguimiento">
+                <div class="tabs-seguimiento">
+                    <button class="@(tabSeguimiento == EnumTipoServicio.TakeAway ? "activo" : "")"
+                            @onclick='() => tabSeguimiento = EnumTipoServicio.TakeAway'>
+                        Take Away
+                    </button>
+                    <button class="@(tabSeguimiento == EnumTipoServicio.Delivery ? "activo" : "")"
+                            @onclick='() => tabSeguimiento = EnumTipoServicio.Delivery'>
+                        Delivery
+                    </button>
+                </div>
+
+                @{
+                    var listaActual = tabSeguimiento == EnumTipoServicio.TakeAway ? takeAways : deliveries;
+                }
+
+                @if (!listaActual.Any())
+                {
+                    <p class="texto-vacio">No hay pedidos de @tabSeguimiento en curso.</p>
+                }
+
+                <div class="grilla-cuentas">
+                    @foreach (var cuenta in listaActual)
+                    {
+                        <div class="cuenta-card">
+                            @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway)
+                            {
+                                <div class="cuenta-card-titulo">
+                                    @cuenta.NombreCliente
+                                    <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="cuenta-card-info">📍 @cuenta.Direccion</div>
+                            }
+
+                            @if (!string.IsNullOrWhiteSpace(cuenta.Telefono))
+                            {
+                                <div class="cuenta-card-info">☎ @cuenta.Telefono</div>
+                            }
+
+                            <ul class="lista-items">
+                                @foreach (var item in cuenta.Items)
+                                {
+                                    <li>@item.Cantidad x @item.NombreProducto</li>
+                                }
+                            </ul>
+
+                            <div class="badges-sector">
+                                @foreach (var pedido in cuenta.Pedidos)
+                                {
+                                    <span class="badge-sector">@pedido.Sector: @pedido.Estado</span>
+                                }
+                            </div>
+
+                            @if (cuenta.TipoServicio == EnumTipoServicio.Delivery)
+                            {
+                                <div class="cuenta-card-titulo cuenta-card-titulo-final">
+                                    @cuenta.NombreCliente
+                                    <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
+                                </div>
+                            }
+
+                            @if (editandoHorarioId == cuenta.IdComanda)
+                            {
+                                <div class="editor-horario">
+                                    <label>@(cuenta.TipoServicio == EnumTipoServicio.Delivery ? "Horario de entrega" : "Horario de retiro")</label>
+                                    <input type="time" value="@horaEditando"
+                                           @oninput="e => horaEditando = e.Value?.ToString() ?? string.Empty" />
+                                    <div class="editor-horario-acciones">
+                                        <button class="btn-cancelar-observacion" @onclick="CancelarEdicionHorario">Cancelar</button>
+                                        <button class="btn-guardar-observacion" @onclick="() => GuardarHoraDeseada(cuenta)">Guardar</button>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="cuenta-card-info @ClaseHorarioProximo(cuenta)">
+                                    🕒 @(cuenta.HoraDeseada.HasValue
+                                                                                                                    ? $"Para las {cuenta.HoraDeseada.Value.ToLocalTime():HH:mm}"
+                                                                                                                    : "Sin horario indicado")
+                                    <button class="btn-editar-horario" @onclick="() => EditarHoraDeseada(cuenta)">✎ editar</button>
+                                </div>
+                            }
+
+                            @if (cuenta.TipoServicio == EnumTipoServicio.Delivery)
+                            {
+                                <div class="cuenta-card-info">
+                                    @if (cuenta.IdDelivery == null)
+                                    {
+                                        <span>Sin repartidor asignado</span>
+                                    }
+                                    else if (cuenta.TodoEnCamino)
+                                    {
+                                        <span>En camino con @cuenta.NombreDelivery</span>
+                                    }
+                                    else if (cuenta.TodoEntregado)
+                                    {
+                                        <span>Entregado por @cuenta.NombreDelivery</span>
+                                    }
+                                </div>
+                            }
+
+                            @* Estado de pago: independiente del estado físico del pedido, porque
+                               a veces se cobra antes (transferencia) y a veces al retirar/entregar. *@
+                            @switch (cuenta.EstadoComanda)
+                            {
+                                case EnumEstadoComanda.PendienteCobro:
+                                    <div class="cuenta-card-info aviso-pago">💰 Pendiente de pago en caja</div>
+                                    break;
+                                case EnumEstadoComanda.Pagada:
+                                    <div class="cuenta-card-info aviso-pago-ok">✅ Pagado</div>
+                                    break;
+                            }
+
+                            @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway && cuenta.TodoListo && cuenta.EstadoComanda == EnumEstadoComanda.Abierta)
+                            {
+                                <div class="cuenta-card-info aviso-pago">🔔 Listo para retirar</div>
+                            }
+
+                            @if (PuedeCerrar(cuenta))
+                            {
+                                <button class="btn btn-sm btn-dark w-100 mt-1" @onclick="() => CerrarPedido(cuenta)">
+                                    Pasar a Caja
+                                </button>
+                            }
+
+                            @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway && cuenta.EstadoComanda == EnumEstadoComanda.Pagada)
+                            {
+                                <button class="btn btn-sm btn-outline-success w-100 mt-1" @onclick="() => MarcarRetiradoTakeAway(cuenta)">
+                                    Marcar retirado por el cliente
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            </section>
+
+            <div class="pedido-formulario-cabecera">
+                <button type="button" class="btn btn-danger pedido-formulario-toggle"
+                        aria-expanded="@mostrarFormularioNuevoPedido" aria-controls="formulario-nuevo-pedido"
+                        @onclick="() => mostrarFormularioNuevoPedido = !mostrarFormularioNuevoPedido">
+                    @(mostrarFormularioNuevoPedido ? "− Ocultar formulario" : "＋ Cargar nuevo pedido")
+                </button>
+                @if (!mostrarFormularioNuevoPedido && !string.IsNullOrWhiteSpace(MensajeForm))
+                {
+                    <span class="alert @(MensajeFormEsExito ? "alert-success" : "alert-warning") mb-0 py-2" role="status">@MensajeForm</span>
+                }
+            </div>
+            @if (mostrarFormularioNuevoPedido)
+            {
+                <div id="formulario-nuevo-pedido">
             <div class="panel-nuevo-pedido">
                 <section class="modal-pedido" aria-label="Cargar nuevo pedido">
                     <header class="modal-pedido-header">
@@ -29,6 +192,9 @@
                                 <h4>Nuevo pedido</h4>
                                 <span>@tipoNuevoPedido</span>
                             </div>
+
+                </div>
+            }
 
                             <nav class="categorias categorias-superiores" aria-label="Categorías">
                                 @foreach (var categoria in CategoriasDisponibles)
@@ -199,144 +365,6 @@
                 </section>
             </div>
 
-            <section class="panel-seguimiento">
-                <div class="tabs-seguimiento">
-                    <button class="@(tabSeguimiento == EnumTipoServicio.TakeAway ? "activo" : "")"
-                            @onclick='() => tabSeguimiento = EnumTipoServicio.TakeAway'>
-                        Take Away
-                    </button>
-                    <button class="@(tabSeguimiento == EnumTipoServicio.Delivery ? "activo" : "")"
-                            @onclick='() => tabSeguimiento = EnumTipoServicio.Delivery'>
-                        Delivery
-                    </button>
-                </div>
-
-                @{
-                    var listaActual = tabSeguimiento == EnumTipoServicio.TakeAway ? takeAways : deliveries;
-                }
-
-                @if (!listaActual.Any())
-                {
-                    <p class="texto-vacio">No hay pedidos de @tabSeguimiento en curso.</p>
-                }
-
-                <div class="grilla-cuentas">
-                    @foreach (var cuenta in listaActual)
-                    {
-                        <div class="cuenta-card">
-                            @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway)
-                            {
-                                <div class="cuenta-card-titulo">
-                                    @cuenta.NombreCliente
-                                    <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="cuenta-card-info">📍 @cuenta.Direccion</div>
-                            }
-
-                            @if (!string.IsNullOrWhiteSpace(cuenta.Telefono))
-                            {
-                                <div class="cuenta-card-info">☎ @cuenta.Telefono</div>
-                            }
-
-                            <ul class="lista-items">
-                                @foreach (var item in cuenta.Items)
-                                {
-                                    <li>@item.Cantidad x @item.NombreProducto</li>
-                                }
-                            </ul>
-
-                            <div class="badges-sector">
-                                @foreach (var pedido in cuenta.Pedidos)
-                                {
-                                    <span class="badge-sector">@pedido.Sector: @pedido.Estado</span>
-                                }
-                            </div>
-
-                            @if (cuenta.TipoServicio == EnumTipoServicio.Delivery)
-                            {
-                                <div class="cuenta-card-titulo cuenta-card-titulo-final">
-                                    @cuenta.NombreCliente
-                                    <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
-                                </div>
-                            }
-
-                            @if (editandoHorarioId == cuenta.IdComanda)
-                            {
-                                <div class="editor-horario">
-                                    <label>@(cuenta.TipoServicio == EnumTipoServicio.Delivery ? "Horario de entrega" : "Horario de retiro")</label>
-                                    <input type="time" value="@horaEditando"
-                                           @oninput="e => horaEditando = e.Value?.ToString() ?? string.Empty" />
-                                    <div class="editor-horario-acciones">
-                                        <button class="btn-cancelar-observacion" @onclick="CancelarEdicionHorario">Cancelar</button>
-                                        <button class="btn-guardar-observacion" @onclick="() => GuardarHoraDeseada(cuenta)">Guardar</button>
-                                    </div>
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="cuenta-card-info @ClaseHorarioProximo(cuenta)">
-                                    🕒 @(cuenta.HoraDeseada.HasValue
-                                                                                                                    ? $"Para las {cuenta.HoraDeseada.Value.ToLocalTime():HH:mm}"
-                                                                                                                    : "Sin horario indicado")
-                                    <button class="btn-editar-horario" @onclick="() => EditarHoraDeseada(cuenta)">✎ editar</button>
-                                </div>
-                            }
-
-                            @if (cuenta.TipoServicio == EnumTipoServicio.Delivery)
-                            {
-                                <div class="cuenta-card-info">
-                                    @if (cuenta.IdDelivery == null)
-                                    {
-                                        <span>Sin repartidor asignado</span>
-                                    }
-                                    else if (cuenta.TodoEnCamino)
-                                    {
-                                        <span>En camino con @cuenta.NombreDelivery</span>
-                                    }
-                                    else if (cuenta.TodoEntregado)
-                                    {
-                                        <span>Entregado por @cuenta.NombreDelivery</span>
-                                    }
-                                </div>
-                            }
-
-                            @* Estado de pago: independiente del estado físico del pedido, porque
-                               a veces se cobra antes (transferencia) y a veces al retirar/entregar. *@
-                            @switch (cuenta.EstadoComanda)
-                            {
-                                case EnumEstadoComanda.PendienteCobro:
-                                    <div class="cuenta-card-info aviso-pago">💰 Pendiente de pago en caja</div>
-                                    break;
-                                case EnumEstadoComanda.Pagada:
-                                    <div class="cuenta-card-info aviso-pago-ok">✅ Pagado</div>
-                                    break;
-                            }
-
-                            @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway && cuenta.TodoListo && cuenta.EstadoComanda == EnumEstadoComanda.Abierta)
-                            {
-                                <div class="cuenta-card-info aviso-pago">🔔 Listo para retirar</div>
-                            }
-
-                            @if (PuedeCerrar(cuenta))
-                            {
-                                <button class="btn btn-sm btn-dark w-100 mt-1" @onclick="() => CerrarPedido(cuenta)">
-                                    Pasar a Caja
-                                </button>
-                            }
-
-                            @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway && cuenta.EstadoComanda == EnumEstadoComanda.Pagada)
-                            {
-                                <button class="btn btn-sm btn-outline-success w-100 mt-1" @onclick="() => MarcarRetiradoTakeAway(cuenta)">
-                                    Marcar retirado por el cliente
-                                </button>
-                            }
-                        </div>
-                    }
-                </div>
-            </section>
         </Authorized>
     </AuthorizeView>
 
@@ -1303,6 +1331,18 @@
     }
 
     .pedido-datos-faltantes { flex:0 0 100%; margin:0; padding:.4rem .6rem; background:#fff5d9; color:#6e4b00; border-radius:5px; font-size:.85rem; }
+    /* Seguimiento primero: números y órdenes visibles sin abrir la carga. */
+    .seguimiento-resumen { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; padding:1rem; background:#1d1d1d; color:white; border:1px solid #444; border-radius:10px; margin-bottom:.85rem; }
+    .seguimiento-resumen h3 { margin:0 0 .3rem; font-weight:800; font-size:1.35rem; }
+    .seguimiento-resumen p { margin:0; color:#ddd; font-size:.9rem; }
+    .seguimiento-contadores { display:flex; gap:.6rem; }
+    .contador-pedido { display:flex; flex-direction:column; align-items:flex-start; gap:.15rem; min-width:112px; background:#303030; border:2px solid #555; border-radius:8px; color:white; padding:.55rem .85rem; cursor:pointer; }
+    .contador-pedido.seleccionado { border-color:#ed2525; background:#402020; }
+    .contador-pedido strong { font-size:1.5rem; line-height:1.2; }
+    .pedido-formulario-cabecera { display:flex; align-items:center; flex-wrap:wrap; gap:.8rem; margin:1.15rem 0 .7rem; }
+    .pedido-formulario-toggle { min-height:44px; font-weight:700; }
+    .panel-seguimiento { margin-bottom:1rem; }
+    @@media(max-width:650px) { .seguimiento-resumen { padding:.75rem; } .seguimiento-contadores { width:100%; } .contador-pedido { flex:1; min-width:0; } }
 </style>
 
 @code {
@@ -1313,7 +1353,8 @@
     private bool sinConexion;
     private void ConexionCambiada(bool error) { sinConexion = error; _ = InvokeAsync(StateHasChanged); }
 
-    //lo que pidio el cliente, Nuevo pedido siempre visible arriba, calcado del modal de Mesas.razor
+    // El formulario se abre solo al necesitar cargar un nuevo pedido.
+    private bool mostrarFormularioNuevoPedido;
     private EnumTipoServicio tipoNuevoPedido = EnumTipoServicio.TakeAway;
     private string nombreCliente = "";
     private string telefonoCliente = "";
@@ -1688,6 +1729,7 @@
         var numeroGenerado = respuesta.Respuesta!.NumeroComanda;
         ReiniciarFormularioPedido();
         MensajeForm = $"Pedido {numeroGenerado} enviado.";
+        mostrarFormularioNuevoPedido = false;
         await CargarSeguimiento();
         }
         catch (System.Net.Http.HttpRequestException) { MensajeForm = "No se pudo confirmar el envío. Revisá el seguimiento antes de volver a enviar."; }
