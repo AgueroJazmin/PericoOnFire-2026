@@ -1463,7 +1463,7 @@
     private string textoObservacion = "";
     private bool enviandoPedido;
     private string? MensajeForm;
-    private bool MensajeFormEsExito => MensajeForm != null && MensajeForm.StartsWith("Pedido ") && MensajeForm.EndsWith(" enviado.");
+    private bool MensajeFormEsExito => MensajeForm != null && MensajeForm.StartsWith("Pedido ") && (MensajeForm.EndsWith(" enviado.") || MensajeForm.EndsWith(" enviado y cobrado."));
 
     // Cuánto antes del horario deseado se lo marca en rojo para avisar que se acerca.
     private const int MinutosAvisoHoraDeseada = 15;
