@@ -266,25 +266,6 @@ namespace PericoOnFire_2026.Server.Controllers
 
                     mesa.Estado = EnumEstadoMesa.Ocupada;
                     await context.SaveChangesAsync();
-                    
-
-                    if (dto.CobrarAhora && cobro != null && cajero != null && turno != null)
-                {
-                    var ahoraPago = DateTime.UtcNow;
-                    context.Pagos.AddRange(cobro.Lineas.Select(l => new Pago
-                    {
-                        IdComanda = comanda.Id,
-                        IdUsuarioCaja = cajero.Id,
-                        IdTurnoCaja = turno.Id,
-                        TipoPago = l.TipoPago,
-                        MontoTotal = totalReal,
-                        MontoPagado = l.Monto,
-                        Vuelto = l.TipoPago == EnumTipoPago.Efectivo ? cobro.Vuelto : 0,
-                        FechaPago = ahoraPago,
-                        EstadoRegistro = EnumEstadoRegistro.activo
-                    }));
-                    await context.SaveChangesAsync();
-                }
 
                 resultado = new ComandaConfirmadaDTO
                     {
@@ -430,6 +411,26 @@ namespace PericoOnFire_2026.Server.Controllers
                 }
 
                 
+
+                // Registrar el pago en el mismo turno y transacción que la comanda.
+                // Si falla el pago, se revierte también la creación del pedido.
+                if (dto.CobrarAhora && cobro != null && cajero != null && turno != null)
+                {
+                    var ahoraPago = DateTime.UtcNow;
+                    context.Pagos.AddRange(cobro.Lineas.Select(l => new Pago
+                    {
+                        IdComanda = comanda.Id,
+                        IdUsuarioCaja = cajero.Id,
+                        IdTurnoCaja = turno.Id,
+                        TipoPago = l.TipoPago,
+                        MontoTotal = totalReal,
+                        MontoPagado = l.Monto,
+                        Vuelto = l.TipoPago == EnumTipoPago.Efectivo ? cobro.Vuelto : 0,
+                        FechaPago = ahoraPago,
+                        EstadoRegistro = EnumEstadoRegistro.activo
+                    }));
+                    await context.SaveChangesAsync();
+                }
 
                 resultado = new ComandaConfirmadaDTO
                 {
