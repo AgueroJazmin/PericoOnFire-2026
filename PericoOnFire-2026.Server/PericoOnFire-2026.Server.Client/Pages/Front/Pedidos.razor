@@ -348,16 +348,33 @@
                                     }
                                 </select>
                             </label>
+                            <div class="pago-inmediato-total">Total a cobrar: <strong>$@TotalCarrito.ToString("N2")</strong></div>
                             @if (tipoPagoInmediato == EnumTipoPago.Efectivo)
                             {
                                 <label class="pago-inmediato-metodo">
-                                    Efectivo recibido (opcional; vacío o cero = importe exacto)
-                                    <input type="number" class="form-control form-control-sm" min="0" step="0.01"
-                                           @bind="montoEfectivoRecibido" disabled="@enviandoPedido" />
+                                    ¿Te entregaron más efectivo? (opcional, solo para calcular el vuelto)
+                                    <input type="text" inputmode="decimal" class="form-control form-control-sm"
+                                           placeholder="Ej.: 15000 o 15.000"
+                                           @bind="efectivoEntregadoTexto" @bind:event="oninput"
+                                           disabled="@enviandoPedido" />
                                 </label>
-                                @if (montoEfectivoRecibido > TotalCarrito)
+                                @if (!string.IsNullOrWhiteSpace(efectivoEntregadoTexto))
                                 {
-                                    <small>Vuelto estimado: $@((montoEfectivoRecibido - TotalCarrito).ToString("N2"))</small>
+                                    @if (TryLeerImporte(efectivoEntregadoTexto, out var efectivoIngresado))
+                                    {
+                                        @if (efectivoIngresado >= TotalCarrito)
+                                        {
+                                            <small>Vuelto: $@((efectivoIngresado - TotalCarrito).ToString("N2"))</small>
+                                        }
+                                        else
+                                        {
+                                            <small class="text-danger">El efectivo recibido no alcanza para cubrir el pedido.</small>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <small class="text-danger">Ingresá un importe válido, por ejemplo 15000 o 15.000.</small>
+                                    }
                                 }
                             }
                             <small>El cobro se registra en el turno de Caja abierto al confirmar el pedido.</small>
@@ -1370,6 +1387,7 @@
     .pago-inmediato-opcion input { width:18px; height:18px; }
     .pago-inmediato-metodo { display:flex; flex-direction:column; gap:.2rem; margin:0; font-size:.84rem; min-width:180px; }
     .pago-inmediato small { font-size:.78rem; }
+    .pago-inmediato-total { display:flex; gap:.4rem; align-items:center; white-space:nowrap; font-size:.9rem; }
     @@media(max-width:780px) { .pago-inmediato { flex-direction:column; align-items:stretch; } }
     /* Formulario como ventana superpuesta, sin empujar los pedidos de la página. */
     .pedido-modal-fondo {
@@ -1449,7 +1467,7 @@
     private bool mostrarFormularioNuevoPedido;
     private bool cobrarAhora;
     private EnumTipoPago tipoPagoInmediato = EnumTipoPago.Efectivo;
-    private decimal montoEfectivoRecibido;
+    private string efectivoEntregadoTexto = "";
     private EnumTipoServicio tipoNuevoPedido = EnumTipoServicio.TakeAway;
     private string nombreCliente = "";
     private string telefonoCliente = "";
@@ -1658,6 +1676,39 @@
     }
 
 
+    // Para un pago exacto no hace falta ingresar efectivo. Si hay vuelto, acepta
+    // formatos habituales: 13000, 13.000, 13,000 y 13000,50.
+    private static bool TryLeerImporte(string? texto, out decimal importe)
+    {
+        importe = 0;
+        if (string.IsNullOrWhiteSpace(texto)) return false;
+        var valor = texto.Trim().Replace("$", "").Replace(" ", "");
+        if (!System.Text.RegularExpressions.Regex.IsMatch(valor, @"^\d+[.,\d]*$")) return false;
+
+        var ultimoPunto = valor.LastIndexOf('.');
+        var ultimaComa = valor.LastIndexOf(',');
+        var ultimoSeparador = Math.Max(ultimoPunto, ultimaComa);
+        if (ultimoSeparador >= 0)
+        {
+            var digitosFinales = valor.Length - ultimoSeparador - 1;
+            if (digitosFinales == 0) return false;
+            // Tres dígitos al final significa separador de miles (13.000).
+            // Uno o dos significa centavos (13000,50).
+            var separadorDecimal = digitosFinales <= 2 ? ultimoSeparador : -1;
+            if (separadorDecimal >= 0)
+            {
+                valor = valor[..separadorDecimal].Replace(".", "").Replace(",", "") +
+                        "." + valor[(separadorDecimal + 1)..];
+            }
+            else
+            {
+                valor = valor.Replace(".", "").Replace(",", "");
+            }
+        }
+        return decimal.TryParse(valor, System.Globalization.NumberStyles.AllowDecimalPoint,
+            System.Globalization.CultureInfo.InvariantCulture, out importe) && importe > 0;
+    }
+
     private void ReiniciarFormularioPedido()
     {
         CancelarObservacion();
@@ -1669,7 +1720,7 @@
         horaDeseadaTexto = "";
         cobrarAhora = false;
         tipoPagoInmediato = EnumTipoPago.Efectivo;
-        montoEfectivoRecibido = 0;
+        efectivoEntregadoTexto = "";
         carrito = new();
         busquedaProducto = "";
         categoriaSeleccionada = CategoriasDisponibles.FirstOrDefault() ?? "";
@@ -1800,6 +1851,14 @@
 
         if (!PedidoListoParaEnviar || enviandoPedido) return;
 
+        if (cobrarAhora && tipoPagoInmediato == EnumTipoPago.Efectivo &&
+            !string.IsNullOrWhiteSpace(efectivoEntregadoTexto) &&
+            (!TryLeerImporte(efectivoEntregadoTexto, out var recibido) || recibido < TotalCarrito))
+        {
+            MensajeForm = "Revisá el importe de efectivo recibido: debe ser válido y cubrir el total del pedido.";
+            return;
+        }
+
         enviandoPedido = true;
         try
         {
@@ -1818,8 +1877,9 @@
                       new LineaPagoDTO
                       {
                           TipoPago = tipoPagoInmediato,
-                          Monto = tipoPagoInmediato == EnumTipoPago.Efectivo && montoEfectivoRecibido > 0
-                              ? montoEfectivoRecibido : TotalCarrito
+                          Monto = tipoPagoInmediato == EnumTipoPago.Efectivo &&
+                                  TryLeerImporte(efectivoEntregadoTexto, out var importeRecibido)
+                              ? importeRecibido : TotalCarrito
                       }
                   }
                 : new List<LineaPagoDTO>(),
