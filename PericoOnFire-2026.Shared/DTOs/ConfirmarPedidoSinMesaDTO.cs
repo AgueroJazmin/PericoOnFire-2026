@@ -17,6 +17,7 @@ namespace PericoOnFire_2026.Shared.DTOs
         [Required(ErrorMessage = "El nombre del cliente es obligatorio")]
         public string NombreCliente { get; set; } = "";
         public string? Telefono { get; set; }
+        public int? IdClienteExistente { get; set; }
 
         // Obligatoria solo si TipoServicio == Delivery; se valida en el controller
         // porque acá no sabemos todavía el TipoServicio al momento de bindear.
