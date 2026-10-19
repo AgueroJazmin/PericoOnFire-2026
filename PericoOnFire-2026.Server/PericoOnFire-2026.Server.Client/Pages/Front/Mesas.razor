@@ -79,16 +79,17 @@
     }
 </main>
 
-@if (mesaSeleccionada != null && !(mostrarModalPedido && mesaSeleccionada.Estado == EnumEstadoMesa.Libre))
+@if (mesaSeleccionada != null && !mostrarModalPedido)
 {
-    @if (mesaSeleccionada.Estado == EnumEstadoMesa.Libre)
-    {
-        <div class="mesa-libre-fondo" @onclick="CerrarPanel"></div>
-    }
-    <aside class="panel-mesa @(mesaSeleccionada.Estado == EnumEstadoMesa.Libre ? "panel-mesa-libre" : "")" role="dialog" aria-label="@($"Mesa {mesaSeleccionada.NumeroMesa}")">
+    <div class="mesa-libre-fondo" @onclick="CerrarPanel"></div>
+    <aside class="panel-mesa panel-mesa-centrado" role="dialog" aria-modal="true" aria-label="@($"Mesa {mesaSeleccionada.NumeroMesa}")">
         <div class="panel-header">
-            <h5>Mesa @mesaSeleccionada.NumeroMesa</h5>
-            <button class="btn-cerrar" @onclick="CerrarPanel">&times;</button>
+            <div class="panel-mesa-identidad">
+                <span class="panel-mesa-etiqueta">PERICO ON FIRE · COMANDAS</span>
+                <h5>Mesa @mesaSeleccionada.NumeroMesa</h5>
+                <span class="panel-mesa-subtitulo">@(mesaSeleccionada.Estado == EnumEstadoMesa.Libre ? "Mesa disponible" : comandaActual?.NumeroComanda ?? "Detalle de la mesa")</span>
+            </div>
+            <button class="btn-cerrar panel-mesa-cerrar" aria-label="Cerrar detalle" @onclick="CerrarPanel">&times;</button>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(Mensaje))
@@ -102,12 +103,12 @@
         }
         else if (mesaSeleccionada.Estado == EnumEstadoMesa.Libre)
         {
-            <div class="panel-body">
-                <p>La mesa está libre.</p>
-                <button class="btn btn-outline-secondary me-2" @onclick="CerrarPanel">Cancelar</button>
-                <button class="btn btn-primary" @onclick="AbrirModalNuevaComanda">
-                    Abrir mesa
-                </button>
+            <div class="panel-body panel-body-libre">
+                <div class="panel-mesa-disponible">✓ Esta mesa está disponible para un nuevo pedido.</div>
+                <div class="panel-mesa-acciones">
+                    <button class="btn btn-outline-secondary" @onclick="CerrarPanel">Cancelar</button>
+                    <button class="btn btn-primary" @onclick="AbrirModalNuevaComanda">Abrir mesa</button>
+                </div>
             </div>
         }
         else if (comandaActual == null)
@@ -118,7 +119,7 @@
         {
             <div class="panel-body">
 
-                <h6>Pedidos enviados</h6>
+                <h6 class="panel-mesa-seccion">Pedidos enviados</h6>
                 @if (!pedidosActuales.Any())
                 {
                     <p class="texto-vacio">Todavía no se envió nada a cocina/barra.</p>
@@ -1430,6 +1431,48 @@
     @@media(max-width:360px) {
         .mesa-pedido-modal .producto-fila { grid-template-columns:minmax(0,1fr) auto; }
         .mesa-pedido-modal .producto-fila .control-cantidad { grid-column:1/-1; justify-self:end; }
+    }
+
+    /* Ventana de detalle centrada para mesas libres y ocupadas. */
+    .mesa-libre-fondo { position:fixed; inset:0; background:rgba(8,12,18,.7); backdrop-filter:blur(3px); z-index:1040; }
+    .panel-mesa.panel-mesa-centrado {
+        position:fixed; top:50%; left:50%; right:auto; bottom:auto;
+        transform:translate(-50%,-50%); width:min(650px,calc(100vw - 2rem));
+        height:auto; max-height:calc(100dvh - 2rem); padding:0;
+        overflow-y:auto; overscroll-behavior:contain;
+        border:1px solid #ffffff35; border-radius:18px; background:#fff;
+        box-shadow:0 24px 80px #0006; z-index:1050;
+    }
+    .panel-mesa-centrado .panel-header {
+        position:sticky; top:0; z-index:2; padding:1.15rem 1.4rem;
+        display:flex; align-items:flex-start; justify-content:space-between; gap:1rem;
+        background:linear-gradient(115deg,#171a20,#303641);
+        border-bottom:3px solid #e8a239; color:#fff;
+    }
+    .panel-mesa-identidad { display:flex; flex-direction:column; gap:.15rem; min-width:0; }
+    .panel-mesa-etiqueta { font-size:.69rem; font-weight:800; letter-spacing:.12em; color:#f1b75e; }
+    .panel-mesa-centrado .panel-header h5 { margin:.1rem 0; font-size:1.55rem; font-weight:800; color:#fff; }
+    .panel-mesa-subtitulo { font-size:.83rem; color:#d4d7dd; }
+    .panel-mesa-cerrar { color:#fff; border:1px solid #ffffff55; border-radius:9px; width:36px; height:36px; display:grid; place-items:center; flex-shrink:0; line-height:1; }
+    .panel-mesa-cerrar:hover { color:#fff; background:#ffffff20; }
+    .panel-mesa-centrado .panel-body { padding:1.3rem 1.4rem 1.5rem; }
+    .panel-mesa-centrado > .alert, .panel-mesa-centrado > p { margin:1rem 1.4rem; }
+    .panel-mesa-seccion { font-size:1.05rem; font-weight:800; color:#262c35; margin-bottom:.85rem; }
+    .panel-mesa-centrado .grupo-sector { border:1px solid #e3e5e9; border-radius:13px; padding:.85rem 1rem; margin-bottom:.9rem; background:#f9fafb; }
+    .panel-mesa-centrado .grupo-sector > strong { display:block; margin-bottom:.5rem; font-weight:800; }
+    .panel-mesa-centrado .pedido-card { background:#fff; border-color:#dfe2e6; border-radius:10px; padding:.75rem .9rem; }
+    .panel-mesa-centrado .pedido-card ul { margin:.45rem 0 .25rem; }
+    .panel-mesa-centrado .panel-body > .btn { margin-top:.4rem; border-radius:9px; padding:.65rem .9rem; font-weight:700; }
+    .panel-mesa-centrado .panel-body hr { border-color:#e1e3e6; opacity:1; margin:1rem 0; }
+    .panel-mesa-disponible { padding:1rem; background:#e9f6ef; border:1px solid #c6e7d5; border-radius:12px; color:#24633d; font-weight:700; }
+    .panel-mesa-acciones { margin-top:1.1rem; display:flex; justify-content:flex-end; gap:.7rem; }
+    .panel-mesa-acciones .btn { min-width:125px; border-radius:9px; font-weight:700; padding:.6rem 1rem; }
+    @@media(max-width:780px) {
+        .panel-mesa.panel-mesa-centrado { width:calc(100vw - 1rem); max-height:calc(100dvh - 1rem); border-radius:14px; }
+        .panel-mesa-centrado .panel-header { padding:.9rem 1rem; }
+        .panel-mesa-centrado .panel-body { padding:1rem; }
+        .panel-mesa-acciones { flex-wrap:wrap; }
+        .panel-mesa-acciones .btn { flex:1; }
     }
 </style>
 
