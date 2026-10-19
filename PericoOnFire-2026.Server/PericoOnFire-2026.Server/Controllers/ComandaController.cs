@@ -463,6 +463,59 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok();
         }
 
+        // Reparación puntual de datos de prueba: la mesa 94 fue retirada, pero
+        // conservó la comanda 89 y su pedido 117 abiertos. No afecta la mesa 93.
+        // Archiva en lugar de borrar físicamente para preservar integridad referencial.
+        [Authorize(Roles = "Administracion")]
+        [HttpPost("Mantenimiento/ArchivarPruebaMesa12")]
+        public async Task<ActionResult> ArchivarPruebaMesa12()
+        {
+            return await OperacionAtomica.EjecutarAsync<ActionResult>(context, async () =>
+            {
+                var mesaRetirada = await context.Mesas.FirstOrDefaultAsync(m => m.Id == 94);
+                if (mesaRetirada == null || mesaRetirada.NumeroMesa != 12 ||
+                    mesaRetirada.EstadoRegistro == EnumEstadoRegistro.activo)
+                    return Conflict("La mesa 94 no está retirada. No se realizó ningún cambio.");
+
+                var comanda = await context.Comandas.FirstOrDefaultAsync(c => c.Id == 89);
+                if (comanda == null)
+                    return NotFound("La comanda de prueba 89 no existe.");
+                if (comanda.IdMesa != 94 || comanda.Estado != EnumEstadoComanda.Abierta ||
+                    comanda.TipoServicio != EnumTipoServicio.Mesa ||
+                    comanda.FechaApertura.Date != new DateTime(2026, 10, 16))
+                    return Conflict("La comanda 89 cambió; se canceló la operación para proteger los datos.");
+
+                if (await context.Pagos.AnyAsync(p => p.IdComanda == 89))
+                    return Conflict("La comanda registra pagos y no puede archivarse automáticamente.");
+
+                var pedidos = await context.Pedidos.Where(p => p.IdComanda == 89).ToListAsync();
+                if (pedidos.Count != 1 || pedidos[0].Id != 117 ||
+                    pedidos[0].Estado != EnumEstadoPedido.ListoParaRetirar)
+                    return Conflict("Los pedidos de la comanda cambiaron. No se realizó ningún cambio.");
+
+                var ahora = DateTime.UtcNow;
+                var pedido = pedidos[0];
+                pedido.Estado = EnumEstadoPedido.Cancelado;
+                pedido.EstadoRegistro = EnumEstadoRegistro.inactivo;
+                pedido.MotivoCancelacion = "Pedido de prueba de mesa duplicada retirada (mantenimiento autorizado).";
+                pedido.FechaCancelado = ahora;
+
+                comanda.Estado = EnumEstadoComanda.Cancelada;
+                comanda.EstadoRegistro = EnumEstadoRegistro.inactivo;
+                comanda.FechaCierre = ahora;
+                mesaRetirada.Estado = EnumEstadoMesa.Libre;
+
+                await context.SaveChangesAsync();
+                return Ok(new
+                {
+                    Mensaje = "Comanda de prueba COM-004 y pedido 117 cancelados y archivados.",
+                    IdComanda = 89,
+                    IdPedido = 117,
+                    IdMesaRetirada = 94
+                });
+            });
+        }
+
         //Este Cancelar sirve en el caso de que se haya abierto una comanda por error,
         //o si el cliente decide no consumir nada y se quiere liberar la mesa.
 
