@@ -67,7 +67,7 @@ namespace PericoOnFire_2026.Server.Controllers
         {
             var mesas = await context.Mesas.AsNoTracking()
                 .Where(m => m.NumeroMesa == numeroMesa)
-                .Select(m => new { m.Id, m.NumeroMesa, Sala = m.Sala.Nombre, m.Estado })
+                .Select(m => new { m.Id, m.NumeroMesa, Sala = m.Sala.Nombre, m.Estado, m.EstadoRegistro })
                 .ToListAsync();
             var ids = mesas.Select(m => m.Id).ToList();
             var comandas = await context.Comandas.AsNoTracking()
@@ -84,11 +84,18 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok(new
             {
                 VersionDiagnostico = "mesa-comanda-v1",
-                Mesas = mesas.Select(m => new { m.Id, m.NumeroMesa, m.Sala, EstadoGuardado = m.Estado.ToString() }),
+                Mesas = mesas.Select(m => new
+                {
+                    m.Id, m.NumeroMesa, m.Sala,
+                    EstadoGuardado = m.Estado.ToString(),
+                    EstadoRegistro = m.EstadoRegistro.ToString(),
+                    VisibleEnConfiguracion = m.EstadoRegistro == EnumEstadoRegistro.activo
+                }),
                 Comandas = comandas.Select(c => new
                 {
                     c.Id, c.IdMesa, Numero = $"COM-{numeros.GetValueOrDefault(c.Id):D3}",
                     Estado = c.Estado.ToString(), c.FechaApertura, c.FechaCierre, c.Pagos,
+                    MesaRetirada = mesas.Any(m => m.Id == c.IdMesa && m.EstadoRegistro != EnumEstadoRegistro.activo),
                     Pedidos = c.Pedidos.Select(p => new { p.Id, Estado = p.Estado.ToString(), Sector = p.SectorDestino.ToString() })
                 })
             });
