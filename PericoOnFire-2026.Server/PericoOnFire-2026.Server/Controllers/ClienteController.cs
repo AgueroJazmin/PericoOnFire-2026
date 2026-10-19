@@ -38,7 +38,8 @@ namespace PericoOnFire_2026.Server.Controllers
             var resultados = await context.Clientes.AsNoTracking()
                 .Where(c => c.EstadoRegistro == EnumEstadoRegistro.activo &&
                     (EF.Functions.ILike(c.Nombre, "%" + texto + "%") ||
-                     EF.Functions.ILike(c.Telefono, "%" + texto + "%")))
+                     EF.Functions.ILike(c.Telefono, "%" + texto + "%") ||
+                     EF.Functions.ILike(c.Direccion, "%" + texto + "%")))
                 .OrderBy(c => c.Nombre)
                 .Take(8)
                 .Select(c => new ClienteBusquedaDTO
