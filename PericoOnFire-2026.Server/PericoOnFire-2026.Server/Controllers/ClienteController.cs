@@ -5,6 +5,7 @@ using PericoOnFire_2026.Repositorio.Repositorios;
 using PericoOnFire_2026.Shared.DTOs;
 using PericoOnFire_2026.Shared.ENUM;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 
 namespace PericoOnFire_2026.Server.Controllers
 {
@@ -23,6 +24,29 @@ namespace PericoOnFire_2026.Server.Controllers
         public async Task<ActionResult<List<Cliente>>> Get()
         {
             return await repositorio.Select();
+        }
+
+        // Coincidencias limitadas: no se descarga el padrón completo al navegador.
+        [Authorize(Roles = "Administracion,Barra")]
+        [HttpGet("Buscar")]
+        public async Task<ActionResult<List<ClienteBusquedaDTO>>> Buscar([FromQuery] string? q, [FromServices] MiDbContext context)
+        {
+            var texto = q?.Trim() ?? "";
+            if (texto.Length < 2) return Ok(new List<ClienteBusquedaDTO>());
+            if (texto.Length > 70) return BadRequest("La búsqueda es demasiado larga.");
+
+            var resultados = await context.Clientes.AsNoTracking()
+                .Where(c => c.EstadoRegistro == EnumEstadoRegistro.activo &&
+                    (EF.Functions.ILike(c.Nombre, "%" + texto + "%") ||
+                     EF.Functions.ILike(c.Telefono, "%" + texto + "%")))
+                .OrderBy(c => c.Nombre)
+                .Take(8)
+                .Select(c => new ClienteBusquedaDTO
+                {
+                    Id = c.Id, Nombre = c.Nombre, Telefono = c.Telefono, Direccion = c.Direccion
+                })
+                .ToListAsync();
+            return Ok(resultados);
         }
 
         [HttpGet("{id:int}")]
