@@ -200,40 +200,59 @@
                         <div class="alert @(MensajeFormEsExito ? "alert-success" : "alert-danger") py-2">@MensajeForm</div>
                     }
 
-                    <fieldset class="selector-productos" disabled="@enviandoPedido">
-                        <aside class="selector-resumen">
-                            <div class="datos-cliente" role="group" aria-label="Datos del cliente">
-                            <h5>Datos del cliente</h5>
-                            <strong>Tipo de pedido</strong>
-                            <div class="selector-tipo">
-                                <button class="@(tipoNuevoPedido == EnumTipoServicio.TakeAway ? "activo" : "")"
-                                        @onclick='() => tipoNuevoPedido = EnumTipoServicio.TakeAway'>
-                                    Take Away
-                                </button>
-                                <button class="@(tipoNuevoPedido == EnumTipoServicio.Delivery ? "activo" : "")"
-                                        @onclick='() => tipoNuevoPedido = EnumTipoServicio.Delivery'>
-                                    Delivery
-                                </button>
+                    <fieldset class="datos-cliente datos-cliente-superior" disabled="@enviandoPedido" aria-label="Datos del cliente">
+                        <div class="cliente-linea">
+                            <strong>Cliente</strong>
+                            <div class="buscador-cliente-contenedor">
+                                <input class="form-control form-control-sm" type="search" autocomplete="off"
+                                       placeholder="Buscar cliente por nombre o teléfono..."
+                                       value="@busquedaCliente" @oninput="BuscarClienteExistente" />
+                                @if (resultadosCliente.Any())
+                                {
+                                    <div class="clientes-coincidencias" role="listbox" aria-label="Clientes encontrados">
+                                        @foreach (var clienteEncontrado in resultadosCliente)
+                                        {
+                                            <button type="button" class="cliente-coincidencia" @onclick="() => SeleccionarClienteExistente(clienteEncontrado)">
+                                                <strong>@clienteEncontrado.Nombre</strong>
+                                                <span>@clienteEncontrado.Telefono</span>
+                                            </button>
+                                        }
+                                    </div>
+                                }
                             </div>
-
-                            <label class="dato-cliente">Nombre y apellido (obligatorio)<input class="form-control form-control-sm" maxlength="100" required aria-required="true" @bind="nombreCliente" @bind:event="oninput" /></label>
-
-                            <label class="dato-cliente">Teléfono (opcional)<input class="form-control form-control-sm" maxlength="30" @bind="telefonoCliente" @bind:event="oninput" /></label>
-
+                            <div class="selector-tipo">
+                                <button type="button" class="@(tipoNuevoPedido == EnumTipoServicio.TakeAway ? "activo" : "")"
+                                        @onclick='() => tipoNuevoPedido = EnumTipoServicio.TakeAway'>Take Away</button>
+                                <button type="button" class="@(tipoNuevoPedido == EnumTipoServicio.Delivery ? "activo" : "")"
+                                        @onclick='() => tipoNuevoPedido = EnumTipoServicio.Delivery'>Delivery</button>
+                            </div>
+                        </div>
+                        <div class="cliente-campos">
+                            <label class="dato-cliente">Nombre y apellido
+                                <input class="form-control form-control-sm" maxlength="100" required
+                                       @bind="nombreCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
+                            </label>
+                            <label class="dato-cliente">Teléfono
+                                <input class="form-control form-control-sm" maxlength="30"
+                                       @bind="telefonoCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
+                            </label>
                             @if (tipoNuevoPedido == EnumTipoServicio.Delivery)
                             {
-                                <label class="dato-cliente">Referencia de WhatsApp (obligatoria)<input class="form-control form-control-sm" maxlength="150" required aria-required="true" placeholder="Ej.: pedido de WhatsApp de las 21:40 - Juan"
-                                       @bind="direccionCliente" @bind:event="oninput" /></label>
+                                <label class="dato-cliente">Referencia de WhatsApp
+                                    <input class="form-control form-control-sm" maxlength="150" required
+                                           placeholder="Contacto o referencia de WhatsApp"
+                                           @bind="direccionCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
+                                </label>
                             }
-
-                            <label class="dato-cliente">
-                                @(tipoNuevoPedido == EnumTipoServicio.Delivery ? "Entrega (opcional)" : "Retiro (opcional)")
-                            <input type="time" class="form-control form-control-sm" value="@horaDeseadaTexto"
-                                   @oninput="e => horaDeseadaTexto = e.Value?.ToString() ?? string.Empty" />
+                            <label class="dato-cliente">@(tipoNuevoPedido == EnumTipoServicio.Delivery ? "Entrega" : "Retiro") (opcional)
+                                <input type="time" class="form-control form-control-sm" value="@horaDeseadaTexto"
+                                       @oninput="e => horaDeseadaTexto = e.Value?.ToString() ?? string.Empty" />
                             </label>
-                            <small class="ayuda-horario">Si lo dejás vacío, entra a cocina/barra apenas lo enviás.</small>
+                        </div>
+                    </fieldset>
 
-                            </div>
+                    <fieldset class="selector-productos" disabled="@enviandoPedido">
+                        <aside class="selector-resumen">
                             <div class="resumen-carrito">
                                 <strong>Pedido (@CantidadTotalItems)</strong>
                                 @if (!carrito.Any())
@@ -1453,6 +1472,66 @@
         }
         .pedido-modal-ventana .modal-pedido-footer { position: sticky; bottom: 0; z-index: 4; }
     }
+
+    /* Diseño de caja compacta: sin scroll general en escritorio.
+       Solo la lista del menú y, si excede, el detalle del carrito desplazan contenido. */
+    @@media (min-width: 901px) {
+        .pedido-modal-fondo { padding:.4rem; }
+        .pedido-modal-ventana { width:min(1390px,100%); height:calc(100dvh - .8rem); max-height:calc(100dvh - .8rem); }
+        .pedido-modal-barra { padding:.25rem .75rem; min-height:37px; }
+        .pedido-modal-cerrar { height:30px; width:30px; font-size:1.35rem; }
+        .pedido-modal-ventana .panel-nuevo-pedido { flex:1 1 auto; min-height:0; }
+        .pedido-modal-ventana .modal-pedido { height:100%; max-height:100%; min-height:0; }
+        .pedido-modal-ventana .modal-pedido-header { padding:.3rem .75rem; min-height:48px; }
+        .pedido-modal-ventana .modal-pedido-header h4 { font-size:1.12rem; }
+        .pedido-modal-ventana .categorias-superiores button { min-width:90px; padding:.27rem .5rem; }
+        .pedido-modal-ventana .modal-pedido > .alert { margin:0; padding:.3rem .65rem!important; flex-shrink:0; font-size:.82rem; }
+        .pedido-modal-ventana .datos-cliente-superior {
+            display:flex; flex-direction:column; flex:0 0 auto; gap:.28rem; min-width:0;
+            padding:.4rem .8rem; background:#f5f6f8; border:0; border-bottom:1px solid #ddd;
+            overflow:visible;
+        }
+        .pedido-modal-ventana .cliente-linea { display:flex; gap:.65rem; align-items:center; min-height:34px; }
+        .pedido-modal-ventana .cliente-linea > strong { white-space:nowrap; font-size:.87rem; }
+        .pedido-modal-ventana .buscador-cliente-contenedor { position:relative; flex:1 1 auto; min-width:120px; z-index:12; }
+        .pedido-modal-ventana .selector-tipo { margin:0; flex:0 0 auto; }
+        .pedido-modal-ventana .selector-tipo button { min-width:98px; min-height:30px; padding:.22rem .5rem; }
+        .pedido-modal-ventana .cliente-campos { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.45rem; }
+        .pedido-modal-ventana .dato-cliente { font-size:.73rem; gap:.12rem; }
+        .pedido-modal-ventana .dato-cliente input { min-height:30px; height:32px; }
+        .pedido-modal-ventana .selector-productos { display:grid; grid-template-columns:155px minmax(0,1fr) minmax(250px,.8fr); grid-template-rows:minmax(0,1fr); min-height:0; overflow:hidden; flex:1 1 auto; }
+        .pedido-modal-ventana .subcategorias { grid-column:1; grid-row:1; display:flex; flex-direction:column; overflow-y:hidden; min-width:0; border-right:1px solid #ddd; }
+        .pedido-modal-ventana .subcategorias button { flex:0 0 auto; width:100%; padding:.4rem; min-width:0; }
+        .pedido-modal-ventana .productos-modal { grid-column:2; grid-row:1; height:100%; max-height:none; min-height:0; overflow-y:auto; }
+        .pedido-modal-ventana .selector-resumen { grid-column:3; grid-row:1; display:flex; flex-direction:column; min-width:0; min-height:0; overflow:hidden; padding:.4rem; border-left:1px solid #ddd; }
+        .pedido-modal-ventana .resumen-carrito { flex:1 1 auto; min-height:0; max-height:none; height:auto; overflow-y:auto; margin:0; padding:.5rem; }
+        .pedido-modal-ventana .pago-inmediato { padding:.3rem .65rem; gap:.45rem; min-height:36px; flex-wrap:wrap; }
+        .pedido-modal-ventana .pago-inmediato-metodo { min-width:145px; max-width:260px; }
+        .pedido-modal-ventana .pago-inmediato small { font-size:.7rem; }
+        .pedido-modal-ventana .modal-pedido-footer { position:static; flex:0 0 auto; min-height:48px; padding:.35rem .65rem; gap:.35rem; }
+        .pedido-modal-ventana .pedido-datos-faltantes { padding:.2rem .45rem; font-size:.72rem; }
+        .pedido-modal-ventana .modal-pedido-footer button { padding:.36rem .65rem; }
+        .pedido-modal-ventana .producto-fila { padding:.32rem .5rem; }
+    }
+    .datos-cliente-superior { position:relative; border:0; min-width:0; }
+    .buscador-cliente-contenedor { position:relative; }
+    .clientes-coincidencias {
+        position:absolute; top:100%; left:0; right:0; z-index:30;
+        background:#fff; border:1px solid #cbd1d9; border-radius:8px;
+        box-shadow:0 8px 24px #0003; max-height:210px; overflow-y:auto;
+    }
+    .cliente-coincidencia { display:flex; justify-content:space-between; gap:.5rem; align-items:center;
+        width:100%; border:0; border-bottom:1px solid #eee; padding:.45rem .65rem; background:#fff; text-align:left; cursor:pointer; font-size:.82rem; }
+    .cliente-coincidencia:hover { background:#f1f6fc; }
+    .cliente-coincidencia span { color:#666; }
+    @@media (max-width:900px) {
+        .datos-cliente-superior { padding:.7rem; background:#f7f8fa; }
+        .cliente-linea { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; }
+        .buscador-cliente-contenedor { flex:1 1 100%; }
+        .cliente-campos { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem; margin-top:.5rem; }
+        .datos-cliente-superior .selector-tipo { margin:.1rem 0; }
+    }
+    @@media (max-width:520px) { .cliente-campos { grid-template-columns:1fr; } }
 </style>
 
 @code {
@@ -1470,6 +1549,10 @@
     private string efectivoEntregadoTexto = "";
     private EnumTipoServicio tipoNuevoPedido = EnumTipoServicio.TakeAway;
     private string nombreCliente = "";
+    private int? idClienteExistente;
+    private string busquedaCliente = "";
+    private List<ClienteBusquedaDTO> resultadosCliente = new();
+    private int versionBusquedaCliente;
     private string telefonoCliente = "";
     private string direccionCliente = "";
     private string horaDeseadaTexto = "";
@@ -1709,12 +1792,52 @@
             System.Globalization.CultureInfo.InvariantCulture, out importe) && importe > 0;
     }
 
+    private void DesvincularClienteSeleccionado()
+    {
+        idClienteExistente = null;
+    }
+
+    private async Task BuscarClienteExistente(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        busquedaCliente = e.Value?.ToString() ?? "";
+        var version = ++versionBusquedaCliente;
+        resultadosCliente.Clear();
+        if (busquedaCliente.Trim().Length < 2) return;
+        try
+        {
+            var respuesta = await http.Get<List<ClienteBusquedaDTO>>(
+                "api/Cliente/Buscar?q=" + Uri.EscapeDataString(busquedaCliente.Trim()));
+            if (version == versionBusquedaCliente && !respuesta.Error)
+                resultadosCliente = respuesta.Respuesta ?? new();
+        }
+        catch (System.Net.Http.HttpRequestException)
+        {
+            if (version == versionBusquedaCliente)
+                resultadosCliente.Clear();
+        }
+    }
+
+    private void SeleccionarClienteExistente(ClienteBusquedaDTO cliente)
+    {
+        idClienteExistente = cliente.Id;
+        nombreCliente = cliente.Nombre;
+        telefonoCliente = cliente.Telefono;
+        direccionCliente = cliente.Direccion;
+        busquedaCliente = "";
+        resultadosCliente.Clear();
+        versionBusquedaCliente++;
+    }
+
     private void ReiniciarFormularioPedido()
     {
         CancelarObservacion();
         MensajeForm = null;
         tipoNuevoPedido = TipoPorAcceso;
         nombreCliente = "";
+        idClienteExistente = null;
+        busquedaCliente = "";
+        resultadosCliente.Clear();
+        versionBusquedaCliente++;
         telefonoCliente = "";
         direccionCliente = "";
         horaDeseadaTexto = "";
@@ -1867,6 +1990,7 @@
             IdUsuario = idUsuarioActual.Value,
             TipoServicio = tipoNuevoPedido,
             NombreCliente = nombreCliente.Trim(),
+            IdClienteExistente = idClienteExistente,
             Telefono = string.IsNullOrWhiteSpace(telefonoCliente) ? null : telefonoCliente.Trim(),
             Direccion = tipoNuevoPedido == EnumTipoServicio.Delivery ? direccionCliente.Trim() : null,
             HoraDeseada = ConvertirHoraDeseada(horaDeseadaTexto),
