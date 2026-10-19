@@ -346,15 +346,26 @@ namespace PericoOnFire_2026.Server.Controllers
                             throw new InvalidOperationException(cobro.Error ?? "El cobro no es válido.");
                     }
 
-                var cliente = new Cliente
+                Cliente cliente;
+                if (dto.IdClienteExistente.HasValue)
                 {
-                    Nombre = dto.NombreCliente,
-                    Direccion = dto.Direccion ?? "",
-                    Telefono = dto.Telefono ?? "",
-                    EstadoRegistro = EnumEstadoRegistro.activo
-                };
-                context.Clientes.Add(cliente);
-                await context.SaveChangesAsync();
+                    cliente = await context.Clientes.FirstOrDefaultAsync(c =>
+                        c.Id == dto.IdClienteExistente.Value && c.EstadoRegistro == EnumEstadoRegistro.activo)
+                        ?? throw new InvalidOperationException("El cliente seleccionado ya no está disponible. Buscalo de nuevo.");
+                    // No alterar los datos históricos del cliente al generar una comanda.
+                }
+                else
+                {
+                    cliente = new Cliente
+                    {
+                        Nombre = dto.NombreCliente.Trim(),
+                        Direccion = dto.Direccion ?? "",
+                        Telefono = dto.Telefono ?? "",
+                        EstadoRegistro = EnumEstadoRegistro.activo
+                    };
+                    context.Clientes.Add(cliente);
+                    await context.SaveChangesAsync();
+                }
 
                 var comanda = new Comanda
                 {
