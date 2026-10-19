@@ -146,11 +146,19 @@
                             {
                                 <div class="pedido-card pedido-card-pendiente">
 
-                                    <span class="pedido-estado">Pendiente</span>
-                                    @if (comandaActual.Estado == EnumEstadoComanda.Abierta)
-                                    {
-                                        <button class="btn btn-sm btn-outline-primary panel-btn-editar" @onclick="() => AbrirEdicionPendientes(pedidosPendientes)">Editar</button>
-                                    }
+                                    <div class="panel-pedido-encabezado">
+                                        <span class="pedido-estado">Pendiente</span>
+                                        <div class="panel-pedido-acciones">
+                                            @if (comandaActual.Estado == EnumEstadoComanda.Abierta)
+                                            {
+                                                <button class="btn btn-sm btn-outline-primary panel-btn-editar" @onclick="() => AbrirEdicionPendientes(pedidosPendientes)">Editar</button>
+                                            }
+                                            <button class="btn btn-sm btn-outline-success panel-btn-entregar" disabled
+                                                    title="Cocina o Barra debe marcar el pedido como listo antes de entregarlo.">
+                                                Entregar
+                                            </button>
+                                        </div>
+                                    </div>
 
                                     <ul>
                                         @foreach (var productoAgrupado in pedidosPendientes
@@ -174,7 +182,23 @@
                                                                                                   ? "pedido-card-cancelado"
                                                                                                   : "")">
 
-                                    <span class="pedido-estado">@pedido.Estado</span>
+                                    <div class="panel-pedido-encabezado">
+                                        <span class="pedido-estado">@pedido.Estado</span>
+                                        @if (pedido.Estado == EnumEstadoPedido.ListoParaRetirar)
+                                        {
+                                            <button class="btn btn-sm btn-success panel-btn-entregar"
+                                                    @onclick="() => MarcarEntregado(pedido)">
+                                                Entregar
+                                            </button>
+                                        }
+                                        else if (pedido.Estado == EnumEstadoPedido.EnPreparacion)
+                                        {
+                                            <button class="btn btn-sm btn-outline-success panel-btn-entregar" disabled
+                                                    title="Esperá a que Cocina marque este pedido como listo.">
+                                                Entregar
+                                            </button>
+                                        }
+                                    </div>
 
                                     <ul>
                                         @foreach (var detalle in pedido.DetallesPedido)
@@ -197,13 +221,7 @@
                                             Quitar de la comanda
                                         </button>
                                     }
-                                    else if (pedido.Estado == EnumEstadoPedido.ListoParaRetirar)
-                                    {
-                                        <button class="btn btn-sm btn-success w-100 mt-1"
-                                                @onclick="() => MarcarEntregado(pedido)">
-                                            Marcar como entregado
-                                        </button>
-                                    }
+                                    
 
                                 </div>
                             }
@@ -237,7 +255,7 @@
                             Cerrar mesa (consumo final)
                         </button>
                         <small class="texto-vacio d-block mt-1">
-                            No se puede cerrar la mesa: todavía hay pedidos pendientes, en preparación o listos sin entregar.
+                            Para cerrar la mesa, Cocina y Barra deben marcar sus pedidos como listos y luego tenés que pulsar «Entregar» en cada uno.
                         </small>
                     }
                     else
@@ -1475,6 +1493,10 @@
         .panel-mesa-acciones .btn { flex:1; }
     }
 
+    .panel-pedido-encabezado { display:flex; justify-content:space-between; gap:.4rem; align-items:center; flex-wrap:wrap; }
+    .panel-pedido-acciones { display:flex; gap:.35rem; align-items:center; }
+    .panel-btn-entregar { width:auto; min-width:72px; padding:.2rem .55rem; }
+    .panel-btn-entregar:disabled { opacity:.5; cursor:not-allowed; }
     /* Resumen compacto: sectores paralelos en escritorio y acciones visibles. */
     .panel-mesa.panel-mesa-centrado { width:min(720px,calc(100vw - 2rem)); }
     .panel-mesa-centrado .panel-header { padding:.8rem 1.1rem; }
