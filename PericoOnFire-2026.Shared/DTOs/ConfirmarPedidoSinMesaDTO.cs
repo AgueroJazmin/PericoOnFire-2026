@@ -17,6 +17,7 @@ namespace PericoOnFire_2026.Shared.DTOs
         [Required(ErrorMessage = "El nombre del cliente es obligatorio")]
         public string NombreCliente { get; set; } = "";
         public string? Telefono { get; set; }
+        public int? IdClienteExistente { get; set; }
 
         // Obligatoria solo si TipoServicio == Delivery; se valida en el controller
         // porque acá no sabemos todavía el TipoServicio al momento de bindear.
@@ -27,6 +28,10 @@ namespace PericoOnFire_2026.Shared.DTOs
         // si no se manda, el pedido entra a cocina/barra apenas se confirma, como siempre.
         public DateTime? HoraDeseada { get; set; }
         public string? Observaciones { get; set; }
+
+        // Cobro opcional en el mismo acto de creación. Sin pago, queda abierta.
+        public bool CobrarAhora { get; set; }
+        public List<LineaPagoDTO> LineasPago { get; set; } = new();
 
         [MinLength(1)]
         public List<ItemPedidoDTO> Items { get; set; } = new();

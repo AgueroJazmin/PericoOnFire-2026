@@ -71,30 +71,12 @@
         <div class="columna">
             <div class="columna-header">
                 <h6>Listos · @pedidos.Count(p => p.Estado == EnumEstadoPedido.ListoParaRetirar)</h6>
-                @if (pedidos.Any(p => p.Estado == EnumEstadoPedido.Entregado))
-                {
-                    <button class="btn-tacho" title="Archivar pedidos entregados (se conserva el historial)" @onclick="VaciarEntregados">
-                        🗑
-                    </button>
-                }
             </div>
             @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.ListoParaRetirar))
             {
                 <div class="pedido-card pedido-listo">@RenderCard(pedido)</div>
             }
-            @if (pedidos.Any(p => p.Estado == EnumEstadoPedido.Entregado))
-            {
-                <details class="entregados-tablero">
-                    <summary>Entregados · @pedidos.Count(p => p.Estado == EnumEstadoPedido.Entregado)</summary>
-                    @foreach (var pedido in pedidos.Where(p => p.Estado == EnumEstadoPedido.Entregado))
-                    {
-                        <div class="pedido-card pedido-entregado">
-                            @RenderCard(pedido)
-                            <span class="etiqueta-entregado">Entregado ✓</span>
-                        </div>
-                    }
-                </details>
-            }
+
         </div>
     </div>
 </div>
@@ -321,10 +303,11 @@
         if (respuesta.Error) throw new System.Net.Http.HttpRequestException("No se pudo actualizar la información.");
         if (!respuesta.Error && respuesta.Respuesta != null)
         {
-            // Cancelado ya no necesita seguir en el tablero: cocina/barra ya resolvió lo suyo.
-            // Entregado se mantiene visible en "Listos" hasta que se use el tacho.
+            // El tablero operativo solo muestra los pedidos que aún requieren atención.
+            // Los entregados y cancelados permanecen registrados en el historial.
             pedidos = respuesta.Respuesta
-                .Where(p => p.Estado != EnumEstadoPedido.Cancelado)
+                .Where(p => p.Estado != EnumEstadoPedido.Cancelado &&
+                            p.Estado != EnumEstadoPedido.Entregado)
                 .ToList();
 
             await InvokeAsync(StateHasChanged);
@@ -374,19 +357,6 @@
 
         pedidoACancelar = null;
         motivoCancelacion = "";
-        await CargarPedidos();
-    }
-
-    private async Task VaciarEntregados()
-    {
-        var respuesta = await http.Delete($"api/Pedido/Entregados/Sector/{Sector}");
-
-        if (respuesta.Error)
-        {
-            Mensaje = respuesta.ObtenerError();
-            return;
-        }
-
         await CargarPedidos();
     }
 

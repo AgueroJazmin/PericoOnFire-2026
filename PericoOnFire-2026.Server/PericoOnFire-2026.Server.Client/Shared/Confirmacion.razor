@@ -1,24 +1,25 @@
+@implements IDisposable
 ﻿@if (Mostrar)
 {
-    <div class="conf-backdrop" @onclick="onCancel"></div>
+    <div class="conf-backdrop" @onclick="Cancelar"></div>
     <div class="conf-modal" role="dialog" aria-modal="true">
         <div class="conf-header">
             <h5 class="conf-title">@Titulo</h5>
-            <button @onclick="onCancel" type="button" class="conf-close" aria-label="Cerrar">&times;</button>
+            <button @onclick="Cancelar" type="button" class="conf-close" aria-label="Cerrar">&times;</button>
         </div>
         <div class="conf-body">
-            @ChildContent
+            @if (respuestaPendiente != null) { <p class="m-0">@mensajePendiente</p> } else { @ChildContent }
         </div>
         <div class="conf-footer">
             @if (verCancelar)
             {
-                <button @onclick="onCancel" type="button" class="conf-btn conf-btn-secondary">
+                <button @onclick="Cancelar" type="button" class="conf-btn conf-btn-secondary">
                     @textCancelar
                 </button>
             }
             @if (verOk)
             {
-                <button @onclick="onConfirm" type="button" class="conf-btn conf-btn-primary">
+                <button @onclick="Confirmar" type="button" class="conf-btn conf-btn-primary">
                     @textOk
                 </button>
             }
@@ -125,6 +126,35 @@
 
 @code {
     private bool Mostrar = false;
+    private TaskCompletionSource<bool>? respuestaPendiente;
+    private string mensajePendiente = "";
+    public Task<bool> PreguntarAsync(string mensaje)
+    {
+        if (respuestaPendiente != null) return Task.FromResult(false);
+        mensajePendiente = mensaje;
+        respuestaPendiente = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Ver();
+        return respuestaPendiente.Task;
+    }
+    private async Task Confirmar()
+    {
+        if (respuestaPendiente != null) { Resolver(true); return; }
+        await onConfirm.InvokeAsync();
+    }
+    private async Task Cancelar()
+    {
+        if (respuestaPendiente != null) { Resolver(false); return; }
+        await onCancel.InvokeAsync();
+    }
+    private void Resolver(bool aceptada)
+    {
+        var pendiente = respuestaPendiente;
+        respuestaPendiente = null;
+        Ocultar();
+        pendiente?.TrySetResult(aceptada);
+    }
+    public void Dispose() { respuestaPendiente?.TrySetResult(false); respuestaPendiente = null; }
+
     [Parameter] public string Titulo { get; set; } = "Confirmar";
     [Parameter] public string textOk { get; set; } = "OK";
     [Parameter] public string textCancelar { get; set; } = "Cancelar";

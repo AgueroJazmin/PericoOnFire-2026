@@ -55,7 +55,12 @@ namespace PericoOnFire_2026.Repositorio.Repositorios
                                                                  hermano.Estado != EnumEstadoPedido.Cancelado))
                        .ThenInclude(hermano => hermano.DetallesPedido)
                            .ThenInclude(d => d.Producto)
+                // Una mesa retirada de la grilla puede conservar comandas históricas
+                // abiertas. No enviarlas a Cocina/Barra; no modificar ni borrar datos.
+                // Los pedidos de mesas activas y los Take Away/Delivery se mantienen.
                 .Where(p => p.EstadoRegistro == EnumEstadoRegistro.activo && p.SectorDestino == sector &&
+                            (!p.Comanda.IdMesa.HasValue ||
+                             p.Comanda.Mesa!.EstadoRegistro == EnumEstadoRegistro.activo) &&
                             (p.Comanda.HoraDeseada == null || p.Comanda.HoraDeseada <= limite))
                 .OrderBy(p => p.FechaPedido)
                 .ToListAsync();
@@ -161,7 +166,9 @@ namespace PericoOnFire_2026.Repositorio.Repositorios
                        .ThenInclude(c => c.Mesa)
                 .Include(p => p.DetallesPedido)
                        .ThenInclude(d => d.Producto)
-                .Where(p => p.IdComanda == idComanda)
+                .Where(p => p.IdComanda == idComanda &&
+                    !(p.Estado == EnumEstadoPedido.Cancelado &&
+                      p.EstadoRegistro != EnumEstadoRegistro.activo))
                 .OrderBy(p => p.FechaPedido)
                 .ToListAsync();
         }

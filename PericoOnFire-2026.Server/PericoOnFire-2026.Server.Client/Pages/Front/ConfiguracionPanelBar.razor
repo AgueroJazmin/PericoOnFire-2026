@@ -62,7 +62,10 @@
     </section>
 </section>
 
+<PericoOnFire_2026.Server.Client.Shared.Confirmacion @ref="confirmacionGeneral" Titulo="Confirmar" textOk="Sí, continuar" textCancelar="Volver" />
+
 @code {
+    private PericoOnFire_2026.Server.Client.Shared.Confirmacion? confirmacionGeneral;
     [Parameter] public EventCallback<bool> CambiosPendientes { get; set; }
     private List<CumpleanosPersonaDTO> personas = new();
     private CumpleanosPersonaDTO? editandoPersona;
@@ -155,7 +158,7 @@
     }
     private async Task QuitarFoto(FotoPanelDTO foto)
     {
-        if(!await JS.InvokeAsync<bool>("confirm", "¿Quitar esta foto del panel?")) return;
+        if(!await confirmacionGeneral!.PreguntarAsync("¿Quitar esta foto del panel?")) return;
         try {
             var r = await http.Delete($"api/ConfiguracionSalon/Fotos/{foto.Id}");
             if(r.Error) { Avisar(r.ObtenerError(), true); return; }

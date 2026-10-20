@@ -103,6 +103,10 @@ namespace PericoOnFire_2026.Server.Controllers
             if (comanda == null)
                 return NotFound();
 
+            if (comanda.Estado == EnumEstadoComanda.Pagada ||
+                await context.Pagos.AnyAsync(p => p.IdComanda == comanda.Id))
+                return Conflict("Esta comanda ya tiene un cobro registrado. Actualizá Caja para ver su estado.");
+
             if (comanda.Estado != EnumEstadoComanda.PendienteCobro)
                 return Conflict("Esta comanda no está pendiente de cobro.");
 
@@ -158,6 +162,11 @@ namespace PericoOnFire_2026.Server.Controllers
             });
         
             });
+            }
+            catch (Exception ex) when (OperacionAtomica.EsConflictoConcurrente(ex))
+            {
+                logger.LogWarning(ex, "Conflicto concurrente al cobrar comanda {IdComanda} tras los reintentos", dto.IdComanda);
+                return Conflict("Otra operación está modificando esta cuenta. Actualizá Caja y verificá su estado antes de volver a cobrar.");
             }
             catch (DbUpdateException ex)
             {

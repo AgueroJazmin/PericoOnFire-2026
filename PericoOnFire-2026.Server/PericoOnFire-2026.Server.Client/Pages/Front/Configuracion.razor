@@ -637,6 +637,17 @@
     @if (tabActiva == "mesas")
     {
         <div class="mesas-config">
+            @if (mesas.GroupBy(m => new { m.IdSala, m.NumeroMesa }).Any(g => g.Count() > 1))
+            {
+                <div class="alert alert-warning">
+                    <strong>Hay mesas duplicadas que la grilla puede ocultar.</strong>
+                    @foreach (var grupo in mesas.GroupBy(m => new { m.IdSala, m.NumeroMesa }).Where(g => g.Count() > 1))
+                    {
+                        <div>Mesa @grupo.Key.NumeroMesa · @grupo.First().NombreSala · Identificadores: @string.Join(", ", grupo.Select(m => m.Id))</div>
+                    }
+                    <button class="btn btn-primary mt-2" disabled="@(corrigiendoDuplicadas || editandoDistribucion)" @onclick="CorregirDuplicadas">@(corrigiendoDuplicadas ? "Corrigiendo…" : "Corregir duplicadas")</button>
+                </div>
+            }
             <div class="section-header">
                 <h3>Salas y mesas</h3>
                 @if (!editandoDistribucion)
@@ -1326,9 +1337,49 @@
         }
     }
 
+
+    .config-body { grid-template-columns:230px minmax(0,1fr); }
+    .config-content, .mesas-config { min-width:0; padding:1.2rem; }
+    .usuarios-layout { grid-template-columns:minmax(0,3fr) minmax(0,2fr); }
+    .usuarios-layout > *, .form-line > *, .productos-form > * { min-width:0; }
+    .editor-salon { grid-template-columns:minmax(0,1fr) 260px; }
+    .tabla-scroll { max-width:100%; overflow-x:auto; }
+    .config-tabs { height:auto; flex-wrap:wrap; }
+    .tab-btn { min-height:42px; }
+    .section-header { gap:.75rem; flex-wrap:wrap; }
+    @@media(min-width:901px) and (max-width:1400px) {
+        .productos-form { grid-template-columns:minmax(0,2fr) 110px minmax(150px,1fr); }
+        .subcategorias-form { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+    }
+    @@media(max-width:1000px) { .usuarios-layout { grid-template-columns:minmax(0,1fr); } }
+    @@media(max-width:900px) {
+        .config-body, .editor-salon { grid-template-columns:minmax(0,1fr); }
+        .config-content, .mesas-config { padding:1rem; }
+    }
+
 </style>
 
+<PericoOnFire_2026.Server.Client.Shared.Confirmacion @ref="confirmacionGeneral" Titulo="Confirmar" textOk="Sí, continuar" textCancelar="Volver" />
+
 @code {
+
+    private bool corrigiendoDuplicadas;
+    private async Task CorregirDuplicadas()
+    {
+        if (corrigiendoDuplicadas || editandoDistribucion) return;
+        if (!await confirmacionGeneral!.PreguntarAsync("Se conservará la mesa con cuenta abierta y se retirará la duplicada sin borrar comandas ni pagos. ¿Continuar?")) return;
+        corrigiendoDuplicadas = true;
+        try
+        {
+            var r = await http.Post("api/Mesa/ResolverDuplicadas", new { });
+            MensajeMesas = r.Error ? r.ObtenerError() : "Duplicadas retiradas de la grilla; el historial se conserva.";
+            await CargarMesas();
+            mesaSeleccionadaConfig = null;
+        }
+        catch (System.Net.Http.HttpRequestException) { MensajeMesas = "No se pudo confirmar la reparación. Actualizá las mesas antes de reintentar."; }
+        finally { corrigiendoDuplicadas = false; }
+    }
+    private PericoOnFire_2026.Server.Client.Shared.Confirmacion? confirmacionGeneral;
     [SupplyParameterFromQuery(Name = "tab")] public string? TabSolicitada { get; set; }
     protected override void OnParametersSet() { if (TabSolicitada == "panel" && !HayCambiosPendientes) tabActiva = "panel"; }
 
@@ -1338,7 +1389,7 @@
         editandoCategoriaId != null || editandoSubcategoriaId != null || editandoProductoId != null || usuarioEditandoId != null;
     private async Task AntesDeNavegar(Microsoft.AspNetCore.Components.Routing.LocationChangingContext args)
     {
-        if (HayCambiosPendientes && !await JS.InvokeAsync<bool>("confirm", "Hay cambios sin guardar. ¿Querés salir y descartarlos?"))
+        if (HayCambiosPendientes && !await confirmacionGeneral!.PreguntarAsync("Hay cambios sin guardar. ¿Querés salir y descartarlos?"))
             args.PreventNavigation();
     }
 
@@ -1611,7 +1662,7 @@
 
     private async Task EliminarCategoria(int id)
     {
-        if (!await JS.InvokeAsync<bool>("confirm", "¿Confirmás que querés eliminar este elemento?")) return;
+        if (!await confirmacionGeneral!.PreguntarAsync("¿Confirmás que querés eliminar este elemento?")) return;
         var resp = await http.Delete($"api/Categoria/{id}");
 
         if (!resp.Error)
@@ -1656,7 +1707,7 @@
 
     private async Task EliminarSubcategoria(int id)
     {
-        if (!await JS.InvokeAsync<bool>("confirm", "¿Confirmás que querés eliminar este elemento?")) return;
+        if (!await confirmacionGeneral!.PreguntarAsync("¿Confirmás que querés eliminar este elemento?")) return;
         var resp = await http.Delete($"api/Subcategoria/{id}");
 
         if (!resp.Error)
@@ -1704,7 +1755,7 @@
 
     private async Task EliminarProducto(int id)
     {
-        if (!await JS.InvokeAsync<bool>("confirm", "¿Confirmás que querés eliminar este elemento?")) return;
+        if (!await confirmacionGeneral!.PreguntarAsync("¿Confirmás que querés eliminar este elemento?")) return;
         var resp = await http.Delete($"api/Producto/{id}");
 
         if (!resp.Error)
@@ -1735,7 +1786,7 @@
 
     private async Task MostrarCategorias()
     {
-        if (HayCambiosPendientes && !await JS.InvokeAsync<bool>("confirm", "Hay cambios sin guardar. ¿Querés descartarlos?")) return;
+        if (HayCambiosPendientes && !await confirmacionGeneral!.PreguntarAsync("Hay cambios sin guardar. ¿Querés descartarlos?")) return;
         seccionActiva = "categorias";
         Mensaje = "";
         CancelarEdicion();
@@ -1744,7 +1795,7 @@
 
     private async Task MostrarSubcategorias()
     {
-        if (HayCambiosPendientes && !await JS.InvokeAsync<bool>("confirm", "Hay cambios sin guardar. ¿Querés descartarlos?")) return;
+        if (HayCambiosPendientes && !await confirmacionGeneral!.PreguntarAsync("Hay cambios sin guardar. ¿Querés descartarlos?")) return;
         seccionActiva = "subcategorias";
         Mensaje = "";
         CancelarEdicion();
@@ -1753,7 +1804,7 @@
 
     private async Task MostrarProductos()
     {
-        if (HayCambiosPendientes && !await JS.InvokeAsync<bool>("confirm", "Hay cambios sin guardar. ¿Querés descartarlos?")) return;
+        if (HayCambiosPendientes && !await confirmacionGeneral!.PreguntarAsync("Hay cambios sin guardar. ¿Querés descartarlos?")) return;
         seccionActiva = "productos";
         Mensaje = "";
         CancelarEdicion();
@@ -2070,7 +2121,7 @@
 
     private async Task EliminarSala(int idSala)
     {
-        if (!await JS.InvokeAsync<bool>("confirm", "¿Confirmás que querés eliminar este elemento?")) return;
+        if (!await confirmacionGeneral!.PreguntarAsync("¿Confirmás que querés eliminar este elemento?")) return;
         var resp = await http.Delete($"api/Sala/{idSala}");
 
         if (!resp.Error)
@@ -2145,7 +2196,7 @@
 
     private async Task EliminarMesaConfig(int id)
     {
-        if (!await JS.InvokeAsync<bool>("confirm", "¿Confirmás que querés eliminar este elemento?")) return;
+        if (!await confirmacionGeneral!.PreguntarAsync("¿Confirmás que querés eliminar este elemento?")) return;
         var resp = await http.Delete($"api/Mesa/{id}");
 
         if (!resp.Error)

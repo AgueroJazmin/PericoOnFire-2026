@@ -2,6 +2,7 @@
 @using Microsoft.AspNetCore.Authorization
 @using PericoOnFire_2026.Shared.DTOs
 @using PericoOnFire_2026.Shared.ENUM
+@using PericoOnFire_2026.Shared.Utilidades
 @using PericoOnFire_2026.Servicio.ServicioHttp
 @implements IAsyncDisposable
 @inject PericoOnFire_2026.Shared.SerPolling.PollingService Polling
@@ -13,208 +14,23 @@
 @if (sinConexion) { <p class="alert alert-warning m-2" role="status">No se pudo actualizar la información. Reintentando…</p> }
 
 <div class="pedidos-pagina">
-    <div class="mb-3"><a class="btn btn-outline-light" href="/comandas-finalizadas">Comandas finalizadas</a></div>
 
     <AuthorizeView Roles="Administracion,Barra">
         <Authorized>
 
-            @* Carga de nuevo pedido: siempre visible arriba de la page, calcada del modal de
-     "Agregar productos" de Mesas.razor. En vez de "Cant. de comensales" va el tipo de pedido, los datos del cliente y el horario deseado. *@
-            <div class="panel-nuevo-pedido">
-                <section class="modal-pedido" aria-label="Cargar nuevo pedido">
-                    <header class="modal-pedido-header">
-                        <div class="modal-encabezado-contenido">
-
-                            <div class="modal-identificacion">
-                                <h4>Nuevo pedido</h4>
-                                <span>@tipoNuevoPedido</span>
-                            </div>
-
-                            <nav class="categorias categorias-superiores" aria-label="Categorías">
-                                @foreach (var categoria in CategoriasDisponibles)
-                                {
-                                    <button class="@(categoria == categoriaSeleccionada ? "activo" : "")"
-                                            @onclick="() => SeleccionarCategoria(categoria)">
-                                        <span>@IconoCategoria(categoria)</span>
-                                        @categoria
-                                    </button>
-                                }
-                            </nav>
-
-                        </div>
-
-                    </header>
-
-                    @if (!string.IsNullOrWhiteSpace(MensajeForm))
+            @* Seguimiento de pedidos primero; el formulario se despliega a pedido del usuario. *@
+            <section class="panel-seguimiento" aria-label="Pedidos en curso">
+                <div class="seguimiento-dos-columnas">
+                    @foreach (var grupo in new[] { new { Titulo = "Take Away", Cuentas = takeAways }, new { Titulo = "Delivery", Cuentas = deliveries } })
                     {
-                        <div class="alert @(MensajeFormEsExito ? "alert-success" : "alert-danger") py-2">@MensajeForm</div>
-                    }
-
-                    <fieldset class="selector-productos" disabled="@enviandoPedido">
-                        <aside class="selector-resumen">
-                            <div class="datos-cliente" role="group" aria-label="Datos del cliente">
-                            <h5>Datos del cliente</h5>
-                            <strong>Tipo de pedido</strong>
-                            <div class="selector-tipo">
-                                <button class="@(tipoNuevoPedido == EnumTipoServicio.TakeAway ? "activo" : "")"
-                                        @onclick='() => tipoNuevoPedido = EnumTipoServicio.TakeAway'>
-                                    Take Away
-                                </button>
-                                <button class="@(tipoNuevoPedido == EnumTipoServicio.Delivery ? "activo" : "")"
-                                        @onclick='() => tipoNuevoPedido = EnumTipoServicio.Delivery'>
-                                    Delivery
-                                </button>
-                            </div>
-
-                            <label class="dato-cliente">Nombre y apellido<input class="form-control form-control-sm" maxlength="100" @bind="nombreCliente" @bind:event="oninput" /></label>
-
-                            <label class="dato-cliente">Teléfono (opcional)<input class="form-control form-control-sm" maxlength="30" @bind="telefonoCliente" @bind:event="oninput" /></label>
-
-                            @if (tipoNuevoPedido == EnumTipoServicio.Delivery)
-                            {
-                                <label class="dato-cliente">Referencia de WhatsApp<input class="form-control form-control-sm" maxlength="150" placeholder="Ej.: pedido de WhatsApp de las 21:40 - Juan"
-                                       @bind="direccionCliente" @bind:event="oninput" /></label>
-                            }
-
-                            <label class="dato-cliente">
-                                @(tipoNuevoPedido == EnumTipoServicio.Delivery ? "Entrega (opcional)" : "Retiro (opcional)")
-                            <input type="time" class="form-control form-control-sm" value="@horaDeseadaTexto"
-                                   @oninput="e => horaDeseadaTexto = e.Value?.ToString() ?? string.Empty" />
-                            </label>
-                            <small class="ayuda-horario">Si lo dejás vacío, entra a cocina/barra apenas lo enviás.</small>
-
-                            </div>
-                            <div class="resumen-carrito">
-                                <strong>Pedido (@CantidadTotalItems)</strong>
-                                @if (!carrito.Any())
-                                {
-                                    <small>Todavía no agregaste productos.</small>
-                                }
-                                else
-                                {
-                                    @foreach (var item in carrito)
-                                    {
-                                        <div class="carrito-item">
-                                            <div class="carrito-item-linea">
-                                                <span>@item.Cantidad × @NombreProducto(item.IdProducto)</span>
-                                                <div class="carrito-acciones">
-                                                    <button class="btn-observacion"
-                                                            title="Agregar observación"
-                                                            aria-label="Agregar observación"
-                                                            @onclick="() => EditarObservacion(item)">
-                                                        ✎
-                                                    </button>
-                                                    <button class="btn-eliminar"
-                                                            title="Quitar producto"
-                                                            aria-label="Quitar producto"
-                                                            @onclick="() => QuitarDelCarrito(item)">
-                                                        ×
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            @if (!string.IsNullOrWhiteSpace(item.Observacion))
-                                            {
-                                                <small class="observacion-carrito">⚠ @item.Observacion</small>
-                                            }
-
-                                            @if (ReferenceEquals(itemEditandoObservacion, item))
-                                            {
-                                                <div class="editor-observacion">
-                                                    <label>Observación para cocina/barra</label>
-                                                    <input type="text"
-                                                           maxlength="300"
-                                                           placeholder="Ej.: sin aceitunas"
-                                                           @bind="textoObservacion"
-                                                           @bind:event="oninput" />
-                                                    <div class="editor-observacion-acciones">
-                                                        <button class="btn-cancelar-observacion" @onclick="CancelarObservacion">Cancelar</button>
-                                                        <button class="btn-guardar-observacion" @onclick="GuardarObservacion">Guardar</button>
-                                                    </div>
-                                                </div>
-                                            }
-                                        </div>
-                                    }
-                                }
-                            </div>
-                        </aside>
-
-                        <nav class="subcategorias" aria-label="Subcategorías">
-                            @foreach (var subcategoria in SubcategoriasDisponibles)
-                            {
-                                <button class="@(subcategoria == subcategoriaSeleccionada ? "activo" : "")"
-                                        @onclick="() => subcategoriaSeleccionada = subcategoria">
-                                    @subcategoria
-                                </button>
-                            }
-                        </nav>
-
-                        <div class="productos-modal">
-                            <div class="productos-titulo">
-                                <strong>@subcategoriaSeleccionada</strong>
-                                <span>@categoriaSeleccionada</span>
-                            </div>
-
-                            @foreach (var producto in ProductosVisibles)
-                            {
-                                var cantidad = CantidadProducto(producto.Id);
-                                <article class="producto-fila">
-                                    <div>
-                                        <strong>@producto.Nombre</strong>
-                                        <small>@producto.SectorDestino</small>
-                                    </div>
-                                    <span class="producto-precio">$@producto.Precio.ToString("N2")</span>
-                                    <div class="control-cantidad">
-                                        <button @onclick="() => DisminuirProducto(producto.Id)" disabled="@(cantidad == 0)">−</button>
-                                        <span>@cantidad</span>
-                                        <button @onclick="() => AumentarProducto(producto.Id)">+</button>
-                                    </div>
-                                </article>
-                            }
-
-                            @if (!ProductosVisibles.Any())
-                            {
-                                <p class="texto-vacio p-3">No hay productos activos en esta subcategoría.</p>
-                            }
-                        </div>
-                    </fieldset>
-
-                    <footer class="modal-pedido-footer">
-                        <div>
-                            <span>Total</span>
-                            <strong>$@TotalCarrito.ToString("N2")</strong>
-                        </div>
-                        <button class="btn btn-outline-secondary" @onclick="ReiniciarFormularioPedido" disabled="@enviandoPedido">Vaciar</button>
-                        <button class="btn btn-success" @onclick="EnviarPedido" disabled="@(!PedidoListoParaEnviar || enviandoPedido)">
-                            @(enviandoPedido ? "Enviando..." : "Enviar a cocina/barra")
-                        </button>
-                    </footer>
-                </section>
-            </div>
-
-            <section class="panel-seguimiento">
-                <div class="tabs-seguimiento">
-                    <button class="@(tabSeguimiento == EnumTipoServicio.TakeAway ? "activo" : "")"
-                            @onclick='() => tabSeguimiento = EnumTipoServicio.TakeAway'>
-                        Take Away
-                    </button>
-                    <button class="@(tabSeguimiento == EnumTipoServicio.Delivery ? "activo" : "")"
-                            @onclick='() => tabSeguimiento = EnumTipoServicio.Delivery'>
-                        Delivery
-                    </button>
-                </div>
-
-                @{
-                    var listaActual = tabSeguimiento == EnumTipoServicio.TakeAway ? takeAways : deliveries;
-                }
-
-                @if (!listaActual.Any())
-                {
-                    <p class="texto-vacio">No hay pedidos de @tabSeguimiento en curso.</p>
-                }
-
-                <div class="grilla-cuentas">
-                    @foreach (var cuenta in listaActual)
+                    <section class="seguimiento-columna" aria-label="@grupo.Titulo">
+                        <h3 class="seguimiento-columna-titulo">@grupo.Titulo <span>@grupo.Cuentas.Count</span></h3>
+                        @if (!grupo.Cuentas.Any())
+                        {
+                            <p class="texto-vacio">No hay pedidos en curso.</p>
+                        }
+                        <div class="grilla-cuentas">
+                    @foreach (var cuenta in grupo.Cuentas)
                     {
                         <div class="cuenta-card">
                             @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway)
@@ -328,8 +144,285 @@
                             }
                         </div>
                     }
+                        </div>
+                    </section>
+                    }
                 </div>
             </section>
+
+            <div class="pedido-formulario-cabecera">
+                <button type="button" class="btn btn-danger pedido-formulario-toggle"
+                        aria-haspopup="dialog"
+                        @onclick="() => mostrarFormularioNuevoPedido = true">
+                    ＋ Cargar nuevo pedido
+                </button>
+                @if (!mostrarFormularioNuevoPedido && !string.IsNullOrWhiteSpace(MensajeForm))
+                {
+                    <span class="alert @(MensajeFormEsExito ? "alert-success" : "alert-warning") mb-0 py-2" role="status">@MensajeForm</span>
+                }
+            </div>
+            @if (mostrarFormularioNuevoPedido)
+            {
+                <div class="pedido-modal-fondo">
+                    <div class="pedido-modal-ventana" role="dialog" aria-modal="true" aria-label="Cargar nuevo pedido">
+                        <div class="pedido-modal-barra">
+                            <strong>Cargar nuevo pedido</strong>
+                            <button type="button" class="pedido-modal-cerrar" aria-label="Cerrar ventana de nuevo pedido"
+                                    disabled="@enviandoPedido" @onclick="() => mostrarFormularioNuevoPedido = false">×</button>
+                        </div>
+                        <div class="panel-nuevo-pedido">
+                <section class="modal-pedido" aria-label="Formulario de nuevo pedido">
+                    <header class="modal-pedido-header">
+                        <div class="modal-encabezado-contenido">
+
+                            <div class="modal-identificacion">
+                                <h4>Nuevo pedido</h4>
+                                <span>@tipoNuevoPedido</span>
+                            </div>
+
+                            <nav class="categorias categorias-superiores" aria-label="Categorías">
+                                @foreach (var categoria in CategoriasDisponibles)
+                                {
+                                    <button class="@(categoria == categoriaSeleccionada ? "activo" : "")"
+                                            @onclick="() => SeleccionarCategoria(categoria)">
+                                        <span>@IconoCategoria(categoria)</span>
+                                        @categoria
+                                    </button>
+                                }
+                            </nav>
+
+                        </div>
+
+                    </header>
+
+                    @if (!string.IsNullOrWhiteSpace(MensajeForm))
+                    {
+                        <div class="alert @(MensajeFormEsExito ? "alert-success" : "alert-danger") py-2">@MensajeForm</div>
+                    }
+
+                    <fieldset class="datos-cliente datos-cliente-superior" disabled="@enviandoPedido" aria-label="Datos del cliente">
+                        <div class="cliente-linea">
+                            <strong>Cliente</strong>
+                            <div class="buscador-cliente-contenedor">
+                                <input class="form-control form-control-sm" type="search" autocomplete="off"
+                                       placeholder="Buscar nombre, teléfono o referencia de WhatsApp..."
+                                       value="@busquedaCliente" @oninput="BuscarClienteExistente" />
+                                @if (resultadosCliente.Any())
+                                {
+                                    <div class="clientes-coincidencias" role="listbox" aria-label="Clientes encontrados">
+                                        @foreach (var clienteEncontrado in resultadosCliente)
+                                        {
+                                            <button type="button" class="cliente-coincidencia" @onclick="() => SeleccionarClienteExistente(clienteEncontrado)">
+                                                <strong>@clienteEncontrado.Nombre</strong>
+                                                <span>@(string.IsNullOrWhiteSpace(clienteEncontrado.Telefono) ? clienteEncontrado.Direccion : clienteEncontrado.Telefono)</span>
+                                            </button>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                            <div class="selector-tipo">
+                                <button type="button" class="@(tipoNuevoPedido == EnumTipoServicio.TakeAway ? "activo" : "")"
+                                        @onclick='() => tipoNuevoPedido = EnumTipoServicio.TakeAway'>Take Away</button>
+                                <button type="button" class="@(tipoNuevoPedido == EnumTipoServicio.Delivery ? "activo" : "")"
+                                        @onclick='() => tipoNuevoPedido = EnumTipoServicio.Delivery'>Delivery</button>
+                            </div>
+                        </div>
+                        <div class="cliente-campos">
+                            <label class="dato-cliente">Nombre y apellido @(tipoNuevoPedido == EnumTipoServicio.Delivery ? "(opcional si tenés referencia)" : "")
+                                <input class="form-control form-control-sm" maxlength="100"
+                                       @bind="nombreCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
+                            </label>
+                            <label class="dato-cliente">Teléfono
+                                <input class="form-control form-control-sm" maxlength="30"
+                                       @bind="telefonoCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
+                            </label>
+                            @if (tipoNuevoPedido == EnumTipoServicio.Delivery)
+                            {
+                                <label class="dato-cliente">Referencia de WhatsApp
+                                    <input class="form-control form-control-sm" maxlength="150" required
+                                           placeholder="Contacto o referencia de WhatsApp"
+                                           @bind="direccionCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
+                                </label>
+                            }
+                            <label class="dato-cliente">@(tipoNuevoPedido == EnumTipoServicio.Delivery ? "Entrega" : "Retiro") (opcional)
+                                <input type="time" class="form-control form-control-sm" value="@horaDeseadaTexto"
+                                       @oninput="e => horaDeseadaTexto = e.Value?.ToString() ?? string.Empty" />
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <fieldset class="selector-productos" disabled="@enviandoPedido">
+                        <aside class="selector-resumen">
+                            <div class="resumen-carrito">
+                                <strong>Pedido (@CantidadTotalItems)</strong>
+                                @if (!carrito.Any())
+                                {
+                                    <small>Todavía no agregaste productos.</small>
+                                }
+                                else
+                                {
+                                    @foreach (var item in carrito)
+                                    {
+                                        <div class="carrito-item">
+                                            <div class="carrito-item-linea">
+                                                <span>@item.Cantidad × @NombreProducto(item.IdProducto)</span>
+                                                <div class="carrito-acciones">
+                                                    <button class="btn-observacion"
+                                                            title="Agregar observación"
+                                                            aria-label="Agregar observación"
+                                                            @onclick="() => EditarObservacion(item)">
+                                                        ✎
+                                                    </button>
+                                                    <button class="btn-eliminar"
+                                                            title="Quitar producto"
+                                                            aria-label="Quitar producto"
+                                                            @onclick="() => QuitarDelCarrito(item)">
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            @if (!string.IsNullOrWhiteSpace(item.Observacion))
+                                            {
+                                                <small class="observacion-carrito">⚠ @item.Observacion</small>
+                                            }
+
+                                            @if (ReferenceEquals(itemEditandoObservacion, item))
+                                            {
+                                                <div class="editor-observacion">
+                                                    <label>Observación para cocina/barra</label>
+                                                    <input type="text"
+                                                           maxlength="300"
+                                                           placeholder="Ej.: sin aceitunas"
+                                                           @bind="textoObservacion"
+                                                           @bind:event="oninput" />
+                                                    <div class="editor-observacion-acciones">
+                                                        <button class="btn-cancelar-observacion" @onclick="CancelarObservacion">Cancelar</button>
+                                                        <button class="btn-guardar-observacion" @onclick="GuardarObservacion">Guardar</button>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        </aside>
+
+                        <nav class="subcategorias" aria-label="Subcategorías">
+                            @foreach (var subcategoria in SubcategoriasDisponibles)
+                            {
+                                <button class="@(subcategoria == subcategoriaSeleccionada ? "activo" : "")"
+                                        @onclick="() => { busquedaProducto = string.Empty; subcategoriaSeleccionada = subcategoria; }">
+                                    @subcategoria
+                                </button>
+                            }
+                        </nav>
+
+                        <div class="productos-modal">
+                    <div class="productos-buscador">
+                        <input type="search" class="form-control" aria-label="Buscar productos en todo el menú" placeholder="Buscar en todo el menú…" @bind="busquedaProducto" @bind:event="oninput" />
+                    </div>
+                            <div class="productos-titulo">
+                                <strong>@(string.IsNullOrWhiteSpace(busquedaProducto) ? subcategoriaSeleccionada : "Resultados")</strong>
+                                <span>@(string.IsNullOrWhiteSpace(busquedaProducto) ? categoriaSeleccionada : "Todo el menú")</span>
+                            </div>
+
+                            @foreach (var producto in ProductosVisibles)
+                            {
+                                var cantidad = CantidadProducto(producto.Id);
+                                <article class="producto-fila">
+                                    <div>
+                                        <strong>@producto.Nombre</strong>
+                                        <small>@(string.IsNullOrWhiteSpace(busquedaProducto) ? producto.SectorDestino.ToString() : producto.NombreSubcategoria)</small>
+                                    </div>
+                                    <span class="producto-precio">$@producto.Precio.ToString("N2")</span>
+                                    <div class="control-cantidad">
+                                        <button @onclick="() => DisminuirProducto(producto.Id)" disabled="@(cantidad == 0)">−</button>
+                                        <span>@cantidad</span>
+                                        <button @onclick="() => AumentarProducto(producto.Id)">+</button>
+                                    </div>
+                                </article>
+                            }
+
+                            @if (!ProductosVisibles.Any())
+                            {
+                                <p class="texto-vacio p-3">@(string.IsNullOrWhiteSpace(busquedaProducto) ? "No hay productos activos en esta subcategoría." : "No encontramos productos con ese nombre.")</p>
+                            }
+                        </div>
+                    </fieldset>
+
+                    <div class="pago-inmediato">
+                        <label class="pago-inmediato-opcion">
+                            <input type="checkbox" @bind="cobrarAhora" disabled="@enviandoPedido" />
+                            <strong>El cliente paga ahora</strong>
+                        </label>
+                        @if (cobrarAhora)
+                        {
+                            <label class="pago-inmediato-metodo">
+                                Medio de pago
+                                <select class="form-select form-select-sm" @bind="tipoPagoInmediato" disabled="@enviandoPedido">
+                                    @foreach (var tipo in TiposPagoCaja.Habilitados)
+                                    {
+                                        <option value="@tipo">@TiposPagoCaja.Nombre(tipo)</option>
+                                    }
+                                </select>
+                            </label>
+                            <div class="pago-inmediato-total">Total a cobrar: <strong>$@TotalCarrito.ToString("N2")</strong></div>
+                            @if (tipoPagoInmediato == EnumTipoPago.Efectivo)
+                            {
+                                <label class="pago-inmediato-metodo">
+                                    ¿Te entregaron más efectivo? (opcional, solo para calcular el vuelto)
+                                    <input type="text" inputmode="decimal" class="form-control form-control-sm"
+                                           placeholder="Ej.: 15000 o 15.000"
+                                           @bind="efectivoEntregadoTexto" @bind:event="oninput"
+                                           disabled="@enviandoPedido" />
+                                </label>
+                                @if (!string.IsNullOrWhiteSpace(efectivoEntregadoTexto))
+                                {
+                                    @if (TryLeerImporte(efectivoEntregadoTexto, out var efectivoIngresado))
+                                    {
+                                        @if (efectivoIngresado >= TotalCarrito)
+                                        {
+                                            <small>Vuelto: $@((efectivoIngresado - TotalCarrito).ToString("N2"))</small>
+                                        }
+                                        else
+                                        {
+                                            <small class="text-danger">El efectivo recibido no alcanza para cubrir el pedido.</small>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <small class="text-danger">Ingresá un importe válido, por ejemplo 15000 o 15.000.</small>
+                                    }
+                                }
+                            }
+                            <small>El cobro se registra en el turno de Caja abierto al confirmar el pedido.</small>
+                        }
+                        else
+                        {
+                            <small>El pedido se envía sin cobrar. Podés registrarlo en Caja después.</small>
+                        }
+                    </div>
+                    <footer class="modal-pedido-footer">
+                        @if (!PedidoListoParaEnviar && !enviandoPedido)
+                        {
+                            <p class="pedido-datos-faltantes" role="status">@DatosFaltantesPedido</p>
+                        }
+                        <div>
+                            <span>Total</span>
+                            <strong>$@TotalCarrito.ToString("N2")</strong>
+                        </div>
+                        <button class="btn btn-outline-secondary" @onclick="ReiniciarFormularioPedido" disabled="@enviandoPedido">Vaciar</button>
+                        <button class="btn btn-success" @onclick="EnviarPedido" disabled="@(!PedidoListoParaEnviar || enviandoPedido)">
+                            @(enviandoPedido ? "Guardando..." : cobrarAhora ? "Cobrar y enviar a cocina/barra" : "Enviar a cocina/barra")
+                        </button>
+                    </footer>
+                </section>
+                        </div>
+                    </div>
+                </div>
+            }
+
         </Authorized>
     </AuthorizeView>
 
@@ -1266,6 +1359,179 @@
         .modal-pedido-footer { position: sticky; bottom: 0; z-index: 5; }
     }
 
+
+    .pedidos-pagina, .panel-nuevo-pedido { min-width:0; }
+    .selector-productos > *, .selector-resumen > * { min-width:0; }
+    .modal-pedido-footer { flex-wrap:wrap; }
+    .producto-fila { grid-template-columns:minmax(0,1fr) auto; }
+    .producto-fila .control-cantidad { grid-column:1/-1; justify-self:end; }
+    @@media(min-width:1101px) {
+        .selector-productos { grid-template-columns:180px minmax(240px,.85fr) minmax(460px,1.15fr); }
+        .selector-resumen { padding:.65rem; gap:.65rem; grid-template-columns:minmax(180px,.85fr) minmax(0,1.15fr); }
+        .modal-pedido { height:min(720px,calc(100dvh - 7rem)); min-height:0; }
+        .modal-pedido-header, .modal-pedido-footer { padding:.6rem .8rem; }
+        .categorias-superiores button { min-width:105px; padding:.45rem .65rem; }
+    }
+
+
+    /* Nombre, precio y cantidad comparten la misma fila. */
+    .productos-buscador { position:sticky; top:0; z-index:3; padding:.5rem; background:white; }
+    .productos-buscador input { min-width:0; min-height:36px; font-size:.9rem; }
+    .productos-titulo { position:static; padding:.55rem .7rem; }
+    .producto-fila { grid-template-columns:minmax(0,1fr) auto auto; padding:.5rem .65rem; gap:.45rem; align-items:center; }
+    .producto-fila > div:first-child { min-width:0; font-size:.9rem; line-height:1.25; }
+    .producto-fila .control-cantidad { grid-column:auto; justify-self:end; gap:.3rem; }
+    .producto-fila .control-cantidad button { width:28px; height:28px; flex:0 0 28px; font-size:.9rem; }
+    .producto-fila .control-cantidad span { min-width:18px; font-size:.85rem; }
+    .producto-precio { font-size:.85rem; }
+    @@media(max-width:780px) {
+        .producto-fila .control-cantidad button { width:36px; height:36px; flex-basis:36px; }
+    }
+
+    .pedido-datos-faltantes { flex:0 0 100%; margin:0; padding:.4rem .6rem; background:#fff5d9; color:#6e4b00; border-radius:5px; font-size:.85rem; }
+    /* Seguimiento primero: números y órdenes visibles sin abrir la carga. */
+    /* Las dos modalidades se ven al mismo tiempo sin resumen ni pestañas. */
+    .seguimiento-dos-columnas { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1rem; }
+    .seguimiento-columna { min-width:0; padding:.85rem; background:#f7f7f7; border:1px solid #dedede; border-radius:8px; }
+    .seguimiento-columna-titulo { display:flex; justify-content:space-between; align-items:center; gap:.6rem; margin:0 0 .85rem; font-size:1.1rem; font-weight:800; padding-bottom:.65rem; border-bottom:2px solid #df222e; }
+    .seguimiento-columna-titulo span { display:inline-flex; align-items:center; justify-content:center; background:#232323; color:white; border-radius:999px; min-width:32px; padding:.2rem .55rem; font-size:.85rem; }
+    .seguimiento-columna .grilla-cuentas { grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr)); }
+    @@media(max-width:780px) { .seguimiento-dos-columnas { grid-template-columns:minmax(0,1fr); } }
+    .pedido-formulario-cabecera { display:flex; align-items:center; flex-wrap:wrap; gap:.8rem; margin:1.15rem 0 .7rem; }
+    .pedido-formulario-toggle { min-height:44px; font-weight:700; }
+    .panel-seguimiento { margin-bottom:1rem; }
+
+    .pago-inmediato { display:flex; flex-wrap:wrap; align-items:center; gap:.7rem; padding:.6rem 1rem; border-top:1px solid #ddd; background:#fff9eb; color:#222; flex-shrink:0; }
+    .pago-inmediato-opcion { display:flex; align-items:center; gap:.5rem; margin:0; }
+    .pago-inmediato-opcion input { width:18px; height:18px; }
+    .pago-inmediato-metodo { display:flex; flex-direction:column; gap:.2rem; margin:0; font-size:.84rem; min-width:180px; }
+    .pago-inmediato small { font-size:.78rem; }
+    .pago-inmediato-total { display:flex; gap:.4rem; align-items:center; white-space:nowrap; font-size:.9rem; }
+    @@media(max-width:780px) { .pago-inmediato { flex-direction:column; align-items:stretch; } }
+    /* Formulario como ventana superpuesta, sin empujar los pedidos de la página. */
+    .pedido-modal-fondo {
+        position: fixed;
+        inset: 0;
+        z-index: 1100;
+        background: rgba(0,0,0,.75);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 1rem;
+    }
+    .pedido-modal-ventana {
+        width: min(1300px, 100%);
+        max-height: calc(100dvh - 2rem);
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        background: #fff;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 18px 65px rgba(0,0,0,.6);
+    }
+    .pedido-modal-barra {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .8rem;
+        padding: .5rem 1rem;
+        background: #1d1d1d;
+        color: white;
+        flex-shrink: 0;
+    }
+    .pedido-modal-cerrar {
+        width: 42px;
+        height: 42px;
+        border: 1px solid #777;
+        background: #333;
+        color: white;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 1.7rem;
+        line-height: 1;
+    }
+    .pedido-modal-cerrar:hover { background: #ab2020; }
+    .pedido-modal-ventana .panel-nuevo-pedido { min-height: 0; flex: 1; margin: 0; }
+    .pedido-modal-ventana .modal-pedido {
+        height: min(760px, calc(100dvh - 6.5rem));
+        max-height: 100%;
+        border-radius: 0;
+        border: 0;
+        box-shadow: none;
+    }
+    @@media(max-width:780px) {
+        .pedido-modal-fondo { padding: .35rem; align-items: stretch; }
+        .pedido-modal-ventana { max-height: calc(100dvh - .7rem); }
+        .pedido-modal-ventana .panel-nuevo-pedido { overflow-y: auto; }
+        .pedido-modal-ventana .modal-pedido {
+            height: auto;
+            min-height: 0;
+            max-height: none;
+            overflow: visible;
+        }
+        .pedido-modal-ventana .modal-pedido-footer { position: sticky; bottom: 0; z-index: 4; }
+    }
+
+    /* Diseño de caja compacta: sin scroll general en escritorio.
+       Solo la lista del menú y, si excede, el detalle del carrito desplazan contenido. */
+    @@media (min-width: 901px) {
+        .pedido-modal-fondo { padding:.4rem; }
+        .pedido-modal-ventana { width:min(1390px,100%); height:calc(100dvh - .8rem); max-height:calc(100dvh - .8rem); }
+        .pedido-modal-barra { padding:.25rem .75rem; min-height:37px; }
+        .pedido-modal-cerrar { height:30px; width:30px; font-size:1.35rem; }
+        .pedido-modal-ventana .panel-nuevo-pedido { flex:1 1 auto; min-height:0; }
+        .pedido-modal-ventana .modal-pedido { height:100%; max-height:100%; min-height:0; }
+        .pedido-modal-ventana .modal-pedido-header { padding:.3rem .75rem; min-height:48px; }
+        .pedido-modal-ventana .modal-pedido-header h4 { font-size:1.12rem; }
+        .pedido-modal-ventana .categorias-superiores button { min-width:90px; padding:.27rem .5rem; }
+        .pedido-modal-ventana .modal-pedido > .alert { margin:0; padding:.3rem .65rem!important; flex-shrink:0; font-size:.82rem; }
+        .pedido-modal-ventana .datos-cliente-superior {
+            display:flex; flex-direction:column; flex:0 0 auto; gap:.28rem; min-width:0;
+            padding:.4rem .8rem; background:#f5f6f8; border:0; border-bottom:1px solid #ddd;
+            overflow:visible;
+        }
+        .pedido-modal-ventana .cliente-linea { display:flex; gap:.65rem; align-items:center; min-height:34px; }
+        .pedido-modal-ventana .cliente-linea > strong { white-space:nowrap; font-size:.87rem; }
+        .pedido-modal-ventana .buscador-cliente-contenedor { position:relative; flex:1 1 auto; min-width:120px; z-index:12; }
+        .pedido-modal-ventana .selector-tipo { margin:0; flex:0 0 auto; }
+        .pedido-modal-ventana .selector-tipo button { min-width:98px; min-height:30px; padding:.22rem .5rem; }
+        .pedido-modal-ventana .cliente-campos { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.45rem; }
+        .pedido-modal-ventana .dato-cliente { font-size:.73rem; gap:.12rem; }
+        .pedido-modal-ventana .dato-cliente input { min-height:30px; height:32px; }
+        .pedido-modal-ventana .selector-productos { display:grid; grid-template-columns:155px minmax(0,1fr) minmax(250px,.8fr); grid-template-rows:minmax(0,1fr); min-height:0; overflow:hidden; flex:1 1 auto; }
+        .pedido-modal-ventana .subcategorias { grid-column:1; grid-row:1; display:flex; flex-direction:column; overflow-y:hidden; min-width:0; border-right:1px solid #ddd; }
+        .pedido-modal-ventana .subcategorias button { flex:0 0 auto; width:100%; padding:.4rem; min-width:0; }
+        .pedido-modal-ventana .productos-modal { grid-column:2; grid-row:1; height:100%; max-height:none; min-height:0; overflow-y:auto; }
+        .pedido-modal-ventana .selector-resumen { grid-column:3; grid-row:1; display:flex; flex-direction:column; min-width:0; min-height:0; overflow:hidden; padding:.4rem; border-left:1px solid #ddd; }
+        .pedido-modal-ventana .resumen-carrito { flex:1 1 auto; min-height:0; max-height:none; height:auto; overflow-y:auto; margin:0; padding:.5rem; }
+        .pedido-modal-ventana .pago-inmediato { padding:.3rem .65rem; gap:.45rem; min-height:36px; flex-wrap:wrap; }
+        .pedido-modal-ventana .pago-inmediato-metodo { min-width:145px; max-width:260px; }
+        .pedido-modal-ventana .pago-inmediato small { font-size:.7rem; }
+        .pedido-modal-ventana .modal-pedido-footer { position:static; flex:0 0 auto; min-height:48px; padding:.35rem .65rem; gap:.35rem; }
+        .pedido-modal-ventana .pedido-datos-faltantes { padding:.2rem .45rem; font-size:.72rem; }
+        .pedido-modal-ventana .modal-pedido-footer button { padding:.36rem .65rem; }
+        .pedido-modal-ventana .producto-fila { padding:.32rem .5rem; }
+    }
+    .datos-cliente-superior { position:relative; border:0; min-width:0; }
+    .buscador-cliente-contenedor { position:relative; }
+    .clientes-coincidencias {
+        position:absolute; top:100%; left:0; right:0; z-index:30;
+        background:#fff; border:1px solid #cbd1d9; border-radius:8px;
+        box-shadow:0 8px 24px #0003; max-height:210px; overflow-y:auto;
+    }
+    .cliente-coincidencia { display:flex; justify-content:space-between; gap:.5rem; align-items:center;
+        width:100%; border:0; border-bottom:1px solid #eee; padding:.45rem .65rem; background:#fff; text-align:left; cursor:pointer; font-size:.82rem; }
+    .cliente-coincidencia:hover { background:#f1f6fc; }
+    .cliente-coincidencia span { color:#666; }
+    @@media (max-width:900px) {
+        .datos-cliente-superior { padding:.7rem; background:#f7f8fa; }
+        .cliente-linea { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; }
+        .buscador-cliente-contenedor { flex:1 1 100%; }
+        .cliente-campos { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem; margin-top:.5rem; }
+        .datos-cliente-superior .selector-tipo { margin:.1rem 0; }
+    }
+    @@media (max-width:520px) { .cliente-campos { grid-template-columns:1fr; } }
 </style>
 
 @code {
@@ -1276,9 +1542,17 @@
     private bool sinConexion;
     private void ConexionCambiada(bool error) { sinConexion = error; _ = InvokeAsync(StateHasChanged); }
 
-    //lo que pidio el cliente, Nuevo pedido siempre visible arriba, calcado del modal de Mesas.razor
+    // El formulario se abre solo al necesitar cargar un nuevo pedido.
+    private bool mostrarFormularioNuevoPedido;
+    private bool cobrarAhora;
+    private EnumTipoPago tipoPagoInmediato = EnumTipoPago.Efectivo;
+    private string efectivoEntregadoTexto = "";
     private EnumTipoServicio tipoNuevoPedido = EnumTipoServicio.TakeAway;
     private string nombreCliente = "";
+    private int? idClienteExistente;
+    private string busquedaCliente = "";
+    private List<ClienteBusquedaDTO> resultadosCliente = new();
+    private int versionBusquedaCliente;
     private string telefonoCliente = "";
     private string direccionCliente = "";
     private string horaDeseadaTexto = "";
@@ -1290,7 +1564,7 @@
     private string textoObservacion = "";
     private bool enviandoPedido;
     private string? MensajeForm;
-    private bool MensajeFormEsExito => MensajeForm != null && MensajeForm.StartsWith("Pedido ") && MensajeForm.EndsWith(" enviado.");
+    private bool MensajeFormEsExito => MensajeForm != null && MensajeForm.StartsWith("Pedido ") && (MensajeForm.EndsWith(" enviado.") || MensajeForm.EndsWith(" enviado y cobrado."));
 
     // Cuánto antes del horario deseado se lo marca en rojo para avisar que se acerca.
     private const int MinutosAvisoHoraDeseada = 15;
@@ -1300,7 +1574,6 @@
     private string horaEditando = "";
 
     // ---- Seguimiento (Administracion/Barra) ----
-    private EnumTipoServicio tabSeguimiento = EnumTipoServicio.TakeAway;
     private List<PedidoParaLlevarDTO> takeAways = new();
     private List<PedidoParaLlevarDTO> deliveries = new();
 
@@ -1337,9 +1610,13 @@
         .Distinct()
         .OrderBy(n => n);
 
+    private string busquedaProducto = "";
     private IEnumerable<ProductoListadoDTO> ProductosVisibles => productos
-        .Where(p => p.NombreCategoria == categoriaSeleccionada &&
-                    p.NombreSubcategoria == subcategoriaSeleccionada)
+        .Where(p => string.IsNullOrWhiteSpace(busquedaProducto)
+            ? p.NombreCategoria == categoriaSeleccionada && p.NombreSubcategoria == subcategoriaSeleccionada
+            : System.Globalization.CultureInfo.GetCultureInfo("es-AR").CompareInfo.IndexOf(
+                p.Nombre ?? "", busquedaProducto.Trim(),
+                System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace) >= 0)
         .OrderBy(p => p.Nombre);
 
     private int CantidadTotalItems => carrito.Sum(i => i.Cantidad);
@@ -1347,8 +1624,19 @@
     private decimal TotalCarrito => carrito.Sum(i =>
         (productos.FirstOrDefault(p => p.Id == i.IdProducto)?.Precio ?? 0) * i.Cantidad);
 
+    private string DatosFaltantesPedido
+    {
+        get
+        {
+            var faltantes = new List<string>();
+            if (string.IsNullOrWhiteSpace(nombreCliente) && tipoNuevoPedido != EnumTipoServicio.Delivery) faltantes.Add("nombre del cliente");
+            if (tipoNuevoPedido == EnumTipoServicio.Delivery && string.IsNullOrWhiteSpace(direccionCliente)) faltantes.Add("referencia de WhatsApp");
+            if (!carrito.Any()) faltantes.Add("al menos un producto");
+            return "Para enviar, completá: " + string.Join(", ", faltantes) + ".";
+        }
+    }
     private bool PedidoListoParaEnviar =>
-        !string.IsNullOrWhiteSpace(nombreCliente) &&
+        (tipoNuevoPedido == EnumTipoServicio.Delivery || !string.IsNullOrWhiteSpace(nombreCliente)) &&
         carrito.Any() &&
         (tipoNuevoPedido != EnumTipoServicio.Delivery || !string.IsNullOrWhiteSpace(direccionCliente));
 
@@ -1471,22 +1759,100 @@
     }
 
 
+    // Para un pago exacto no hace falta ingresar efectivo. Si hay vuelto, acepta
+    // formatos habituales: 13000, 13.000, 13,000 y 13000,50.
+    private static bool TryLeerImporte(string? texto, out decimal importe)
+    {
+        importe = 0;
+        if (string.IsNullOrWhiteSpace(texto)) return false;
+        var valor = texto.Trim().Replace("$", "").Replace(" ", "");
+        if (!System.Text.RegularExpressions.Regex.IsMatch(valor, @"^\d+[.,\d]*$")) return false;
+
+        var ultimoPunto = valor.LastIndexOf('.');
+        var ultimaComa = valor.LastIndexOf(',');
+        var ultimoSeparador = Math.Max(ultimoPunto, ultimaComa);
+        if (ultimoSeparador >= 0)
+        {
+            var digitosFinales = valor.Length - ultimoSeparador - 1;
+            if (digitosFinales == 0) return false;
+            // Tres dígitos al final significa separador de miles (13.000).
+            // Uno o dos significa centavos (13000,50).
+            var separadorDecimal = digitosFinales <= 2 ? ultimoSeparador : -1;
+            if (separadorDecimal >= 0)
+            {
+                valor = valor[..separadorDecimal].Replace(".", "").Replace(",", "") +
+                        "." + valor[(separadorDecimal + 1)..];
+            }
+            else
+            {
+                valor = valor.Replace(".", "").Replace(",", "");
+            }
+        }
+        return decimal.TryParse(valor, System.Globalization.NumberStyles.AllowDecimalPoint,
+            System.Globalization.CultureInfo.InvariantCulture, out importe) && importe > 0;
+    }
+
+    private void DesvincularClienteSeleccionado()
+    {
+        idClienteExistente = null;
+    }
+
+    private async Task BuscarClienteExistente(Microsoft.AspNetCore.Components.ChangeEventArgs e)
+    {
+        busquedaCliente = e.Value?.ToString() ?? "";
+        var version = ++versionBusquedaCliente;
+        resultadosCliente.Clear();
+        if (busquedaCliente.Trim().Length < 2) return;
+        try
+        {
+            var respuesta = await http.Get<List<ClienteBusquedaDTO>>(
+                "api/Cliente/Buscar?q=" + Uri.EscapeDataString(busquedaCliente.Trim()));
+            if (version == versionBusquedaCliente && !respuesta.Error)
+                resultadosCliente = respuesta.Respuesta ?? new();
+        }
+        catch (System.Net.Http.HttpRequestException)
+        {
+            if (version == versionBusquedaCliente)
+                resultadosCliente.Clear();
+        }
+    }
+
+    private void SeleccionarClienteExistente(ClienteBusquedaDTO cliente)
+    {
+        idClienteExistente = cliente.Id;
+        nombreCliente = cliente.Nombre;
+        telefonoCliente = cliente.Telefono;
+        direccionCliente = cliente.Direccion;
+        busquedaCliente = "";
+        resultadosCliente.Clear();
+        versionBusquedaCliente++;
+    }
+
     private void ReiniciarFormularioPedido()
     {
         CancelarObservacion();
         MensajeForm = null;
         tipoNuevoPedido = TipoPorAcceso;
         nombreCliente = "";
+        idClienteExistente = null;
+        busquedaCliente = "";
+        resultadosCliente.Clear();
+        versionBusquedaCliente++;
         telefonoCliente = "";
         direccionCliente = "";
         horaDeseadaTexto = "";
+        cobrarAhora = false;
+        tipoPagoInmediato = EnumTipoPago.Efectivo;
+        efectivoEntregadoTexto = "";
         carrito = new();
+        busquedaProducto = "";
         categoriaSeleccionada = CategoriasDisponibles.FirstOrDefault() ?? "";
         subcategoriaSeleccionada = SubcategoriasDisponibles.FirstOrDefault() ?? "";
     }
 
     private void SeleccionarCategoria(string categoria)
     {
+        busquedaProducto = "";
         categoriaSeleccionada = categoria;
         subcategoriaSeleccionada = SubcategoriasDisponibles.FirstOrDefault() ?? "";
     }
@@ -1608,6 +1974,14 @@
 
         if (!PedidoListoParaEnviar || enviandoPedido) return;
 
+        if (cobrarAhora && tipoPagoInmediato == EnumTipoPago.Efectivo &&
+            !string.IsNullOrWhiteSpace(efectivoEntregadoTexto) &&
+            (!TryLeerImporte(efectivoEntregadoTexto, out var recibido) || recibido < TotalCarrito))
+        {
+            MensajeForm = "Revisá el importe de efectivo recibido: debe ser válido y cubrir el total del pedido.";
+            return;
+        }
+
         enviandoPedido = true;
         try
         {
@@ -1615,10 +1989,26 @@
         {
             IdUsuario = idUsuarioActual.Value,
             TipoServicio = tipoNuevoPedido,
-            NombreCliente = nombreCliente.Trim(),
+            NombreCliente = string.IsNullOrWhiteSpace(nombreCliente) && tipoNuevoPedido == EnumTipoServicio.Delivery
+                ? ("Referencia: " + direccionCliente.Trim())[..Math.Min(("Referencia: " + direccionCliente.Trim()).Length, 100)]
+                : nombreCliente.Trim(),
+            IdClienteExistente = idClienteExistente,
             Telefono = string.IsNullOrWhiteSpace(telefonoCliente) ? null : telefonoCliente.Trim(),
             Direccion = tipoNuevoPedido == EnumTipoServicio.Delivery ? direccionCliente.Trim() : null,
             HoraDeseada = ConvertirHoraDeseada(horaDeseadaTexto),
+            CobrarAhora = cobrarAhora,
+            LineasPago = cobrarAhora
+                ? new List<LineaPagoDTO>
+                  {
+                      new LineaPagoDTO
+                      {
+                          TipoPago = tipoPagoInmediato,
+                          Monto = tipoPagoInmediato == EnumTipoPago.Efectivo &&
+                                  TryLeerImporte(efectivoEntregadoTexto, out var importeRecibido)
+                              ? importeRecibido : TotalCarrito
+                      }
+                  }
+                : new List<LineaPagoDTO>(),
             Items = carrito
         };
 
@@ -1632,8 +2022,10 @@
         }
 
         var numeroGenerado = respuesta.Respuesta!.NumeroComanda;
+        var fueCobrado = cobrarAhora;
         ReiniciarFormularioPedido();
-        MensajeForm = $"Pedido {numeroGenerado} enviado.";
+        MensajeForm = fueCobrado ? $"Pedido {numeroGenerado} enviado y cobrado." : $"Pedido {numeroGenerado} enviado.";
+        mostrarFormularioNuevoPedido = false;
         await CargarSeguimiento();
         }
         catch (System.Net.Http.HttpRequestException) { MensajeForm = "No se pudo confirmar el envío. Revisá el seguimiento antes de volver a enviar."; }
@@ -1644,12 +2036,30 @@
 
     private async Task MarcarRetiradoTakeAway(PedidoParaLlevarDTO cuenta)
     {
-        foreach (var pedido in cuenta.Pedidos)
+        // No repetir transiciones de pedidos ya entregados o cancelados.
+        foreach (var pedido in cuenta.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Entregado &&
+                                                        p.Estado != EnumEstadoPedido.Cancelado))
         {
             var dto = new CambiarEstadoPedidoDTO { Estado = EnumEstadoPedido.Entregado };
-            await http.Put($"api/Pedido/{pedido.IdPedido}/Estado", dto);
+            try
+            {
+                var respuesta = await http.Put($"api/Pedido/{pedido.IdPedido}/Estado", dto);
+                if (respuesta.Error)
+                {
+                    MensajeForm = $"No se pudo registrar el retiro de la comanda {cuenta.NumeroComanda}: {respuesta.ObtenerError()}";
+                    await CargarSeguimiento();
+                    return;
+                }
+            }
+            catch (System.Net.Http.HttpRequestException)
+            {
+                MensajeForm = $"No se pudo verificar el retiro de la comanda {cuenta.NumeroComanda}. Actualizá los pedidos antes de reintentar.";
+                await CargarSeguimiento();
+                return;
+            }
         }
 
+        MensajeForm = null;
         await CargarSeguimiento();
     }
 

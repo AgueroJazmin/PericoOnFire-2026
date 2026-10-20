@@ -79,12 +79,17 @@
     }
 </main>
 
-@if (mesaSeleccionada != null)
+@if (mesaSeleccionada != null && !mostrarModalPedido)
 {
-    <aside class="panel-mesa">
+    <div class="mesa-libre-fondo" @onclick="CerrarPanel"></div>
+    <aside class="panel-mesa panel-mesa-centrado" role="dialog" aria-modal="true" aria-label="@($"Mesa {mesaSeleccionada.NumeroMesa}")">
         <div class="panel-header">
-            <h5>Mesa @mesaSeleccionada.NumeroMesa</h5>
-            <button class="btn-cerrar" @onclick="CerrarPanel">&times;</button>
+            <div class="panel-mesa-identidad">
+                <span class="panel-mesa-etiqueta">PERICO ON FIRE · COMANDAS</span>
+                <h5>Mesa @mesaSeleccionada.NumeroMesa</h5>
+                <span class="panel-mesa-subtitulo">@(mesaSeleccionada.Estado == EnumEstadoMesa.Libre ? "Mesa disponible" : comandaActual?.NumeroComanda ?? "Detalle de la mesa")</span>
+            </div>
+            <button class="btn-cerrar panel-mesa-cerrar" aria-label="Cerrar detalle" @onclick="CerrarPanel">&times;</button>
         </div>
 
         @if (!string.IsNullOrWhiteSpace(Mensaje))
@@ -96,26 +101,32 @@
         {
             <p>Cargando...</p>
         }
+        else if (mesaSeleccionada.Estado == EnumEstadoMesa.Libre)
+        {
+            <div class="panel-body panel-body-libre">
+                <div class="panel-mesa-disponible">✓ Esta mesa está disponible para un nuevo pedido.</div>
+                <div class="panel-mesa-acciones">
+                    <button class="btn btn-outline-secondary" @onclick="CerrarPanel">Cancelar</button>
+                    <button class="btn btn-primary" @onclick="AbrirModalNuevaComanda">Abrir mesa</button>
+                </div>
+            </div>
+        }
         else if (comandaActual == null)
         {
-            <div class="panel-body">
-                <p>La mesa está libre.</p>
-                <button class="btn btn-primary" @onclick="AbrirModalNuevaComanda">
-                    Abrir mesa
-                </button>
-            </div>
+            <p role="status">No se pudo cargar la comanda de esta mesa. Cerrá el panel y volvé a seleccionarla.</p>
         }
         else
         {
             <div class="panel-body">
 
-                <h6>Pedidos enviados</h6>
+                <h6 class="panel-mesa-seccion">Pedidos enviados</h6>
                 @if (!pedidosActuales.Any())
                 {
                     <p class="texto-vacio">Todavía no se envió nada a cocina/barra.</p>
                 }
                 else
                 {
+                    <div class="panel-mesa-sectores">
                     @foreach (var grupo in pedidosActuales.GroupBy(p => p.SectorDestino))
                     {
                         var pedidosPendientes = grupo
@@ -135,7 +146,19 @@
                             {
                                 <div class="pedido-card pedido-card-pendiente">
 
-                                    <span class="pedido-estado">Pendiente</span>
+                                    <div class="panel-pedido-encabezado">
+                                        <span class="pedido-estado">Pendiente</span>
+                                        <div class="panel-pedido-acciones">
+                                            @if (comandaActual.Estado == EnumEstadoComanda.Abierta)
+                                            {
+                                                <button class="btn btn-sm btn-outline-primary panel-btn-editar" @onclick="() => AbrirEdicionPendientes(pedidosPendientes)">Editar</button>
+                                            }
+                                            <button class="btn btn-sm btn-outline-success panel-btn-entregar" disabled
+                                                    title="Cocina o Barra debe marcar el pedido como listo antes de entregarlo.">
+                                                Entregar
+                                            </button>
+                                        </div>
+                                    </div>
 
                                     <ul>
                                         @foreach (var productoAgrupado in pedidosPendientes
@@ -159,7 +182,23 @@
                                                                                                   ? "pedido-card-cancelado"
                                                                                                   : "")">
 
-                                    <span class="pedido-estado">@pedido.Estado</span>
+                                    <div class="panel-pedido-encabezado">
+                                        <span class="pedido-estado">@pedido.Estado</span>
+                                        @if (pedido.Estado == EnumEstadoPedido.ListoParaRetirar)
+                                        {
+                                            <button class="btn btn-sm btn-success panel-btn-entregar"
+                                                    @onclick="() => MarcarEntregado(pedido)">
+                                                Entregar
+                                            </button>
+                                        }
+                                        else if (pedido.Estado == EnumEstadoPedido.EnPreparacion)
+                                        {
+                                            <button class="btn btn-sm btn-outline-success panel-btn-entregar" disabled
+                                                    title="Esperá a que Cocina marque este pedido como listo.">
+                                                Entregar
+                                            </button>
+                                        }
+                                    </div>
 
                                     <ul>
                                         @foreach (var detalle in pedido.DetallesPedido)
@@ -182,19 +221,14 @@
                                             Quitar de la comanda
                                         </button>
                                     }
-                                    else if (pedido.Estado == EnumEstadoPedido.ListoParaRetirar)
-                                    {
-                                        <button class="btn btn-sm btn-success w-100 mt-1"
-                                                @onclick="() => MarcarEntregado(pedido)">
-                                            Marcar como entregado
-                                        </button>
-                                    }
+                                    
 
                                 </div>
                             }
 
                         </div>
                     }
+                    </div>
                 }
 
                 @if (comandaActual.Estado == EnumEstadoComanda.PendienteCobro)
@@ -204,35 +238,33 @@
                 }
                 else
                 {
-                    <hr />
-
-                    <button class="btn btn-primary w-100" @onclick="AbrirModalPedidoAdicional">
+                    <div class="panel-mesa-botones">
+                    <button class="btn btn-primary" @onclick="AbrirModalPedidoAdicional">
                         Agregar productos
                     </button>
 
-                    <hr />
-
                     @if (!pedidosActuales.Any())
                     {
-                        <button class="btn btn-outline-danger w-100" @onclick="PedirCancelarMesa">
+                        <button class="btn btn-outline-danger" @onclick="PedirCancelarMesa">
                             Cancelar mesa (abierta por error)
                         </button>
                     }
                     else if (HayPedidosSinEntregar)
                     {
-                        <button class="btn btn-dark w-100" disabled title="Todavía hay pedidos sin entregar">
+                        <button class="btn btn-dark" disabled title="Todavía hay pedidos sin entregar">
                             Cerrar mesa (consumo final)
                         </button>
                         <small class="texto-vacio d-block mt-1">
-                            No se puede cerrar la mesa: todavía hay pedidos pendientes, en preparación o listos sin entregar.
+                            Para cerrar la mesa, Cocina y Barra deben marcar sus pedidos como listos y luego tenés que pulsar «Entregar» en cada uno.
                         </small>
                     }
                     else
                     {
-                        <button class="btn btn-dark w-100" @onclick="PedirCerrarMesa">
+                        <button class="btn btn-dark" @onclick="PedirCerrarMesa">
                             Cerrar mesa (consumo final)
                         </button>
                     }
+                    </div>
                 }
             </div>
         }
@@ -251,7 +283,7 @@
 @if (mostrarModalPedido && mesaSeleccionada != null)
 {
     <div class="modal-pedido-fondo" @onclick="CerrarModalPedido">
-        <section class="modal-pedido" role="dialog" aria-modal="true" aria-label="Seleccionar productos" @onclick:stopPropagation="true">
+        <section class="modal-pedido mesa-pedido-modal" role="dialog" aria-modal="true" aria-label="Seleccionar productos" @onclick:stopPropagation="true">
             <header class="modal-pedido-header">
                 <div class="modal-encabezado-contenido">
 
@@ -364,16 +396,19 @@
                     @foreach (var subcategoria in SubcategoriasDisponibles)
                     {
                         <button class="@(subcategoria == subcategoriaSeleccionada ? "activo" : "")"
-                                @onclick="() => subcategoriaSeleccionada = subcategoria">
+                                @onclick="() => { busquedaProducto = string.Empty; subcategoriaSeleccionada = subcategoria; }">
                             @subcategoria
                         </button>
                     }
                 </nav>
 
                 <div class="productos-modal">
+                    <div class="productos-buscador">
+                        <input type="search" class="form-control" aria-label="Buscar productos en todo el menú" placeholder="Buscar en todo el menú…" @bind="busquedaProducto" @bind:event="oninput" />
+                    </div>
                     <div class="productos-titulo">
-                        <strong>@subcategoriaSeleccionada</strong>
-                        <span>@categoriaSeleccionada</span>
+                        <strong>@(string.IsNullOrWhiteSpace(busquedaProducto) ? subcategoriaSeleccionada : "Resultados")</strong>
+                        <span>@(string.IsNullOrWhiteSpace(busquedaProducto) ? categoriaSeleccionada : "Todo el menú")</span>
                     </div>
 
                     @foreach (var producto in ProductosVisibles)
@@ -382,7 +417,7 @@
                         <article class="producto-fila">
                             <div>
                                 <strong>@producto.Nombre</strong>
-                                <small>@producto.SectorDestino</small>
+                                <small>@(string.IsNullOrWhiteSpace(busquedaProducto) ? producto.SectorDestino.ToString() : producto.NombreSubcategoria)</small>
                             </div>
                             <span class="producto-precio">$@producto.Precio.ToString("N2")</span>
                             <div class="control-cantidad">
@@ -395,7 +430,7 @@
 
                     @if (!ProductosVisibles.Any())
                     {
-                        <p class="texto-vacio p-3">No hay productos activos en esta subcategoría.</p>
+                        <p class="texto-vacio p-3">@(string.IsNullOrWhiteSpace(busquedaProducto) ? "No hay productos activos en esta subcategoría." : "No encontramos productos con ese nombre.")</p>
                     }
                 </div>
             </fieldset>
@@ -407,7 +442,7 @@
                 </div>
                 <button class="btn btn-outline-secondary" @onclick="CerrarModalPedido" disabled="@enviandoPedido">Cancelar</button>
                 <button class="btn btn-success" @onclick="ConfirmarPedido" disabled="@(!carrito.Any() || enviandoPedido)">
-                    @(enviandoPedido ? "Enviando..." : "Enviar a cocina/barra")
+                    @(enviandoPedido ? "Guardando..." : idsPedidosEditando.Any() ? "Guardar cambios" : "Enviar a cocina/barra")
                 </button>
             </footer>
         </section>
@@ -1333,6 +1368,155 @@
         .comandas-mapa { width:100%; }
         .comandas-lateral { flex:none; width:100%; min-width:0; max-width:none; }
     }
+
+    /* Ajuste al ancho real del navegador, incluido zoom al 100 %. */
+    .perico-main { padding: .85rem; min-width: 0; }
+    .comandas-disposicion { gap: .85rem; }
+    .comandas-lateral { flex: 1 1 340px; }
+    .salas-operativas { gap: .65rem; }
+    .sala-operativa { padding: .65rem; max-width: 100%; }
+    .sala-operativa-titulo { font-size: 1.2rem; margin-bottom: .6rem; }
+    .grilla-salon-operativa { max-width: 100%; overflow-x: auto; }
+    .modal-pedido { width: min(1180px, calc(100vw - 2rem)); height: min(650px, calc(100dvh - 2rem)); max-height: calc(100dvh - 2rem); }
+    .selector-productos { grid-template-columns: 180px minmax(0, 1fr) minmax(270px, .85fr); }
+    .subcategorias button { overflow-wrap:normal; word-break:normal; }
+    .selector-productos > * { min-width: 0; }
+    .producto-fila { grid-template-columns: minmax(0,1fr) auto; gap: .5rem; }
+    .producto-fila > div:first-child { min-width: 0; overflow-wrap: anywhere; }
+    .producto-fila .control-cantidad { grid-column: 1/-1; justify-self: end; }
+    .modal-pedido-footer { flex-wrap: wrap; }
+    @@media(max-width:780px) {
+        .comandas-lateral { flex: none; }
+        .modal-pedido { width:100%; height:calc(100dvh - 1rem); max-height:calc(100dvh - 1rem); }
+    }
+
+
+    /* Nombre, precio y cantidad comparten la misma fila. */
+    .productos-buscador { position:sticky; top:0; z-index:3; padding:.5rem; background:white; }
+    .productos-buscador input { min-width:0; min-height:36px; font-size:.9rem; }
+    .productos-titulo { position:static; padding:.55rem .7rem; }
+    .producto-fila { grid-template-columns:minmax(0,1fr) auto auto; padding:.5rem .65rem; gap:.45rem; align-items:center; }
+    .producto-fila > div:first-child { min-width:0; font-size:.9rem; line-height:1.25; }
+    .producto-fila .control-cantidad { grid-column:auto; justify-self:end; gap:.3rem; }
+    .producto-fila .control-cantidad button { width:28px; height:28px; flex:0 0 28px; font-size:.9rem; }
+    .producto-fila .control-cantidad span { min-width:18px; font-size:.85rem; }
+    .producto-precio { font-size:.85rem; }
+    @@media(max-width:780px) {
+        .producto-fila .control-cantidad button { width:36px; height:36px; flex-basis:36px; }
+    }
+
+    .mesa-libre-fondo { position:fixed; inset:0; background:#0007; z-index:1040; }
+    .panel-mesa.panel-mesa-libre { top:50%; left:50%; right:auto; bottom:auto; transform:translate(-50%,-50%); width:min(380px,calc(100vw - 2rem)); height:auto; max-height:calc(100dvh - 2rem); border:0; border-radius:10px; padding:1.25rem; z-index:1050; box-shadow:0 12px 32px #0004; }
+    .panel-mesa-libre .panel-header { margin-bottom:1rem; }
+
+    /* En celular solo el cuerpo del pedido se desplaza. */
+    @@media(max-width:780px) {
+        .modal-pedido-fondo:has(.mesa-pedido-modal) { padding:.5rem; }
+        .mesa-pedido-modal { width:100%; height:calc(100dvh - 1rem); max-height:calc(100dvh - 1rem); min-height:0; }
+        .mesa-pedido-modal .modal-pedido-header,
+        .mesa-pedido-modal .modal-pedido-footer { flex:0 0 auto; }
+        .mesa-pedido-modal .selector-productos {
+            display:flex; flex-direction:column; flex:1 1 auto;
+            min-height:0; overflow-y:auto; overflow-x:hidden;
+        }
+        .mesa-pedido-modal .selector-productos > * { flex:0 0 auto; min-width:0; }
+        .mesa-pedido-modal .subcategorias {
+            order:1; min-height:0; height:auto; overflow:visible;
+            display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+        }
+        .mesa-pedido-modal .productos-modal {
+            order:2; min-height:0; height:auto; max-height:none; overflow:visible; margin:.6rem;
+        }
+        .mesa-pedido-modal .productos-buscador { position:static; padding:.5rem; }
+        .mesa-pedido-modal .productos-titulo { position:static; }
+        .mesa-pedido-modal .selector-resumen {
+            order:3; display:flex; flex-direction:column;
+            min-height:0; height:auto; overflow:visible; padding:.75rem;
+        }
+        .mesa-pedido-modal .resumen-carrito {
+            flex:0 0 auto; min-height:0; height:auto; max-height:none;
+            overflow:visible; position:static;
+        }
+        .mesa-pedido-modal .resumen-carrito > strong { position:static; }
+        .mesa-pedido-modal .carrito-item { flex:0 0 auto; }
+        .mesa-pedido-modal .carrito-item-linea { flex-wrap:wrap; }
+        .mesa-pedido-modal .carrito-item-linea > span { min-width:0; overflow-wrap:anywhere; }
+        .mesa-pedido-modal .modal-pedido-footer { position:static; padding:.6rem .75rem; }
+        .mesa-pedido-modal .modal-pedido-footer .btn { min-width:0; }
+        .mesa-pedido-modal .producto-fila { grid-template-columns:minmax(0,1fr) auto auto; }
+        .mesa-pedido-modal .producto-fila .control-cantidad { grid-column:auto; }
+    }
+    @@media(max-width:360px) {
+        .mesa-pedido-modal .producto-fila { grid-template-columns:minmax(0,1fr) auto; }
+        .mesa-pedido-modal .producto-fila .control-cantidad { grid-column:1/-1; justify-self:end; }
+    }
+
+    /* Ventana de detalle centrada para mesas libres y ocupadas. */
+    .mesa-libre-fondo { position:fixed; inset:0; background:rgba(8,12,18,.7); backdrop-filter:blur(3px); z-index:1040; }
+    .panel-mesa.panel-mesa-centrado {
+        position:fixed; top:50%; left:50%; right:auto; bottom:auto;
+        transform:translate(-50%,-50%); width:min(650px,calc(100vw - 2rem));
+        height:auto; max-height:calc(100dvh - 2rem); padding:0;
+        overflow-y:auto; overscroll-behavior:contain;
+        border:1px solid #ffffff35; border-radius:18px; background:#fff;
+        box-shadow:0 24px 80px #0006; z-index:1050;
+    }
+    .panel-mesa-centrado .panel-header {
+        position:sticky; top:0; z-index:2; padding:1.15rem 1.4rem;
+        display:flex; align-items:flex-start; justify-content:space-between; gap:1rem;
+        background:linear-gradient(115deg,#171a20,#303641);
+        border-bottom:3px solid #e8a239; color:#fff;
+    }
+    .panel-mesa-identidad { display:flex; flex-direction:column; gap:.15rem; min-width:0; }
+    .panel-mesa-etiqueta { font-size:.69rem; font-weight:800; letter-spacing:.12em; color:#f1b75e; }
+    .panel-mesa-centrado .panel-header h5 { margin:.1rem 0; font-size:1.55rem; font-weight:800; color:#fff; }
+    .panel-mesa-subtitulo { font-size:.83rem; color:#d4d7dd; }
+    .panel-mesa-cerrar { color:#fff; border:1px solid #ffffff55; border-radius:9px; width:36px; height:36px; display:grid; place-items:center; flex-shrink:0; line-height:1; }
+    .panel-mesa-cerrar:hover { color:#fff; background:#ffffff20; }
+    .panel-mesa-centrado .panel-body { padding:1.3rem 1.4rem 1.5rem; }
+    .panel-mesa-centrado > .alert, .panel-mesa-centrado > p { margin:1rem 1.4rem; }
+    .panel-mesa-seccion { font-size:1.05rem; font-weight:800; color:#262c35; margin-bottom:.85rem; }
+    .panel-mesa-centrado .grupo-sector { border:1px solid #e3e5e9; border-radius:13px; padding:.85rem 1rem; margin-bottom:.9rem; background:#f9fafb; }
+    .panel-mesa-centrado .grupo-sector > strong { display:block; margin-bottom:.5rem; font-weight:800; }
+    .panel-mesa-centrado .pedido-card { background:#fff; border-color:#dfe2e6; border-radius:10px; padding:.75rem .9rem; }
+    .panel-mesa-centrado .pedido-card ul { margin:.45rem 0 .25rem; }
+    .panel-mesa-centrado .panel-body > .btn { margin-top:.4rem; border-radius:9px; padding:.65rem .9rem; font-weight:700; }
+    .panel-mesa-centrado .panel-body hr { border-color:#e1e3e6; opacity:1; margin:1rem 0; }
+    .panel-mesa-disponible { padding:1rem; background:#e9f6ef; border:1px solid #c6e7d5; border-radius:12px; color:#24633d; font-weight:700; }
+    .panel-mesa-acciones { margin-top:1.1rem; display:flex; justify-content:flex-end; gap:.7rem; }
+    .panel-mesa-acciones .btn { min-width:125px; border-radius:9px; font-weight:700; padding:.6rem 1rem; }
+    @@media(max-width:780px) {
+        .panel-mesa.panel-mesa-centrado { width:calc(100vw - 1rem); max-height:calc(100dvh - 1rem); border-radius:14px; }
+        .panel-mesa-centrado .panel-header { padding:.9rem 1rem; }
+        .panel-mesa-centrado .panel-body { padding:1rem; }
+        .panel-mesa-acciones { flex-wrap:wrap; }
+        .panel-mesa-acciones .btn { flex:1; }
+    }
+
+    .panel-pedido-encabezado { display:flex; justify-content:space-between; gap:.4rem; align-items:center; flex-wrap:wrap; }
+    .panel-pedido-acciones { display:flex; gap:.35rem; align-items:center; }
+    .panel-btn-entregar { width:auto; min-width:72px; padding:.2rem .55rem; }
+    .panel-btn-entregar:disabled { opacity:.5; cursor:not-allowed; }
+    /* Resumen compacto: sectores paralelos en escritorio y acciones visibles. */
+    .panel-mesa.panel-mesa-centrado { width:min(720px,calc(100vw - 2rem)); }
+    .panel-mesa-centrado .panel-header { padding:.8rem 1.1rem; }
+    .panel-mesa-centrado .panel-header h5 { font-size:1.28rem; }
+    .panel-mesa-centrado .panel-body { padding:.85rem 1.05rem 1rem; }
+    .panel-mesa-seccion { margin-bottom:.55rem; }
+    .panel-mesa-sectores { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.7rem; align-items:start; }
+    .panel-mesa-centrado .grupo-sector { min-width:0; margin:0; padding:.65rem .75rem; border-radius:10px; }
+    .panel-mesa-centrado .grupo-sector > strong { margin-bottom:.35rem; }
+    .panel-mesa-centrado .pedido-card { padding:.55rem .65rem; }
+    .panel-mesa-centrado .pedido-card ul { padding-left:1.2rem; margin:.3rem 0; overflow-wrap:anywhere; }
+    .panel-btn-editar { width:auto; min-width:72px; margin:.25rem 0; padding:.2rem .65rem; }
+    .panel-mesa-botones { display:flex; gap:.65rem; flex-wrap:wrap; margin-top:.85rem; padding-top:.75rem; border-top:1px solid #e4e6e9; align-items:start; }
+    .panel-mesa-botones > .btn { flex:1 1 180px; width:auto; min-width:0; padding:.52rem .7rem; border-radius:9px; font-weight:700; }
+    .panel-mesa-botones > small { flex-basis:100%; margin-top:0!important; }
+    @@media(max-width:600px) {
+        .panel-mesa-sectores { grid-template-columns:minmax(0,1fr); gap:.55rem; }
+        .panel-mesa.panel-mesa-centrado { width:calc(100vw - 1rem); }
+        .panel-mesa-botones > .btn { flex:1 1 100%; }
+    }
 </style>
 
 @code {
@@ -1355,6 +1539,8 @@
     private string? MensajeModal;
     private bool mostrarModalPedido;
     private bool esNuevaComanda;
+    private List<int> idsPedidosEditando = new();
+    private List<DetallePedidoDTO> detallesAntesDeEditar = new();
     private bool enviandoPedido;
     private int cantidadComensales = 1;
     private string categoriaSeleccionada = "";
@@ -1455,15 +1641,21 @@
         .Distinct()
         .OrderBy(n => n);
 
+    private string busquedaProducto = "";
     private IEnumerable<ProductoListadoDTO> ProductosVisibles => productos
-        .Where(p => p.NombreCategoria == categoriaSeleccionada &&
-                    p.NombreSubcategoria == subcategoriaSeleccionada)
+        .Where(p => string.IsNullOrWhiteSpace(busquedaProducto)
+            ? p.NombreCategoria == categoriaSeleccionada && p.NombreSubcategoria == subcategoriaSeleccionada
+            : System.Globalization.CultureInfo.GetCultureInfo("es-AR").CompareInfo.IndexOf(
+                p.Nombre ?? "", busquedaProducto.Trim(),
+                System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace) >= 0)
         .OrderBy(p => p.Nombre);
 
     private int CantidadTotalItems => carrito.Sum(i => i.Cantidad);
 
     private decimal TotalCarrito => carrito.Sum(i =>
-        (productos.FirstOrDefault(p => p.Id == i.IdProducto)?.Precio ?? 0) * i.Cantidad);
+        (idsPedidosEditando.Any()
+            ? detallesAntesDeEditar.FirstOrDefault(d => d.IdProducto == i.IdProducto)?.PrecioUnitario ?? productos.FirstOrDefault(p => p.Id == i.IdProducto)?.Precio ?? 0
+            : productos.FirstOrDefault(p => p.Id == i.IdProducto)?.Precio ?? 0) * i.Cantidad);
 
     // La mesa solo se puede cerrar cuando ningún pedido quedó pendiente, en preparación
     // o listo sin retirar; los cancelados no cuentan porque ya no van a llegar a la mesa.
@@ -1477,6 +1669,11 @@
         if (!respuesta.Error && respuesta.Respuesta != null)
         {
             mesas = respuesta.Respuesta;
+            if (mesaSeleccionada != null)
+            {
+                var actualizada = mesas.FirstOrDefault(m => m.Id == mesaSeleccionada.Id);
+                if (actualizada != null) mesaSeleccionada = actualizada;
+            }
             await InvokeAsync(StateHasChanged);
         }
     }
@@ -1515,6 +1712,10 @@
             {
                 comandaActual = respuesta.Respuesta;
                 await CargarPedidos();
+            }
+            else if (respuesta.Error)
+            {
+                Mensaje = respuesta.ObtenerError();
             }
         }
 
@@ -1583,9 +1784,12 @@
 
     private void AbrirModalPedido()
     {
+        idsPedidosEditando = new();
+        detallesAntesDeEditar = new();
         carrito = new();
         CancelarObservacion();
         MensajeModal = null;
+        busquedaProducto = "";
         categoriaSeleccionada = CategoriasDisponibles.FirstOrDefault() ?? "";
         subcategoriaSeleccionada = SubcategoriasDisponibles.FirstOrDefault() ?? "";
         mostrarModalPedido = true;
@@ -1602,6 +1806,7 @@
 
     private void SeleccionarCategoria(string categoria)
     {
+        busquedaProducto = "";
         categoriaSeleccionada = categoria;
         subcategoriaSeleccionada = SubcategoriasDisponibles.FirstOrDefault() ?? "";
     }
@@ -1705,6 +1910,44 @@
         if (cantidadComensales > 1) cantidadComensales--;
     }
 
+
+    private void AbrirEdicionPendientes(List<PedidoDTO> pendientes)
+    {
+        if (comandaActual == null || pendientes.Any(p => p.Estado != EnumEstadoPedido.Pendiente)) return;
+        esNuevaComanda = false;
+        AbrirModalPedido();
+        idsPedidosEditando = pendientes.Select(p => p.Id).ToList();
+        detallesAntesDeEditar = pendientes.SelectMany(p => p.DetallesPedido).ToList();
+        carrito = detallesAntesDeEditar.Select(d => new ItemPedidoDTO
+        {
+            IdProducto = d.IdProducto, Cantidad = d.Cantidad, Observacion = d.Observacion
+        }).ToList();
+    }
+
+    private async Task GuardarEdicionPendientes()
+    {
+        if (comandaActual == null) return;
+        var dto = new EditarPedidoPendienteDTO
+        {
+            IdsPedidos = idsPedidosEditando.ToList(),
+            DetallesOriginales = detallesAntesDeEditar,
+            Items = carrito
+        };
+        var respuesta = await http.Put($"api/Pedido/Comanda/{comandaActual.Id}/EditarPendientes", dto);
+        if (respuesta.Error)
+        {
+            MensajeModal = respuesta.ObtenerError();
+            return;
+        }
+        mostrarModalPedido = false;
+        idsPedidosEditando = new();
+        detallesAntesDeEditar = new();
+        carrito = new();
+        await CargarPedidos();
+        await CargarMesas();
+        Mensaje = "Pedido pendiente actualizado.";
+    }
+
     private async Task ConfirmarPedido()
     {
         if (!carrito.Any() || enviandoPedido) return;
@@ -1714,7 +1957,9 @@
 
         try
         {
-            if (esNuevaComanda)
+            if (idsPedidosEditando.Any())
+                await GuardarEdicionPendientes();
+            else if (esNuevaComanda)
                 await ConfirmarNuevaComanda();
             else
                 await EnviarPedidoAdicional();
@@ -1730,7 +1975,7 @@
     {
         if (mesaSeleccionada == null || idUsuarioActual == null) return;
 
-        var numeroMesa = mesaSeleccionada.NumeroMesa;
+        var idMesa = mesaSeleccionada.Id;
         var dto = new ConfirmarComandaDTO
         {
             IdMesa = mesaSeleccionada.Id,
@@ -1743,13 +1988,14 @@
         if (respuesta.Error || respuesta.Respuesta == null)
         {
             MensajeModal = respuesta.ObtenerError();
+            await CargarMesas();
             return;
         }
 
         mostrarModalPedido = false;
         carrito = new();
         await CargarMesas();
-        var mesaActualizada = mesas.FirstOrDefault(m => m.NumeroMesa == numeroMesa);
+        var mesaActualizada = mesas.FirstOrDefault(m => m.Id == idMesa);
         if (mesaActualizada != null)
             await SeleccionarMesa(mesaActualizada);
 

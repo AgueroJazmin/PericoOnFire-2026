@@ -1,4 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+using PericoOnFire_2026.Shared.Utilidades;
 using PericoOnFire_2026.BD.Datos;
 using PericoOnFire_2026.BD.Datos.Entity;
 using PericoOnFire_2026.Shared.DTOs;
@@ -101,6 +104,10 @@ namespace PericoOnFire_2026.Server.Controllers
         [HttpGet("Mesa/{idMesa:int}")]
         public async Task<ActionResult<Comanda>> GetByMesa(int idMesa)
         {
+            var activas = await context.Comandas.CountAsync(c => c.IdMesa == idMesa &&
+                (c.Estado == EnumEstadoComanda.Abierta || c.Estado == EnumEstadoComanda.PendienteCobro));
+            if (activas > 1)
+                return Conflict("Esta mesa tiene más de una comanda activa. Revisá ambas cuentas antes de cerrar o cobrar; no se borró ningún consumo.");
             var comanda = await context.Comandas
                    .Where(c => c.IdMesa == idMesa && (c.Estado == EnumEstadoComanda.Abierta || c.Estado == EnumEstadoComanda.PendienteCobro))
                    .Select(c => new ComandaDTO
@@ -129,34 +136,37 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok(comanda);
         }
 
+
         [HttpPost]
         public async Task<ActionResult<int>> Post(ComandaCrearDTO dto)
         {
-            var comanda = new Comanda
+            return await OperacionAtomica.EjecutarAsync<ActionResult<int>>(context, async () =>
             {
-                IdMesa = dto.IdMesa,
-                IdCliente = dto.IdCliente,
-                IdUsuario = dto.IdUsuario,
-                TipoServicio = dto.TipoServicio,
-                CantidadComensales = dto.CantidadComensales,
-                Observaciones = dto.Observaciones,
-                Estado = EnumEstadoComanda.Abierta,
-                EstadoRegistro = EnumEstadoRegistro.activo
-            };
-
-            var id = await repositorio.Insert(comanda);
-
-            if (dto.TipoServicio == EnumTipoServicio.Mesa && dto.IdMesa.HasValue)
-            {
-                var mesa = await context.Mesas.FindAsync(dto.IdMesa.Value);
-                if (mesa != null)
+                Mesa? mesa = null;
+                if (dto.TipoServicio == EnumTipoServicio.Mesa)
                 {
-                    mesa.Estado = EnumEstadoMesa.Ocupada;
-                    await context.SaveChangesAsync();
+                    if (!dto.IdMesa.HasValue) return BadRequest("Seleccioná una mesa.");
+                    mesa = await context.Mesas.FindAsync(dto.IdMesa.Value);
+                    if (mesa == null || mesa.EstadoRegistro != EnumEstadoRegistro.activo) return NotFound("La mesa no existe o fue retirada.");
+                    if (mesa.Estado != EnumEstadoMesa.Libre ||
+                        await context.Comandas.AnyAsync(c => c.IdMesa == mesa.Id &&
+                            (c.Estado == EnumEstadoComanda.Abierta || c.Estado == EnumEstadoComanda.PendienteCobro)))
+                        return Conflict("La mesa ya tiene una comanda activa. Actualizá la pantalla para agregar productos a esa comanda.");
                 }
-            }
-
-            return Ok(id);
+                else if (dto.IdMesa.HasValue)
+                    return BadRequest("Take Away y Delivery no deben ocupar una mesa.");
+                var comanda = new Comanda
+                {
+                    IdMesa = dto.IdMesa, IdCliente = dto.IdCliente, IdUsuario = dto.IdUsuario,
+                    TipoServicio = dto.TipoServicio, CantidadComensales = dto.CantidadComensales,
+                    Observaciones = dto.Observaciones, Estado = EnumEstadoComanda.Abierta,
+                    EstadoRegistro = EnumEstadoRegistro.activo, FechaApertura = DateTime.UtcNow
+                };
+                context.Comandas.Add(comanda);
+                if (mesa != null) mesa.Estado = EnumEstadoMesa.Ocupada;
+                await context.SaveChangesAsync();
+                return Ok(comanda.Id);
+            });
         }
 
         // Crea la comanda y sus pedidos recién cuando el mozo confirma el primer envío.
@@ -180,21 +190,19 @@ namespace PericoOnFire_2026.Server.Controllers
                 return Conflict($"No existen o están inactivos los productos con id: {string.Join(", ", faltantes)}.");
 
             ComandaConfirmadaDTO? resultado = null;
-            var estrategia = context.Database.CreateExecutionStrategy();
 
             try
             {
-                await estrategia.ExecuteAsync(async () =>
+                await OperacionAtomica.EjecutarAsync(context, async () =>
                 {
                     context.ChangeTracker.Clear();
-                    await using var transaccion = await context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
                     productos = await context.Productos.Where(p => idsProducto.Contains(p.Id) && p.Activo).ToListAsync();
                     if (productos.Count != idsProducto.Count)
                         throw new InvalidOperationException("Hay productos que ya no están disponibles.");
 
                     var mesa = await context.Mesas.FirstOrDefaultAsync(m => m.Id == dto.IdMesa);
-                    if (mesa == null)
-                        throw new InvalidOperationException("La mesa seleccionada no existe.");
+                    if (mesa == null || mesa.EstadoRegistro != EnumEstadoRegistro.activo)
+                        throw new InvalidOperationException("La mesa seleccionada no existe o fue retirada.");
 
                     var tieneComandaAbierta = await context.Comandas.AnyAsync(c =>
                         c.IdMesa == dto.IdMesa &&
@@ -258,16 +266,15 @@ namespace PericoOnFire_2026.Server.Controllers
 
                     mesa.Estado = EnumEstadoMesa.Ocupada;
                     await context.SaveChangesAsync();
-                    
 
-                    resultado = new ComandaConfirmadaDTO
+                resultado = new ComandaConfirmadaDTO
                     {
                         IdComanda = comanda.Id,
                         NumeroDiario = await NumeroComandaDiario.ObtenerAsync(
                             context, comanda.Id, comanda.FechaApertura),
                         IdsPedidos = idsPedidos
                     };
-                    await transaccion.CommitAsync();
+                    return true;
                 });
             }
             catch (InvalidOperationException ex)
@@ -282,6 +289,7 @@ namespace PericoOnFire_2026.Server.Controllers
         //así que no hace falta la verificación de mesa. En cambio, acá se crea un cliente nuevo
         //con los datos que cargó quien tomó el pedido
         [HttpPost("ConfirmarSinMesa")]
+        [Authorize(Roles = "Administracion,Barra")]
         public async Task<ActionResult<ComandaConfirmadaDTO>> ConfirmarSinMesa(ConfirmarPedidoSinMesaDTO dto)
         {
             if (dto.TipoServicio != EnumTipoServicio.TakeAway && dto.TipoServicio != EnumTipoServicio.Delivery)
@@ -318,15 +326,46 @@ namespace PericoOnFire_2026.Server.Controllers
                     if (productos.Count != idsProducto.Count)
                         throw new InvalidOperationException("Hay productos que ya no están disponibles.");
 
-                var cliente = new Cliente
+                    Usuario? cajero = null;
+                    TurnoCaja? turno = null;
+                    ResultadoCobro? cobro = null;
+                    var totalReal = dto.Items.Sum(i => productos.First(p => p.Id == i.IdProducto).Precio * i.Cantidad);
+                    if (dto.CobrarAhora)
+                    {
+                        var identity = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                        cajero = await context.Usuarios.FirstOrDefaultAsync(u => u.IdApplicationUser == identity && u.Activo);
+                        if (cajero == null)
+                            throw new InvalidOperationException("No hay un empleado activo asociado a tu usuario para registrar el cobro.");
+
+                        turno = await CajaActual.ObtenerTurnoAbiertoAsync(context);
+                        if (turno == null)
+                            throw new InvalidOperationException("La caja está cerrada. Abrí un turno de Caja antes de cobrar.");
+
+                        cobro = CobroCombinado.Evaluar(totalReal, dto.LineasPago);
+                        if (!cobro.EsValido)
+                            throw new InvalidOperationException(cobro.Error ?? "El cobro no es válido.");
+                    }
+
+                Cliente cliente;
+                if (dto.IdClienteExistente.HasValue)
                 {
-                    Nombre = dto.NombreCliente,
-                    Direccion = dto.Direccion ?? "",
-                    Telefono = dto.Telefono ?? "",
-                    EstadoRegistro = EnumEstadoRegistro.activo
-                };
-                context.Clientes.Add(cliente);
-                await context.SaveChangesAsync();
+                    cliente = await context.Clientes.FirstOrDefaultAsync(c =>
+                        c.Id == dto.IdClienteExistente.Value && c.EstadoRegistro == EnumEstadoRegistro.activo)
+                        ?? throw new InvalidOperationException("El cliente seleccionado ya no está disponible. Buscalo de nuevo.");
+                    // No alterar los datos históricos del cliente al generar una comanda.
+                }
+                else
+                {
+                    cliente = new Cliente
+                    {
+                        Nombre = dto.NombreCliente.Trim(),
+                        Direccion = dto.Direccion ?? "",
+                        Telefono = dto.Telefono ?? "",
+                        EstadoRegistro = EnumEstadoRegistro.activo
+                    };
+                    context.Clientes.Add(cliente);
+                    await context.SaveChangesAsync();
+                }
 
                 var comanda = new Comanda
                 {
@@ -335,12 +374,12 @@ namespace PericoOnFire_2026.Server.Controllers
                     TipoServicio = dto.TipoServicio,
                     CantidadComensales = 1,
                     Observaciones = dto.Observaciones,
-                    Estado = EnumEstadoComanda.Abierta,
+                    Estado = dto.CobrarAhora ? EnumEstadoComanda.Pagada : EnumEstadoComanda.Abierta,
                     EstadoRegistro = EnumEstadoRegistro.activo,
                     FechaApertura = DateTime.UtcNow,
+                    FechaCierre = dto.CobrarAhora ? DateTime.UtcNow : null,
                     HoraDeseada = dto.HoraDeseada,
-                    Total = dto.Items.Sum(i =>
-                        productos.First(p => p.Id == i.IdProducto).Precio * i.Cantidad)
+                    Total = totalReal
                 };
 
                 context.Comandas.Add(comanda);
@@ -384,6 +423,26 @@ namespace PericoOnFire_2026.Server.Controllers
 
                 
 
+                // Registrar el pago en el mismo turno y transacción que la comanda.
+                // Si falla el pago, se revierte también la creación del pedido.
+                if (dto.CobrarAhora && cobro != null && cajero != null && turno != null)
+                {
+                    var ahoraPago = DateTime.UtcNow;
+                    context.Pagos.AddRange(cobro.Lineas.Select(l => new Pago
+                    {
+                        IdComanda = comanda.Id,
+                        IdUsuarioCaja = cajero.Id,
+                        IdTurnoCaja = turno.Id,
+                        TipoPago = l.TipoPago,
+                        MontoTotal = totalReal,
+                        MontoPagado = l.Monto,
+                        Vuelto = l.TipoPago == EnumTipoPago.Efectivo ? cobro.Vuelto : 0,
+                        FechaPago = ahoraPago,
+                        EstadoRegistro = EnumEstadoRegistro.activo
+                    }));
+                    await context.SaveChangesAsync();
+                }
+
                 resultado = new ComandaConfirmadaDTO
                 {
                     IdComanda = comanda.Id,
@@ -413,6 +472,59 @@ namespace PericoOnFire_2026.Server.Controllers
             await context.SaveChangesAsync();
 
             return Ok();
+        }
+
+        // Reparación puntual de datos de prueba: la mesa 94 fue retirada, pero
+        // conservó la comanda 89 y su pedido 117 abiertos. No afecta la mesa 93.
+        // Archiva en lugar de borrar físicamente para preservar integridad referencial.
+        [Authorize(Roles = "Administracion")]
+        [HttpPost("Mantenimiento/ArchivarPruebaMesa12")]
+        public async Task<ActionResult> ArchivarPruebaMesa12()
+        {
+            return await OperacionAtomica.EjecutarAsync<ActionResult>(context, async () =>
+            {
+                var mesaRetirada = await context.Mesas.FirstOrDefaultAsync(m => m.Id == 94);
+                if (mesaRetirada == null || mesaRetirada.NumeroMesa != 12 ||
+                    mesaRetirada.EstadoRegistro == EnumEstadoRegistro.activo)
+                    return Conflict("La mesa 94 no está retirada. No se realizó ningún cambio.");
+
+                var comanda = await context.Comandas.FirstOrDefaultAsync(c => c.Id == 89);
+                if (comanda == null)
+                    return NotFound("La comanda de prueba 89 no existe.");
+                if (comanda.IdMesa != 94 || comanda.Estado != EnumEstadoComanda.Abierta ||
+                    comanda.TipoServicio != EnumTipoServicio.Mesa ||
+                    comanda.FechaApertura.Date != new DateTime(2026, 10, 16))
+                    return Conflict("La comanda 89 cambió; se canceló la operación para proteger los datos.");
+
+                if (await context.Pagos.AnyAsync(p => p.IdComanda == 89))
+                    return Conflict("La comanda registra pagos y no puede archivarse automáticamente.");
+
+                var pedidos = await context.Pedidos.Where(p => p.IdComanda == 89).ToListAsync();
+                if (pedidos.Count != 1 || pedidos[0].Id != 117 ||
+                    pedidos[0].Estado != EnumEstadoPedido.ListoParaRetirar)
+                    return Conflict("Los pedidos de la comanda cambiaron. No se realizó ningún cambio.");
+
+                var ahora = DateTime.UtcNow;
+                var pedido = pedidos[0];
+                pedido.Estado = EnumEstadoPedido.Cancelado;
+                pedido.EstadoRegistro = EnumEstadoRegistro.inactivo;
+                pedido.MotivoCancelacion = "Pedido de prueba de mesa duplicada retirada (mantenimiento autorizado).";
+                pedido.FechaCancelado = ahora;
+
+                comanda.Estado = EnumEstadoComanda.Cancelada;
+                comanda.EstadoRegistro = EnumEstadoRegistro.inactivo;
+                comanda.FechaCierre = ahora;
+                mesaRetirada.Estado = EnumEstadoMesa.Libre;
+
+                await context.SaveChangesAsync();
+                return Ok(new
+                {
+                    Mensaje = "Comanda de prueba COM-004 y pedido 117 cancelados y archivados.",
+                    IdComanda = 89,
+                    IdPedido = 117,
+                    IdMesaRetirada = 94
+                });
+            });
         }
 
         //Este Cancelar sirve en el caso de que se haya abierto una comanda por error,
