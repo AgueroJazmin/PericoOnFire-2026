@@ -21,6 +21,14 @@ namespace PericoOnFire_2026.Shared.DTOs
         public List<PedidoSectorEstadoDTO> Pedidos { get; set; } = new();
         public int? IdDelivery { get; set; }
         public string? NombreDelivery { get; set; }
+        // Información real de la venta. Un pedido no pagado no tiene medio ni vuelto confirmado.
+        public decimal TotalPedido { get; set; }
+        public bool EstaPagado { get; set; }
+        public string MediosPago { get; set; } = "";
+        public decimal? EfectivoRecibido { get; set; }
+        public decimal? VueltoRegistrado { get; set; }
+        public DateTime? FechaEntrega { get; set; }
+
 
         // Todo lo que no está cancelado tiene que estar ListoParaRetirar para
         // poder repartirlo o cerrarlo ya sea si esta lista está vacía, no hay nada
