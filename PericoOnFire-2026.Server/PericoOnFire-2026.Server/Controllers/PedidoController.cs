@@ -239,6 +239,85 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok(resultado);
         }
 
+        // Rendición del efectivo de Delivery al volver al bar. El cliente ya recibió
+        // su vuelto: en Caja entra solo el neto de la venta, nunca el bruto.
+        [HttpPost("Delivery/{idComanda:int}/ConfirmarRendicion")]
+        [Authorize(Roles = "Administracion,Barra")]
+        public async Task<ActionResult> ConfirmarRendicionDelivery(int idComanda)
+        {
+            try
+            {
+                return await OperacionAtomica.EjecutarAsync<ActionResult>(context, async () =>
+                {
+                    var identity = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                    var usuarioCaja = await context.Usuarios.AsNoTracking()
+                        .FirstOrDefaultAsync(u => u.IdApplicationUser == identity && u.Activo);
+                    if (usuarioCaja == null)
+                        return Conflict("No existe un empleado activo vinculado a tu usuario.");
+
+                    var comanda = await context.Comandas
+                        .Include(c => c.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado))
+                            .ThenInclude(p => p.DetallesPedido)
+                        .FirstOrDefaultAsync(c => c.Id == idComanda);
+
+                    if (comanda == null) return NotFound();
+                    if (comanda.TipoServicio != EnumTipoServicio.Delivery ||
+                        (comanda.Estado != EnumEstadoComanda.Abierta &&
+                         comanda.Estado != EnumEstadoComanda.PendienteCobro))
+                        return Conflict("Esta comanda no es un Delivery pendiente de rendición.");
+
+                    if (await context.Pagos.AnyAsync(p => p.IdComanda == idComanda))
+                        return Conflict("Esta comanda ya tiene un pago registrado. No se puede rendir dos veces.");
+
+                    var pedidos = comanda.Pedidos.ToList();
+                    if (!pedidos.Any() || pedidos.Any(p =>
+                        p.Estado != EnumEstadoPedido.Entregado || !p.IdDelivery.HasValue))
+                        return Conflict("El repartidor todavía no completó la entrega.");
+
+                    if (pedidos.Select(p => p.IdDelivery).Distinct().Count() != 1)
+                        return Conflict("La comanda tiene repartidores distintos. Revisá el pedido.");
+
+                    var total = pedidos.SelectMany(p => p.DetallesPedido)
+                        .Sum(d => d.Cantidad * d.PrecioUnitario);
+                    var efectivoPrometido = EfectivoPrevistoDelivery.Leer(comanda.Observaciones);
+                    if (total <= 0 || !efectivoPrometido.HasValue || efectivoPrometido.Value < total)
+                        return Conflict("La comanda no tiene una previsión válida de cobro en efectivo.");
+
+                    var turno = await CajaActual.ObtenerTurnoAbiertoAsync(context);
+                    if (turno == null)
+                        return Conflict("La caja está cerrada. Abrí un turno de Caja antes de confirmar la rendición.");
+
+                    // El repartidor entrega al bar el neto. El vuelto ya se dio al cliente.
+                    var ahora = DateTime.UtcNow;
+                    context.Pagos.Add(new Pago
+                    {
+                        IdComanda = comanda.Id,
+                        IdUsuarioCaja = usuarioCaja.Id,
+                        IdTurnoCaja = turno.Id,
+                        TipoPago = EnumTipoPago.Efectivo,
+                        MontoTotal = total,
+                        MontoPagado = total,
+                        Vuelto = 0,
+                        FechaPago = ahora,
+                        EstadoRegistro = EnumEstadoRegistro.activo
+                    });
+                    comanda.Estado = EnumEstadoComanda.Pagada;
+                    comanda.Total = total;
+                    comanda.FechaCierre = ahora;
+                    await context.SaveChangesAsync();
+                    return Ok(new { Mensaje = "Rendición confirmada y registrada en Caja.", TotalRendido = total });
+                });
+            }
+            catch (Exception ex) when (OperacionAtomica.EsConflictoConcurrente(ex))
+            {
+                return Conflict("La comanda cambió mientras registrabas la rendición. Actualizá antes de reintentar.");
+            }
+            catch (DbUpdateException)
+            {
+                return Conflict("No se pudo completar la rendición. Verificá su estado en Caja antes de reintentar.");
+            }
+        }
+
         // Historial del día argentino del repartidor autenticado. Es solo lectura y
         // conserva los datos aunque la comanda haya sido pagada/cerrada.
         [HttpGet("Delivery/MisEntregasHoy")]
