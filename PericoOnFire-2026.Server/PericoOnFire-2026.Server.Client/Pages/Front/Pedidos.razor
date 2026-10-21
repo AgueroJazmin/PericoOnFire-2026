@@ -240,16 +240,7 @@
                                 <span>@tipoNuevoPedido</span>
                             </div>
 
-                            <nav class="categorias categorias-superiores" aria-label="Categorías">
-                                @foreach (var categoria in CategoriasDisponibles)
-                                {
-                                    <button class="@(categoria == categoriaSeleccionada ? "activo" : "")"
-                                            @onclick="() => SeleccionarCategoria(categoria)">
-                                        <span>@IconoCategoria(categoria)</span>
-                                        @categoria
-                                    </button>
-                                }
-                            </nav>
+
 
                         </div>
 
@@ -288,14 +279,6 @@
                             </div>
                         </div>
                         <div class="cliente-campos">
-                            <label class="dato-cliente">Nombre y apellido @(tipoNuevoPedido == EnumTipoServicio.Delivery ? "(opcional si tenés referencia)" : "")
-                                <input class="form-control form-control-sm" maxlength="100"
-                                       @bind="nombreCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
-                            </label>
-                            <label class="dato-cliente">Teléfono
-                                <input class="form-control form-control-sm" maxlength="30"
-                                       @bind="telefonoCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
-                            </label>
                             @if (tipoNuevoPedido == EnumTipoServicio.Delivery)
                             {
                                 <label class="dato-cliente">Referencia de WhatsApp
@@ -303,13 +286,41 @@
                                            placeholder="Contacto o referencia de WhatsApp"
                                            @bind="direccionCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
                                 </label>
+                                <label class="dato-cliente">Entrega (opcional)
+                                    <input type="time" class="form-control form-control-sm" value="@horaDeseadaTexto"
+                                           @oninput="e => horaDeseadaTexto = e.Value?.ToString() ?? string.Empty" />
+                                </label>
                             }
-                            <label class="dato-cliente">@(tipoNuevoPedido == EnumTipoServicio.Delivery ? "Entrega" : "Retiro") (opcional)
-                                <input type="time" class="form-control form-control-sm" value="@horaDeseadaTexto"
-                                       @oninput="e => horaDeseadaTexto = e.Value?.ToString() ?? string.Empty" />
-                            </label>
+                            else
+                            {
+                                <label class="dato-cliente">Nombre y apellido
+                                    <input class="form-control form-control-sm" maxlength="100"
+                                           @bind="nombreCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
+                                </label>
+                                <div class="cliente-campos-secundarios">
+                                    <label class="dato-cliente">Teléfono
+                                        <input class="form-control form-control-sm" maxlength="30"
+                                               @bind="telefonoCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
+                                    </label>
+                                    <label class="dato-cliente">Retiro (opcional)
+                                        <input type="time" class="form-control form-control-sm" value="@horaDeseadaTexto"
+                                               @oninput="e => horaDeseadaTexto = e.Value?.ToString() ?? string.Empty" />
+                                    </label>
+                                </div>
+                            }
                         </div>
                     </fieldset>
+
+                            <nav class="categorias categorias-superiores" aria-label="Categorías">
+                                @foreach (var categoria in CategoriasDisponibles)
+                                {
+                                    <button class="@(categoria == categoriaSeleccionada ? "activo" : "")"
+                                            @onclick="() => SeleccionarCategoria(categoria)">
+                                        <span>@IconoCategoria(categoria)</span>
+                                        @categoria
+                                    </button>
+                                }
+                            </nav>
 
                     <fieldset class="selector-productos" disabled="@enviandoPedido">
                         <aside class="selector-resumen @(mostrarCarritoCompacto ? "carrito-compacto-abierto" : "carrito-compacto-cerrado")">
@@ -1832,6 +1843,38 @@
     .rendicion-alerta { background:#fff4db; border-radius:8px; padding:.6rem; font-size:.83rem; margin:0; }
     .rendicion-botones { display:flex; gap:.5rem; }
     .rendicion-tarjeta .btn { min-height:36px; }
+    /* Categorías debajo del cliente; en ventanas estrechas Delivery usa solo
+       referencia + horario, y Take Away mantiene teléfono y horario en una fila. */
+    .pedido-modal-ventana .cliente-campos-secundarios {
+        display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.35rem; min-width:0;
+    }
+    .pedido-modal-ventana .cliente-campos-secundarios > * { min-width:0; }
+    .pedido-modal-ventana .categorias-superiores { flex:0 0 auto; }
+    @@media (max-width: 900px) {
+        .pedido-modal-ventana .modal-pedido-header { display:none; }
+        .pedido-modal-ventana > .panel-nuevo-pedido .modal-pedido > .categorias-superiores {
+            display:flex; flex-flow:row nowrap; width:100%; margin:0;
+            padding:.25rem .4rem; gap:.3rem; border-bottom:1px solid #ddd;
+        }
+        .pedido-modal-ventana > .panel-nuevo-pedido .modal-pedido > .categorias-superiores button {
+            flex:1 1 0; min-width:0; padding:.34rem .12rem; min-height:36px;
+            font-size:.8rem; white-space:nowrap;
+        }
+        .pedido-modal-ventana .cliente-campos {
+            display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.35rem;
+        }
+        .pedido-modal-ventana .cliente-campos-secundarios {
+            grid-template-columns:repeat(2,minmax(0,1fr)); gap:.25rem; align-items:end;
+        }
+    }
+    @@media (max-width: 420px) {
+        .pedido-modal-ventana .cliente-campos {
+            grid-template-columns:repeat(2,minmax(0,1fr));
+        }
+        .pedido-modal-ventana .cliente-campos-secundarios {
+            grid-template-columns:repeat(2,minmax(0,1fr)); gap:.2rem;
+        }
+    }
 </style>
 
 @code {
@@ -2321,11 +2364,12 @@
         {
             IdUsuario = idUsuarioActual.Value,
             TipoServicio = tipoNuevoPedido,
-            NombreCliente = string.IsNullOrWhiteSpace(nombreCliente) && tipoNuevoPedido == EnumTipoServicio.Delivery
+            NombreCliente = tipoNuevoPedido == EnumTipoServicio.Delivery && !idClienteExistente.HasValue
                 ? ("Referencia: " + direccionCliente.Trim())[..Math.Min(("Referencia: " + direccionCliente.Trim()).Length, 100)]
                 : nombreCliente.Trim(),
             IdClienteExistente = idClienteExistente,
-            Telefono = string.IsNullOrWhiteSpace(telefonoCliente) ? null : telefonoCliente.Trim(),
+            Telefono = tipoNuevoPedido == EnumTipoServicio.Delivery || string.IsNullOrWhiteSpace(telefonoCliente)
+                ? null : telefonoCliente.Trim(),
             Direccion = tipoNuevoPedido == EnumTipoServicio.Delivery ? direccionCliente.Trim() : null,
             HoraDeseada = ConvertirHoraDeseada(horaDeseadaTexto),
             CobrarAhora = cobrarAhora,
