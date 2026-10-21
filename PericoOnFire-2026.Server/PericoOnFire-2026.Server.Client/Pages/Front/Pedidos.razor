@@ -312,7 +312,12 @@
                     </fieldset>
 
                     <fieldset class="selector-productos" disabled="@enviandoPedido">
-                        <aside class="selector-resumen">
+                        <aside class="selector-resumen @(mostrarCarritoCompacto ? "carrito-compacto-abierto" : "carrito-compacto-cerrado")">
+                            <button type="button" class="carrito-compacto-toggle" aria-expanded="@mostrarCarritoCompacto"
+                                    @onclick="() => mostrarCarritoCompacto = !mostrarCarritoCompacto">
+                                <span>🧾 Pedido (@CantidadTotalItems)</span>
+                                <span>$@TotalCarrito.ToString("N2") @(mostrarCarritoCompacto ? "▴" : "▾")</span>
+                            </button>
                             <div class="resumen-carrito">
                                 <strong>Pedido (@CantidadTotalItems)</strong>
                                 @if (!carrito.Any())
@@ -1699,6 +1704,106 @@
         .datos-cliente-superior .selector-tipo { margin:.1rem 0; }
     }
     @@media (max-width:520px) { .cliente-campos { grid-template-columns:1fr; } }
+    /* Ventana de medio monitor (WhatsApp al lado):
+       contenido compacto, menú siempre visible, carrito desplegable. */
+    .carrito-compacto-toggle { display:none; }
+    @@media (max-width: 900px) {
+        .pedido-modal-fondo { align-items:stretch; padding:.25rem; }
+        .pedido-modal-ventana { width:100%; height:calc(100dvh - .5rem); max-height:calc(100dvh - .5rem); border-radius:9px; }
+        .pedido-modal-barra { min-height:35px; padding:.2rem .6rem; font-size:.84rem; }
+        .pedido-modal-cerrar { width:30px; height:30px; font-size:1.35rem; }
+        .pedido-modal-ventana .panel-nuevo-pedido { flex:1 1 auto; min-height:0; overflow:hidden; }
+        .pedido-modal-ventana .modal-pedido {
+            display:flex; flex-direction:column; width:100%; height:100%; max-height:100%;
+            overflow:hidden; min-height:0; border:0; border-radius:0;
+        }
+        .pedido-modal-ventana .modal-pedido-header { flex:0 0 auto; min-height:0; padding:.28rem .45rem; }
+        .pedido-modal-ventana .modal-encabezado-contenido { display:flex; flex-direction:row; align-items:center; gap:.5rem; width:100%; }
+        .pedido-modal-ventana .modal-identificacion { display:none; }
+        .pedido-modal-ventana .categorias-superiores { display:flex; gap:.3rem; width:100%; flex-wrap:nowrap; margin:0; }
+        .pedido-modal-ventana .categorias-superiores button { flex:1 1 0; min-width:0; padding:.35rem .15rem; min-height:36px; font-size:.82rem; white-space:nowrap; }
+        .pedido-modal-ventana .datos-cliente-superior {
+            display:flex; flex:0 0 auto; flex-direction:column; gap:.3rem;
+            padding:.36rem .5rem; margin:0; background:#f5f6f8; overflow:visible; z-index:5;
+        }
+        .pedido-modal-ventana .cliente-linea { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.35rem; align-items:center; min-height:0; }
+        .pedido-modal-ventana .cliente-linea > strong { display:none; }
+        .pedido-modal-ventana .buscador-cliente-contenedor { grid-column:1; grid-row:1; min-width:0; }
+        .pedido-modal-ventana .buscador-cliente-contenedor input { height:32px; min-height:32px; width:100%; font-size:.8rem; }
+        .pedido-modal-ventana .selector-tipo { grid-column:2; grid-row:1; margin:0; display:flex; flex-wrap:nowrap; gap:.2rem; }
+        .pedido-modal-ventana .selector-tipo button { min-height:32px; min-width:0; padding:.2rem .4rem; font-size:.74rem; }
+        .pedido-modal-ventana .cliente-campos { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.25rem .4rem; margin:0; }
+        .pedido-modal-ventana .dato-cliente { font-size:.69rem; min-width:0; gap:.08rem; margin:0; line-height:1.1; }
+        .pedido-modal-ventana .dato-cliente input { width:100%; min-width:0; min-height:30px; height:30px; font-size:.82rem; padding:.25rem .4rem; }
+        .pedido-modal-ventana .selector-productos {
+            display:flex; flex:1 1 auto; flex-direction:column; min-height:0; overflow:hidden;
+            border:0; padding:0; margin:0;
+        }
+        .pedido-modal-ventana .selector-productos > * { min-height:0; }
+        .pedido-modal-ventana .subcategorias {
+            order:1; display:flex; flex:0 0 auto; flex-direction:row; flex-wrap:nowrap;
+            overflow-x:auto; overflow-y:hidden; gap:.25rem; padding:.25rem .4rem;
+            border-bottom:1px solid #ddd; border-right:0;
+        }
+        .pedido-modal-ventana .subcategorias button {
+            flex:0 0 auto; width:auto; min-width:0; padding:.35rem .65rem;
+            min-height:32px; white-space:nowrap; font-size:.78rem;
+        }
+        .pedido-modal-ventana .productos-modal {
+            order:2; display:block; flex:1 1 auto; min-height:110px; height:auto;
+            max-height:none; overflow-y:auto; overflow-x:hidden; margin:0; padding:0;
+        }
+        .pedido-modal-ventana .productos-buscador { position:sticky; top:0; z-index:2; padding:.3rem .45rem; background:white; }
+        .pedido-modal-ventana .productos-buscador input { min-height:33px; height:33px; font-size:.84rem; }
+        .pedido-modal-ventana .productos-titulo { padding:.3rem .5rem; }
+        .pedido-modal-ventana .producto-fila {
+            display:grid; grid-template-columns:minmax(0,1fr) auto auto;
+            align-items:center; gap:.35rem; padding:.38rem .45rem;
+        }
+        .pedido-modal-ventana .producto-fila > div:first-child { min-width:0; }
+        .pedido-modal-ventana .producto-fila .control-cantidad { grid-column:auto; justify-self:end; }
+        .pedido-modal-ventana .selector-resumen {
+            order:3; flex:0 0 auto; padding:0; overflow:visible; border:0;
+            margin:0; background:#fff;
+        }
+        .pedido-modal-ventana .carrito-compacto-toggle {
+            display:flex; align-items:center; justify-content:space-between; gap:.4rem;
+            width:100%; min-height:34px; padding:.32rem .65rem; font-size:.83rem;
+            font-weight:700; border:0; border-top:1px solid #d8dce1; border-bottom:1px solid #d8dce1;
+            background:#f1f4f7; color:#20262c;
+        }
+        .pedido-modal-ventana .selector-resumen.carrito-compacto-cerrado .resumen-carrito { display:none; }
+        .pedido-modal-ventana .resumen-carrito {
+            display:block; min-height:0; height:auto; max-height:min(24dvh,175px);
+            overflow-y:auto; padding:.4rem .65rem; margin:0; border:0; border-radius:0;
+        }
+        .pedido-modal-ventana .pago-inmediato {
+            flex:0 0 auto; display:flex; flex-flow:row wrap; align-items:center;
+            gap:.3rem .65rem; padding:.3rem .5rem; max-height:115px; overflow-y:auto;
+        }
+        .pedido-modal-ventana .pago-inmediato-opcion { font-size:.77rem; }
+        .pedido-modal-ventana .pago-inmediato-metodo { min-width:min(100%,165px); flex:1 1 145px; font-size:.74rem; }
+        .pedido-modal-ventana .pago-inmediato-metodo input,
+        .pedido-modal-ventana .pago-inmediato-metodo select { height:30px; min-height:30px; }
+        .pedido-modal-ventana .pago-inmediato small { font-size:.69rem; }
+        .pedido-modal-ventana .modal-pedido-footer {
+            position:static; flex:0 0 auto; display:flex; flex-wrap:wrap; gap:.3rem;
+            padding:.3rem .45rem; min-height:49px; background:white; z-index:3;
+        }
+        .pedido-modal-ventana .modal-pedido-footer > div { width:auto; margin-right:auto; font-size:.75rem; }
+        .pedido-modal-ventana .modal-pedido-footer > div strong { font-size:.97rem; }
+        .pedido-modal-ventana .modal-pedido-footer button { flex:0 1 auto; width:auto; min-height:35px; padding:.3rem .5rem; font-size:.8rem; }
+        .pedido-modal-ventana .modal-pedido-footer .btn-success { flex:1 1 190px; }
+        .pedido-modal-ventana .pedido-datos-faltantes { flex-basis:100%; margin:0; padding:.12rem .4rem; font-size:.72rem; }
+    }
+    @@media (max-width: 420px) {
+        .pedido-modal-ventana .cliente-linea { grid-template-columns:minmax(0,1fr); }
+        .pedido-modal-ventana .buscador-cliente-contenedor { grid-column:1; grid-row:1; }
+        .pedido-modal-ventana .selector-tipo { grid-column:1; grid-row:2; justify-content:stretch; }
+        .pedido-modal-ventana .selector-tipo button { flex:1 1 0; }
+        .pedido-modal-ventana .cliente-campos { grid-template-columns:repeat(2,minmax(0,1fr)); }
+        .pedido-modal-ventana .modal-pedido-footer .btn-success { flex-basis:100%; }
+    }
     .delivery-vuelto-previsto { font-weight:800; color:#176a35; }
     .delivery-cobro { margin:.6rem 0; border-radius:8px; padding:.65rem .75rem; display:grid; gap:.3rem; font-size:.88rem; }
     .delivery-cobro-pagado { background:#eaf7ef; border:1px solid #c6e7d2; color:#14532d; }
@@ -1773,6 +1878,7 @@
     // ---- Seguimiento (Administracion/Barra) ----
     private List<PedidoParaLlevarDTO> takeAways = new();
     private List<PedidoParaLlevarDTO> deliveries = new();
+    private bool mostrarCarritoCompacto;
     private List<PedidoParaLlevarDTO> RendicionesPendientes => deliveries
         .Where(c => c.TipoServicio == EnumTipoServicio.Delivery &&
                     !c.EstaPagado && c.TodoEntregado &&
