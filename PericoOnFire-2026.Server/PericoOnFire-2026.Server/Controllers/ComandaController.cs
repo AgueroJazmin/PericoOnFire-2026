@@ -330,6 +330,18 @@ namespace PericoOnFire_2026.Server.Controllers
                     TurnoCaja? turno = null;
                     ResultadoCobro? cobro = null;
                     var totalReal = dto.Items.Sum(i => productos.First(p => p.Id == i.IdProducto).Precio * i.Cantidad);
+                    if (dto.EfectivoPrevistoDelivery.HasValue)
+                    {
+                        if (dto.TipoServicio != EnumTipoServicio.Delivery || dto.CobrarAhora)
+                            throw new InvalidOperationException("Solo se puede indicar efectivo previsto en un Delivery todavía no cobrado.");
+                        if (dto.EfectivoPrevistoDelivery.Value < totalReal || dto.EfectivoPrevistoDelivery.Value > 100000000m)
+                            throw new InvalidOperationException("El efectivo previsto debe cubrir el total del Delivery.");
+                    }
+                    var observacionesEntrega = EfectivoPrevistoDelivery.Guardar(
+                        dto.Observaciones, dto.EfectivoPrevistoDelivery);
+                    if ((observacionesEntrega?.Length ?? 0) > 300)
+                        throw new InvalidOperationException("Las observaciones y la instrucción de efectivo exceden el límite permitido.");
+
                     if (dto.CobrarAhora)
                     {
                         var identity = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -373,7 +385,7 @@ namespace PericoOnFire_2026.Server.Controllers
                     IdUsuario = dto.IdUsuario,
                     TipoServicio = dto.TipoServicio,
                     CantidadComensales = 1,
-                    Observaciones = dto.Observaciones,
+                    Observaciones = observacionesEntrega,
                     Estado = dto.CobrarAhora ? EnumEstadoComanda.Pagada : EnumEstadoComanda.Abierta,
                     EstadoRegistro = EnumEstadoRegistro.activo,
                     FechaApertura = DateTime.UtcNow,
