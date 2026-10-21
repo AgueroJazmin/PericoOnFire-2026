@@ -205,6 +205,8 @@ namespace PericoOnFire_2026.Server.Controllers
                     Direccion = c.Cliente?.Direccion,
                     FechaApertura = c.FechaApertura,
                     HoraDeseada = c.HoraDeseada,
+                    EfectivoPrevistoDelivery = c.Estado == EnumEstadoComanda.Pagada
+                        ? null : EfectivoPrevistoDelivery.Leer(c.Observaciones),
                     TotalPedido = pedidosActivos.SelectMany(p => p.DetallesPedido)
                         .Sum(d => d.Cantidad * d.PrecioUnitario),
                     EstaPagado = c.Estado == EnumEstadoComanda.Pagada,
@@ -281,6 +283,8 @@ namespace PericoOnFire_2026.Server.Controllers
                     Direccion = c.Cliente?.Direccion,
                     FechaApertura = c.FechaApertura,
                     FechaEntrega = c.Pedidos.Max(p => p.FechaEntregado),
+                    EfectivoPrevistoDelivery = c.Estado == EnumEstadoComanda.Pagada
+                        ? null : EfectivoPrevistoDelivery.Leer(c.Observaciones),
                     TotalPedido = c.Pedidos.SelectMany(p => p.DetallesPedido)
                         .Sum(d => d.Cantidad * d.PrecioUnitario),
                     EstaPagado = c.Estado == EnumEstadoComanda.Pagada,
