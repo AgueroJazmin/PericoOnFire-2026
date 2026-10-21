@@ -1528,6 +1528,34 @@
         .panel-mesa.panel-mesa-centrado { width:calc(100vw - 1rem); }
         .panel-mesa-botones > .btn { flex:1 1 100%; }
     }
+    /* Escritorio: plano real más compacto. Se conserva cada fila/columna
+       configurada; solo se reduce el espacio visual entre las mesas. */
+    @@media (min-width: 781px) {
+        .comandas-disposicion { align-items:flex-start; gap:.75rem; }
+        .comandas-mapa { flex: 1 1 650px; min-width:0; width:auto; max-width:100%; overflow-x:auto; }
+        .comandas-lateral { flex: 1 1 320px; min-width:280px; }
+        .salas-operativas { display:flex; flex-wrap:nowrap; align-items:flex-start; width:max-content; gap:.55rem; padding-bottom:.3rem; }
+        .sala-operativa { flex:0 0 auto; width:max-content; max-width:none; overflow:visible; padding:.5rem .65rem .75rem; border-width:2px; }
+        .sala-operativa-titulo { font-size:1.08rem; margin-bottom:.25rem; }
+        .grilla-salon-operativa { width:max-content; max-width:none; overflow:visible; padding:.3rem .1rem .55rem; gap:.1rem; }
+        .fila-grilla-operativa { gap:.1rem; }
+        .celda-operativa { width:clamp(99px,7.8vw,119px); height:96px; }
+        .mesa { width:80px; height:58px; }
+        .mesa.tamanio-chica { width:64px; height:48px; }
+        .mesa.tamanio-grande { width:94px; height:68px; }
+        .mesa::before { left:-16px; width:13px; }
+        .mesa::after { right:-16px; width:13px; }
+        .mesa .numero-mesa::before { top:-16px; }
+        .mesa .numero-mesa::after { bottom:-16px; }
+    }
+    @@media (min-width: 781px) and (max-width: 1120px) {
+        .celda-operativa { width:96px; height:88px; }
+        .salas-operativas { gap:.4rem; }
+        .sala-operativa { padding:.45rem; }
+        .comandas-lateral { flex-basis:290px; }
+        .mesa { width:74px; height:54px; }
+        .mesa.tamanio-grande { width:82px; height:62px; }
+    }
     /* Pestañas exclusivas de celular: respetan las posiciones reales guardadas. */
     .pestanas-salas-movil { display: none; }
     @@media (max-width: 780px) {
