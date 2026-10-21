@@ -24,7 +24,7 @@
     document.addEventListener("keydown", function (evento) {
         if (!estaEnPedidos() || evento.repeat || evento.ctrlKey || evento.altKey || evento.metaKey) return;
 
-        if (evento.key === "F1") {
+        if (evento.key === "F8") {
             const abrir = document.getElementById("perico-nuevo-pedido-abrir");
             if (!abrir) return; // Sin botón no hay permisos para cargar.
             evento.preventDefault();
