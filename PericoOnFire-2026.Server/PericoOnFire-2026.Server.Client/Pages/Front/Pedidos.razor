@@ -8,6 +8,7 @@
 @inject PericoOnFire_2026.Shared.SerPolling.PollingService Polling
 @inject IHttpServicio http
 @inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
 @rendermode InteractiveWebAssembly
 @attribute [Authorize(Roles = "Administracion,Barra,Delivery")]
 
@@ -17,6 +18,11 @@
 
     <AuthorizeView Roles="Administracion,Barra">
         <Authorized>
+
+            @if (!string.IsNullOrWhiteSpace(mensajePaseCaja))
+            {
+                <div class="alert alert-info" role="status">@mensajePaseCaja</div>
+            }
 
             @* Seguimiento de pedidos primero; el formulario se despliega a pedido del usuario. *@
             <section class="panel-seguimiento" aria-label="Pedidos en curso">
@@ -1790,6 +1796,8 @@
 
     private int? idUsuarioActual;
     private bool esSoloDelivery;
+    private bool puedeAccederCaja;
+    private string? mensajePaseCaja;
 
     private IEnumerable<string> CategoriasDisponibles => productos
         .Select(p => p.NombreCategoria)
@@ -1867,6 +1875,7 @@
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
+        puedeAccederCaja = user.IsInRole("Administracion") || user.IsInRole("Caja");
         esSoloDelivery = user.IsInRole("Delivery") &&
                          !user.IsInRole("Administracion") &&
                          !user.IsInRole("Barra");
@@ -2284,12 +2293,22 @@
 
     private async Task CerrarPedido(PedidoParaLlevarDTO cuenta)
     {
+        mensajePaseCaja = null;
         var respuesta = await http.Put($"api/Comanda/{cuenta.IdComanda}/Cerrar", new { });
         if (respuesta.Error)
         {
-            MensajeForm = respuesta.ObtenerError();
+            mensajePaseCaja = respuesta.ObtenerError();
             return;
         }
+
+        if (cuenta.TipoServicio == EnumTipoServicio.TakeAway && puedeAccederCaja)
+        {
+            Navigation.NavigateTo("/caja");
+            return;
+        }
+
+        if (cuenta.TipoServicio == EnumTipoServicio.TakeAway)
+            mensajePaseCaja = $"La comanda {cuenta.NumeroComanda} se envió a Caja. Un usuario de Caja o Administración deberá cobrarla.";
 
         await CargarSeguimiento();
     }
