@@ -22,9 +22,9 @@
     }
 
     document.addEventListener("keydown", function (evento) {
-        if (!estaEnPedidos() || evento.repeat || evento.ctrlKey || evento.altKey || evento.metaKey) return;
+        if (!estaEnPedidos() || evento.repeat || evento.altKey || evento.metaKey) return;
 
-        if (evento.key === "F8") {
+        if (evento.ctrlKey && (evento.code === "Space" || evento.key === " ")) {
             const abrir = document.getElementById("perico-nuevo-pedido-abrir");
             if (!abrir) return; // Sin botón no hay permisos para cargar.
             evento.preventDefault();
@@ -38,7 +38,7 @@
             }
         }
 
-        if (evento.key === "Escape") {
+        if (!evento.ctrlKey && evento.key === "Escape") {
             const cerrar = document.getElementById("perico-nuevo-pedido-cerrar");
             if (!cerrar || cerrar.disabled) return;
             evento.preventDefault();
