@@ -8,6 +8,7 @@
 @inject PericoOnFire_2026.Shared.SerPolling.PollingService Polling
 @inject IHttpServicio http
 @inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager Navigation
 @rendermode InteractiveWebAssembly
 @attribute [Authorize(Roles = "Administracion,Barra,Delivery")]
 
@@ -18,10 +19,46 @@
     <AuthorizeView Roles="Administracion,Barra">
         <Authorized>
 
-            @* Seguimiento de pedidos primero; el formulario se despliega a pedido del usuario. *@
+            @if (!string.IsNullOrWhiteSpace(mensajePaseCaja))
+            {
+                <div class="alert alert-info" role="status">@mensajePaseCaja</div>
+            }
+
+            <div class="pedido-formulario-cabecera pedido-formulario-cabecera-superior">
+                <button id="perico-nuevo-pedido-abrir" type="button"
+                        class="btn btn-danger pedido-formulario-toggle"
+                        aria-haspopup="dialog" aria-keyshortcuts="Control+Space"
+                        @onclick="() => mostrarFormularioNuevoPedido = true">
+                    ＋ Nuevo pedido <span class="atajo-nuevo-pedido">Ctrl + Espacio</span>
+                </button>
+                @if (!mostrarFormularioNuevoPedido && !string.IsNullOrWhiteSpace(MensajeForm))
+                {
+                    <span class="alert @(MensajeFormEsExito ? "alert-success" : "alert-warning") mb-0 py-2" role="status">@MensajeForm</span>
+                }
+            </div>
+            <nav class="pestanas-tipo-pedidos" aria-label="Elegir tipo de pedido">
+                <button type="button" class="pestana-tipo-pedido @(!mostrarRendiciones && pestanaPedidos == EnumTipoServicio.TakeAway ? "pestana-tipo-activa" : "")"
+                        aria-pressed="@(!mostrarRendiciones && pestanaPedidos == EnumTipoServicio.TakeAway)"
+                        @onclick="() => { pestanaPedidos = EnumTipoServicio.TakeAway; mostrarRendiciones = false; }">
+                    Take Away <span>@takeAways.Count</span>
+                </button>
+                <button type="button" class="pestana-tipo-pedido @(!mostrarRendiciones && pestanaPedidos == EnumTipoServicio.Delivery ? "pestana-tipo-activa" : "")"
+                        aria-pressed="@(!mostrarRendiciones && pestanaPedidos == EnumTipoServicio.Delivery)"
+                        @onclick="() => { pestanaPedidos = EnumTipoServicio.Delivery; mostrarRendiciones = false; }">
+                    Delivery <span>@deliveries.Count</span>
+                </button>
+                <button type="button" class="pestana-tipo-pedido @(mostrarRendiciones ? "pestana-tipo-activa" : "")"
+                        aria-pressed="@mostrarRendiciones"
+                        @onclick="() => mostrarRendiciones = true">
+                    Rendiciones <span>@RendicionesPendientes.Count</span>
+                </button>
+            </nav>
+            @* Se muestra una modalidad a la vez para evitar desplazarse entre ambas. *@
             <section class="panel-seguimiento" aria-label="Pedidos en curso">
                 <div class="seguimiento-dos-columnas">
                     @foreach (var grupo in new[] { new { Titulo = "Take Away", Cuentas = takeAways }, new { Titulo = "Delivery", Cuentas = deliveries } })
+                    {
+                    @if (!mostrarRendiciones && pestanaPedidos == (grupo.Titulo == "Take Away" ? EnumTipoServicio.TakeAway : EnumTipoServicio.Delivery))
                     {
                     <section class="seguimiento-columna" aria-label="@grupo.Titulo">
                         <h3 class="seguimiento-columna-titulo">@grupo.Titulo <span>@grupo.Cuentas.Count</span></h3>
@@ -112,6 +149,56 @@
                                 </div>
                             }
 
+                            @* Resumen financiero para quien gestiona Take Away / Delivery.
+                               Los importes previstos no son cobros confirmados en Caja. *@
+                            <div class="cuenta-resumen-cobro" aria-label="Información de cobro de la comanda">
+                                <div class="cuenta-cobro-fila cuenta-cobro-total">
+                                    <span>Total de la venta</span>
+                                    <strong>$@cuenta.TotalPedido.ToString("N2")</strong>
+                                </div>
+                                @if (cuenta.EstaPagado)
+                                {
+                                    <div class="cuenta-cobro-estado cuenta-cobro-pagado">
+                                        ✓ Pagado @(string.IsNullOrWhiteSpace(cuenta.MediosPago) ? "" : "· " + cuenta.MediosPago)
+                                    </div>
+                                    @if (cuenta.EfectivoRecibido.HasValue)
+                                    {
+                                        <div class="cuenta-cobro-fila">
+                                            <span>Efectivo registrado</span>
+                                            <strong>$@cuenta.EfectivoRecibido.Value.ToString("N2")</strong>
+                                        </div>
+                                        <div class="cuenta-cobro-fila">
+                                            <span>Vuelto registrado</span>
+                                            <strong>$@((cuenta.VueltoRegistrado ?? 0).ToString("N2"))</strong>
+                                        </div>
+                                    }
+                                }
+                                else if (cuenta.TipoServicio == EnumTipoServicio.Delivery && cuenta.EfectivoPrevistoDelivery.HasValue)
+                                {
+                                    <div class="cuenta-cobro-estado cuenta-cobro-pendiente">Efectivo al entregar · Cobro todavía no registrado</div>
+                                    <div class="cuenta-cobro-fila">
+                                        <span>Cliente paga con</span>
+                                        <strong>$@cuenta.EfectivoPrevistoDelivery.Value.ToString("N2")</strong>
+                                    </div>
+                                    <div class="cuenta-cobro-fila cuenta-cobro-vuelto">
+                                        <span>Vuelto que lleva Delivery</span>
+                                        <strong>$@((cuenta.EfectivoPrevistoDelivery.Value - cuenta.TotalPedido).ToString("N2"))</strong>
+                                    </div>
+                                    <div class="cuenta-cobro-fila">
+                                        <span>Importe a rendir en Caja</span>
+                                        <strong>$@cuenta.TotalPedido.ToString("N2")</strong>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="cuenta-cobro-estado cuenta-cobro-pendiente">
+                                        @(cuenta.TipoServicio == EnumTipoServicio.TakeAway
+                                            ? "Pendiente de cobro al retirar / en Caja"
+                                            : "Cobro pendiente · Medio de pago no indicado")
+                                    </div>
+                                }
+                            </div>
+
                             @* Estado de pago: independiente del estado físico del pedido, porque
                                a veces se cobra antes (transferencia) y a veces al retirar/entregar. *@
                             @switch (cuenta.EstadoComanda)
@@ -129,7 +216,9 @@
                                 <div class="cuenta-card-info aviso-pago">🔔 Listo para retirar</div>
                             }
 
-                            @if (PuedeCerrar(cuenta))
+                            @if (PuedeCerrar(cuenta) &&
+                                 !(cuenta.TipoServicio == EnumTipoServicio.Delivery &&
+                                   cuenta.EfectivoPrevistoDelivery.HasValue && cuenta.IdDelivery.HasValue))
                             {
                                 <button class="btn btn-sm btn-dark w-100 mt-1" @onclick="() => CerrarPedido(cuenta)">
                                     Pasar a Caja
@@ -147,27 +236,73 @@
                         </div>
                     </section>
                     }
+                    }
                 </div>
+                @if (mostrarRendiciones)
+                {
+                <section class="rendiciones-delivery" aria-label="Rendiciones pendientes de Delivery">
+                    <div class="rendiciones-titulo">
+                        <h3>Delivery · Pendientes de rendición</h3>
+                        <span>@RendicionesPendientes.Count</span>
+                    </div>
+                    @if (!RendicionesPendientes.Any())
+                    {
+                        <p class="texto-vacio">No hay entregas en efectivo pendientes de rendición.</p>
+                    }
+                    else
+                    {
+                        <div class="rendiciones-grid">
+                            @foreach (var cuenta in RendicionesPendientes)
+                            {
+                                <div class="rendicion-tarjeta">
+                                    <div class="rendicion-encabezado">
+                                        <strong>@cuenta.NumeroComanda · @cuenta.NombreCliente</strong>
+                                        <span>Entregado · Sin rendir</span>
+                                    </div>
+                                    <small>Repartidor: @cuenta.NombreDelivery</small>
+                                    <div class="rendicion-importes">
+                                        <div><span>Total de venta</span><strong>$@cuenta.TotalPedido.ToString("N2")</strong></div>
+                                        <div><span>Cliente pagó con (previsto)</span><strong>$@cuenta.EfectivoPrevistoDelivery!.Value.ToString("N2")</strong></div>
+                                        <div><span>Vuelto previsto</span><strong>$@((cuenta.EfectivoPrevistoDelivery.Value - cuenta.TotalPedido).ToString("N2"))</strong></div>
+                                        <div class="rendicion-neto"><span>Dinero a rendir en Caja</span><strong>$@cuenta.TotalPedido.ToString("N2")</strong></div>
+                                    </div>
+                                    @if (idRendicionConfirmando == cuenta.IdComanda)
+                                    {
+                                        <p class="rendicion-alerta">Confirmá solo después de recibir y contar el efectivo del repartidor. Esta acción registra el cobro en Caja.</p>
+                                        <div class="rendicion-botones">
+                                            <button class="btn btn-sm btn-outline-secondary" disabled="@guardandoRendicion" @onclick="() => idRendicionConfirmando = null">Volver</button>
+                                            <button class="btn btn-sm btn-success" disabled="@guardandoRendicion" @onclick="() => ConfirmarRendicion(cuenta)">
+                                                @(guardandoRendicion ? "Registrando..." : "Sí, recibí el dinero")
+                                            </button>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-success" disabled="@guardandoRendicion"
+                                                @onclick="() => idRendicionConfirmando = cuenta.IdComanda">
+                                            Confirmar rendición y registrar en Caja
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(mensajeRendicion))
+                    {
+                        <div class="alert alert-info mt-2" role="status">@mensajeRendicion</div>
+                    }
+                </section>
+                }
             </section>
 
-            <div class="pedido-formulario-cabecera">
-                <button type="button" class="btn btn-danger pedido-formulario-toggle"
-                        aria-haspopup="dialog"
-                        @onclick="() => mostrarFormularioNuevoPedido = true">
-                    ＋ Cargar nuevo pedido
-                </button>
-                @if (!mostrarFormularioNuevoPedido && !string.IsNullOrWhiteSpace(MensajeForm))
-                {
-                    <span class="alert @(MensajeFormEsExito ? "alert-success" : "alert-warning") mb-0 py-2" role="status">@MensajeForm</span>
-                }
-            </div>
+
             @if (mostrarFormularioNuevoPedido)
             {
                 <div class="pedido-modal-fondo">
                     <div class="pedido-modal-ventana" role="dialog" aria-modal="true" aria-label="Cargar nuevo pedido">
                         <div class="pedido-modal-barra">
                             <strong>Cargar nuevo pedido</strong>
-                            <button type="button" class="pedido-modal-cerrar" aria-label="Cerrar ventana de nuevo pedido"
+                            <button id="perico-nuevo-pedido-cerrar" type="button" class="pedido-modal-cerrar" aria-label="Cerrar ventana de nuevo pedido" aria-keyshortcuts="Escape"
                                     disabled="@enviandoPedido" @onclick="() => mostrarFormularioNuevoPedido = false">×</button>
                         </div>
                         <div class="panel-nuevo-pedido">
@@ -180,16 +315,7 @@
                                 <span>@tipoNuevoPedido</span>
                             </div>
 
-                            <nav class="categorias categorias-superiores" aria-label="Categorías">
-                                @foreach (var categoria in CategoriasDisponibles)
-                                {
-                                    <button class="@(categoria == categoriaSeleccionada ? "activo" : "")"
-                                            @onclick="() => SeleccionarCategoria(categoria)">
-                                        <span>@IconoCategoria(categoria)</span>
-                                        @categoria
-                                    </button>
-                                }
-                            </nav>
+
 
                         </div>
 
@@ -204,7 +330,7 @@
                         <div class="cliente-linea">
                             <strong>Cliente</strong>
                             <div class="buscador-cliente-contenedor">
-                                <input class="form-control form-control-sm" type="search" autocomplete="off"
+                                <input id="perico-buscar-cliente-pedido" class="form-control form-control-sm" type="search" autocomplete="off"
                                        placeholder="Buscar nombre, teléfono o referencia de WhatsApp..."
                                        value="@busquedaCliente" @oninput="BuscarClienteExistente" />
                                 @if (resultadosCliente.Any())
@@ -228,14 +354,6 @@
                             </div>
                         </div>
                         <div class="cliente-campos">
-                            <label class="dato-cliente">Nombre y apellido @(tipoNuevoPedido == EnumTipoServicio.Delivery ? "(opcional si tenés referencia)" : "")
-                                <input class="form-control form-control-sm" maxlength="100"
-                                       @bind="nombreCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
-                            </label>
-                            <label class="dato-cliente">Teléfono
-                                <input class="form-control form-control-sm" maxlength="30"
-                                       @bind="telefonoCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
-                            </label>
                             @if (tipoNuevoPedido == EnumTipoServicio.Delivery)
                             {
                                 <label class="dato-cliente">Referencia de WhatsApp
@@ -243,16 +361,49 @@
                                            placeholder="Contacto o referencia de WhatsApp"
                                            @bind="direccionCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
                                 </label>
+                                <label class="dato-cliente">Entrega (opcional)
+                                    <input type="time" class="form-control form-control-sm" value="@horaDeseadaTexto"
+                                           @oninput="e => horaDeseadaTexto = e.Value?.ToString() ?? string.Empty" />
+                                </label>
                             }
-                            <label class="dato-cliente">@(tipoNuevoPedido == EnumTipoServicio.Delivery ? "Entrega" : "Retiro") (opcional)
-                                <input type="time" class="form-control form-control-sm" value="@horaDeseadaTexto"
-                                       @oninput="e => horaDeseadaTexto = e.Value?.ToString() ?? string.Empty" />
-                            </label>
+                            else
+                            {
+                                <label class="dato-cliente">Nombre y apellido
+                                    <input class="form-control form-control-sm" maxlength="100"
+                                           @bind="nombreCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
+                                </label>
+                                <div class="cliente-campos-secundarios">
+                                    <label class="dato-cliente">Teléfono
+                                        <input class="form-control form-control-sm" maxlength="30"
+                                               @bind="telefonoCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
+                                    </label>
+                                    <label class="dato-cliente">Retiro (opcional)
+                                        <input type="time" class="form-control form-control-sm" value="@horaDeseadaTexto"
+                                               @oninput="e => horaDeseadaTexto = e.Value?.ToString() ?? string.Empty" />
+                                    </label>
+                                </div>
+                            }
                         </div>
                     </fieldset>
 
+                            <nav class="categorias categorias-superiores" aria-label="Categorías">
+                                @foreach (var categoria in CategoriasDisponibles)
+                                {
+                                    <button class="@(categoria == categoriaSeleccionada ? "activo" : "")"
+                                            @onclick="() => SeleccionarCategoria(categoria)">
+                                        <span>@IconoCategoria(categoria)</span>
+                                        @categoria
+                                    </button>
+                                }
+                            </nav>
+
                     <fieldset class="selector-productos" disabled="@enviandoPedido">
-                        <aside class="selector-resumen">
+                        <aside class="selector-resumen @(mostrarCarritoCompacto ? "carrito-compacto-abierto" : "carrito-compacto-cerrado")">
+                            <button type="button" class="carrito-compacto-toggle" aria-expanded="@mostrarCarritoCompacto"
+                                    @onclick="() => mostrarCarritoCompacto = !mostrarCarritoCompacto">
+                                <span>🧾 Pedido (@CantidadTotalItems)</span>
+                                <span>$@TotalCarrito.ToString("N2") @(mostrarCarritoCompacto ? "▴" : "▾")</span>
+                            </button>
                             <div class="resumen-carrito">
                                 <strong>Pedido (@CantidadTotalItems)</strong>
                                 @if (!carrito.Any())
@@ -352,6 +503,31 @@
                     </fieldset>
 
                     <div class="pago-inmediato">
+                        @if (tipoNuevoPedido == EnumTipoServicio.Delivery && !cobrarAhora)
+                        {
+                            <label class="pago-inmediato-opcion">
+                                <input type="checkbox" @bind="efectivoAlRecibirDelivery" disabled="@enviandoPedido" />
+                                <strong>Cliente paga en efectivo al recibir</strong>
+                            </label>
+                            @if (efectivoAlRecibirDelivery)
+                            {
+                                <label class="pago-inmediato-metodo">
+                                    ¿Con cuánto paga el cliente?
+                                    <input type="text" inputmode="decimal" class="form-control form-control-sm"
+                                           placeholder="Ej.: 30000 o 30.000"
+                                           @bind="efectivoPrevistoTexto" @bind:event="oninput"
+                                           disabled="@enviandoPedido" />
+                                </label>
+                                @if (TryLeerImporte(efectivoPrevistoTexto, out var efectivoPrevisto) && efectivoPrevisto >= TotalCarrito)
+                                {
+                                    <strong class="delivery-vuelto-previsto">Vuelto a llevar: $@((efectivoPrevisto - TotalCarrito).ToString("N2"))</strong>
+                                }
+                                else
+                                {
+                                    <small class="text-danger">Indicá el efectivo que entregará el cliente (mínimo $@TotalCarrito.ToString("N2")).</small>
+                                }
+                            }
+                        }
                         <label class="pago-inmediato-opcion">
                             <input type="checkbox" @bind="cobrarAhora" disabled="@enviandoPedido" />
                             <strong>El cliente paga ahora</strong>
@@ -465,6 +641,33 @@
                                 @cuenta.NombreCliente
                                 <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
                             </div>
+                            <div class="delivery-cobro @(cuenta.EstaPagado ? "delivery-cobro-pagado" : "delivery-cobro-pendiente")">
+                                <div><strong>Total: $@cuenta.TotalPedido.ToString("N2")</strong></div>
+                                @if (cuenta.EstaPagado)
+                                {
+                                    <div>✓ Ya pagado @(string.IsNullOrWhiteSpace(cuenta.MediosPago) ? "" : "· " + cuenta.MediosPago). No cobrar nuevamente.</div>
+                                    @if (cuenta.EfectivoRecibido.HasValue)
+                                    {
+                                        <small>Registrado en caja: efectivo $@cuenta.EfectivoRecibido.Value.ToString("N2") · vuelto $@((cuenta.VueltoRegistrado ?? 0).ToString("N2")).</small>
+                                    }
+                                }
+                                else
+                                {
+                                    @if (cuenta.EfectivoPrevistoDelivery.HasValue)
+                                    {
+                                        <div><strong>💵 Cobra en efectivo al entregar: $@cuenta.TotalPedido.ToString("N2")</strong></div>
+                                        <div>Cliente paga con: <strong>$@cuenta.EfectivoPrevistoDelivery.Value.ToString("N2")</strong></div>
+                                        <div class="delivery-vuelto-previsto">Vuelto a llevar: <strong>$@((cuenta.EfectivoPrevistoDelivery.Value - cuenta.TotalPedido).ToString("N2"))</strong></div>
+                                        <small>Cobro previsto: todavía no está registrado como pagado en Caja.</small>
+                                    }
+                                    else
+                                    {
+                                        <div>⚠ Pendiente de cobro. Consultá con Barra/Caja cómo se cobrará.</div>
+                                        <small>No se registró el medio de pago ni un vuelto previsto.</small>
+                                    }
+                                }
+                            </div>
+
                             <button class="btn btn-sm btn-primary w-100 mt-1" @onclick="() => TomarPedido(cuenta)">
                                 Tomar este pedido
                             </button>
@@ -503,12 +706,67 @@
                                 @cuenta.NombreCliente
                                 <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
                             </div>
+                            <div class="delivery-cobro @(cuenta.EstaPagado ? "delivery-cobro-pagado" : "delivery-cobro-pendiente")">
+                                <div><strong>Total: $@cuenta.TotalPedido.ToString("N2")</strong></div>
+                                @if (cuenta.EstaPagado)
+                                {
+                                    <div>✓ Ya pagado @(string.IsNullOrWhiteSpace(cuenta.MediosPago) ? "" : "· " + cuenta.MediosPago). No cobrar nuevamente.</div>
+                                    @if (cuenta.EfectivoRecibido.HasValue)
+                                    {
+                                        <small>Registrado en caja: efectivo $@cuenta.EfectivoRecibido.Value.ToString("N2") · vuelto $@((cuenta.VueltoRegistrado ?? 0).ToString("N2")).</small>
+                                    }
+                                }
+                                else
+                                {
+                                    @if (cuenta.EfectivoPrevistoDelivery.HasValue)
+                                    {
+                                        <div><strong>💵 Cobra en efectivo al entregar: $@cuenta.TotalPedido.ToString("N2")</strong></div>
+                                        <div>Cliente paga con: <strong>$@cuenta.EfectivoPrevistoDelivery.Value.ToString("N2")</strong></div>
+                                        <div class="delivery-vuelto-previsto">Vuelto a llevar: <strong>$@((cuenta.EfectivoPrevistoDelivery.Value - cuenta.TotalPedido).ToString("N2"))</strong></div>
+                                        <small>Cobro previsto: todavía no está registrado como pagado en Caja.</small>
+                                    }
+                                    else
+                                    {
+                                        <div>⚠ Pendiente de cobro. Consultá con Barra/Caja cómo se cobrará.</div>
+                                        <small>No se registró el medio de pago ni un vuelto previsto.</small>
+                                    }
+                                }
+                            </div>
+
                             <button class="btn btn-sm btn-success w-100 mt-1" @onclick="() => MarcarEntregado(cuenta)">
                                 Marcar entregado
                             </button>
                         </div>
                     }
                 </div>
+                <hr />
+                <div class="delivery-historial-cabecera">
+                    <h4>Mis entregas de hoy</h4>
+                    <span>@HoraArgentina.HoyLocal.ToString("dd/MM/yyyy")</span>
+                </div>
+                <div class="delivery-historial-resumen">
+                    <strong>@historialDeliveryHoy.Count entregas</strong>
+                    <span>Valor total de pedidos: $@historialDeliveryHoy.Sum(c => c.TotalPedido).ToString("N2")</span>
+                </div>
+                @if (!historialDeliveryHoy.Any())
+                {
+                    <p class="texto-vacio">Todavía no registraste entregas hoy.</p>
+                }
+                else
+                {
+                    <div class="delivery-historial-lista">
+                        @foreach (var entrega in historialDeliveryHoy)
+                        {
+                            <div class="delivery-historial-item">
+                                <strong>@entrega.NumeroComanda</strong>
+                                <span>@entrega.NombreCliente</span>
+                                <span>@HoraArgentina.DesdeUtc(entrega.FechaEntrega!.Value).ToString("HH:mm")</span>
+                                <strong>$@entrega.TotalPedido.ToString("N2")</strong>
+                                <small>@entrega.Direccion · @(entrega.EstaPagado ? "Pagado" : "Pendiente de cobro")</small>
+                            </div>
+                        }
+                    </div>
+                }
             </section>
 
         </Authorized>
@@ -1399,6 +1657,9 @@
     @@media(max-width:780px) { .seguimiento-dos-columnas { grid-template-columns:minmax(0,1fr); } }
     .pedido-formulario-cabecera { display:flex; align-items:center; flex-wrap:wrap; gap:.8rem; margin:1.15rem 0 .7rem; }
     .pedido-formulario-toggle { min-height:44px; font-weight:700; }
+    .pedido-formulario-cabecera-superior { margin:.15rem 0 .8rem; }
+    .atajo-nuevo-pedido { display:inline-flex; align-items:center; margin-left:.4rem; padding:.12rem .38rem; background:#ffffff28; border:1px solid #ffffff85; border-radius:5px; font-size:.73rem; font-weight:700; vertical-align:middle; }
+
     .panel-seguimiento { margin-bottom:1rem; }
 
     .pago-inmediato { display:flex; flex-wrap:wrap; align-items:center; gap:.7rem; padding:.6rem 1rem; border-top:1px solid #ddd; background:#fff9eb; color:#222; flex-shrink:0; }
@@ -1532,6 +1793,190 @@
         .datos-cliente-superior .selector-tipo { margin:.1rem 0; }
     }
     @@media (max-width:520px) { .cliente-campos { grid-template-columns:1fr; } }
+    /* Ventana de medio monitor (WhatsApp al lado):
+       contenido compacto, menú siempre visible, carrito desplegable. */
+    .carrito-compacto-toggle { display:none; }
+    @@media (max-width: 900px) {
+        .pedido-modal-fondo { align-items:stretch; padding:.25rem; }
+        .pedido-modal-ventana { width:100%; height:calc(100dvh - .5rem); max-height:calc(100dvh - .5rem); border-radius:9px; }
+        .pedido-modal-barra { min-height:35px; padding:.2rem .6rem; font-size:.84rem; }
+        .pedido-modal-cerrar { width:30px; height:30px; font-size:1.35rem; }
+        .pedido-modal-ventana .panel-nuevo-pedido { flex:1 1 auto; min-height:0; overflow:hidden; }
+        .pedido-modal-ventana .modal-pedido {
+            display:flex; flex-direction:column; width:100%; height:100%; max-height:100%;
+            overflow:hidden; min-height:0; border:0; border-radius:0;
+        }
+        .pedido-modal-ventana .modal-pedido-header { flex:0 0 auto; min-height:0; padding:.28rem .45rem; }
+        .pedido-modal-ventana .modal-encabezado-contenido { display:flex; flex-direction:row; align-items:center; gap:.5rem; width:100%; }
+        .pedido-modal-ventana .modal-identificacion { display:none; }
+        .pedido-modal-ventana .categorias-superiores { display:flex; gap:.3rem; width:100%; flex-wrap:nowrap; margin:0; }
+        .pedido-modal-ventana .categorias-superiores button { flex:1 1 0; min-width:0; padding:.35rem .15rem; min-height:36px; font-size:.82rem; white-space:nowrap; }
+        .pedido-modal-ventana .datos-cliente-superior {
+            display:flex; flex:0 0 auto; flex-direction:column; gap:.3rem;
+            padding:.36rem .5rem; margin:0; background:#f5f6f8; overflow:visible; z-index:5;
+        }
+        .pedido-modal-ventana .cliente-linea { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.35rem; align-items:center; min-height:0; }
+        .pedido-modal-ventana .cliente-linea > strong { display:none; }
+        .pedido-modal-ventana .buscador-cliente-contenedor { grid-column:1; grid-row:1; min-width:0; }
+        .pedido-modal-ventana .buscador-cliente-contenedor input { height:32px; min-height:32px; width:100%; font-size:.8rem; }
+        .pedido-modal-ventana .selector-tipo { grid-column:2; grid-row:1; margin:0; display:flex; flex-wrap:nowrap; gap:.2rem; }
+        .pedido-modal-ventana .selector-tipo button { min-height:32px; min-width:0; padding:.2rem .4rem; font-size:.74rem; }
+        .pedido-modal-ventana .cliente-campos { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.25rem .4rem; margin:0; }
+        .pedido-modal-ventana .dato-cliente { font-size:.69rem; min-width:0; gap:.08rem; margin:0; line-height:1.1; }
+        .pedido-modal-ventana .dato-cliente input { width:100%; min-width:0; min-height:30px; height:30px; font-size:.82rem; padding:.25rem .4rem; }
+        .pedido-modal-ventana .selector-productos {
+            display:flex; flex:1 1 auto; flex-direction:column; min-height:0; overflow:hidden;
+            border:0; padding:0; margin:0;
+        }
+        .pedido-modal-ventana .selector-productos > * { min-height:0; }
+        .pedido-modal-ventana .subcategorias {
+            order:1; display:flex; flex:0 0 auto; flex-direction:row; flex-wrap:nowrap;
+            overflow-x:auto; overflow-y:hidden; gap:.25rem; padding:.25rem .4rem;
+            border-bottom:1px solid #ddd; border-right:0;
+        }
+        .pedido-modal-ventana .subcategorias button {
+            flex:0 0 auto; width:auto; min-width:0; padding:.35rem .65rem;
+            min-height:32px; white-space:nowrap; font-size:.78rem;
+        }
+        .pedido-modal-ventana .productos-modal {
+            order:2; display:block; flex:1 1 auto; min-height:110px; height:auto;
+            max-height:none; overflow-y:auto; overflow-x:hidden; margin:0; padding:0;
+        }
+        .pedido-modal-ventana .productos-buscador { position:sticky; top:0; z-index:2; padding:.3rem .45rem; background:white; }
+        .pedido-modal-ventana .productos-buscador input { min-height:33px; height:33px; font-size:.84rem; }
+        .pedido-modal-ventana .productos-titulo { padding:.3rem .5rem; }
+        .pedido-modal-ventana .producto-fila {
+            display:grid; grid-template-columns:minmax(0,1fr) auto auto;
+            align-items:center; gap:.35rem; padding:.38rem .45rem;
+        }
+        .pedido-modal-ventana .producto-fila > div:first-child { min-width:0; }
+        .pedido-modal-ventana .producto-fila .control-cantidad { grid-column:auto; justify-self:end; }
+        .pedido-modal-ventana .selector-resumen {
+            order:3; flex:0 0 auto; padding:0; overflow:visible; border:0;
+            margin:0; background:#fff;
+        }
+        .pedido-modal-ventana .carrito-compacto-toggle {
+            display:flex; align-items:center; justify-content:space-between; gap:.4rem;
+            width:100%; min-height:34px; padding:.32rem .65rem; font-size:.83rem;
+            font-weight:700; border:0; border-top:1px solid #d8dce1; border-bottom:1px solid #d8dce1;
+            background:#f1f4f7; color:#20262c;
+        }
+        .pedido-modal-ventana .selector-resumen.carrito-compacto-cerrado .resumen-carrito { display:none; }
+        .pedido-modal-ventana .resumen-carrito {
+            display:block; min-height:0; height:auto; max-height:min(24dvh,175px);
+            overflow-y:auto; padding:.4rem .65rem; margin:0; border:0; border-radius:0;
+        }
+        .pedido-modal-ventana .pago-inmediato {
+            flex:0 0 auto; display:flex; flex-flow:row wrap; align-items:center;
+            gap:.3rem .65rem; padding:.3rem .5rem; max-height:115px; overflow-y:auto;
+        }
+        .pedido-modal-ventana .pago-inmediato-opcion { font-size:.77rem; }
+        .pedido-modal-ventana .pago-inmediato-metodo { min-width:min(100%,165px); flex:1 1 145px; font-size:.74rem; }
+        .pedido-modal-ventana .pago-inmediato-metodo input,
+        .pedido-modal-ventana .pago-inmediato-metodo select { height:30px; min-height:30px; }
+        .pedido-modal-ventana .pago-inmediato small { font-size:.69rem; }
+        .pedido-modal-ventana .modal-pedido-footer {
+            position:static; flex:0 0 auto; display:flex; flex-wrap:wrap; gap:.3rem;
+            padding:.3rem .45rem; min-height:49px; background:white; z-index:3;
+        }
+        .pedido-modal-ventana .modal-pedido-footer > div { width:auto; margin-right:auto; font-size:.75rem; }
+        .pedido-modal-ventana .modal-pedido-footer > div strong { font-size:.97rem; }
+        .pedido-modal-ventana .modal-pedido-footer button { flex:0 1 auto; width:auto; min-height:35px; padding:.3rem .5rem; font-size:.8rem; }
+        .pedido-modal-ventana .modal-pedido-footer .btn-success { flex:1 1 190px; }
+        .pedido-modal-ventana .pedido-datos-faltantes { flex-basis:100%; margin:0; padding:.12rem .4rem; font-size:.72rem; }
+    }
+    @@media (max-width: 420px) {
+        .pedido-modal-ventana .cliente-linea { grid-template-columns:minmax(0,1fr); }
+        .pedido-modal-ventana .buscador-cliente-contenedor { grid-column:1; grid-row:1; }
+        .pedido-modal-ventana .selector-tipo { grid-column:1; grid-row:2; justify-content:stretch; }
+        .pedido-modal-ventana .selector-tipo button { flex:1 1 0; }
+        .pedido-modal-ventana .cliente-campos { grid-template-columns:repeat(2,minmax(0,1fr)); }
+        .pedido-modal-ventana .modal-pedido-footer .btn-success { flex-basis:100%; }
+    }
+    .delivery-vuelto-previsto { font-weight:800; color:#176a35; }
+    .delivery-cobro { margin:.6rem 0; border-radius:8px; padding:.65rem .75rem; display:grid; gap:.3rem; font-size:.88rem; }
+    .delivery-cobro-pagado { background:#eaf7ef; border:1px solid #c6e7d2; color:#14532d; }
+    .delivery-cobro-pendiente { background:#fff5dd; border:1px solid #efd89c; color:#694500; }
+    .delivery-cobro small { display:block; font-size:.77rem; }
+    .delivery-historial-cabecera { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; }
+    .delivery-historial-cabecera h4 { margin:0; }
+    .delivery-historial-resumen { display:flex; gap:1rem; flex-wrap:wrap; padding:.7rem 0; }
+    .delivery-historial-lista { display:grid; gap:.5rem; }
+    .delivery-historial-item { display:grid; grid-template-columns:100px 1fr auto auto; align-items:center; gap:.5rem; padding:.65rem; border:1px solid #e3e6eb; border-radius:8px; background:#fafafa; }
+    .delivery-historial-item small { grid-column:1/-1; color:#646b76; }
+    @@media(max-width:650px) { .delivery-historial-item { grid-template-columns:1fr 1fr; } }
+
+    .rendiciones-delivery { margin-top:1.2rem; padding:.85rem; border:1px solid #dde2e8; border-radius:10px; background:#f8fafc; }
+    .rendiciones-titulo { display:flex; justify-content:space-between; align-items:center; gap:.6rem; margin-bottom:.8rem; }
+    .rendiciones-titulo h3 { font-size:1.08rem; font-weight:800; margin:0; }
+    .rendiciones-titulo span { border-radius:99px; background:#24272c; color:white; padding:.2rem .65rem; }
+    .rendiciones-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr)); gap:.75rem; }
+    .rendicion-tarjeta { display:grid; gap:.5rem; padding:.8rem; border-radius:10px; background:white; border:1px solid #d7dee6; }
+    .rendicion-encabezado { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.4rem; }
+    .rendicion-encabezado span { color:#97600b; font-size:.74rem; font-weight:800; }
+    .rendicion-tarjeta > small { color:#616975; }
+    .rendicion-importes { display:grid; gap:.3rem; }
+    .rendicion-importes > div { display:flex; justify-content:space-between; gap:.5rem; flex-wrap:wrap; }
+    .rendicion-neto { border-top:1px solid #ddd; padding-top:.45rem; font-size:1.05rem; }
+    .rendicion-alerta { background:#fff4db; border-radius:8px; padding:.6rem; font-size:.83rem; margin:0; }
+    .rendicion-botones { display:flex; gap:.5rem; }
+    .rendicion-tarjeta .btn { min-height:36px; }
+    /* Categorías debajo del cliente; en ventanas estrechas Delivery usa solo
+       referencia + horario, y Take Away mantiene teléfono y horario en una fila. */
+    .pedido-modal-ventana .cliente-campos-secundarios {
+        display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.35rem; min-width:0;
+    }
+    .pedido-modal-ventana .cliente-campos-secundarios > * { min-width:0; }
+    .pedido-modal-ventana .categorias-superiores { flex:0 0 auto; }
+    @@media (max-width: 900px) {
+        .pedido-modal-ventana .modal-pedido-header { display:none; }
+        .pedido-modal-ventana > .panel-nuevo-pedido .modal-pedido > .categorias-superiores {
+            display:flex; flex-flow:row nowrap; width:100%; margin:0;
+            padding:.25rem .4rem; gap:.3rem; border-bottom:1px solid #ddd;
+        }
+        .pedido-modal-ventana > .panel-nuevo-pedido .modal-pedido > .categorias-superiores button {
+            flex:1 1 0; min-width:0; padding:.34rem .12rem; min-height:36px;
+            font-size:.8rem; white-space:nowrap;
+        }
+        .pedido-modal-ventana .cliente-campos {
+            display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.35rem;
+        }
+        .pedido-modal-ventana .cliente-campos-secundarios {
+            grid-template-columns:repeat(2,minmax(0,1fr)); gap:.25rem; align-items:end;
+        }
+    }
+    @@media (max-width: 420px) {
+        .pedido-modal-ventana .cliente-campos {
+            grid-template-columns:repeat(2,minmax(0,1fr));
+        }
+        .pedido-modal-ventana .cliente-campos-secundarios {
+            grid-template-columns:repeat(2,minmax(0,1fr)); gap:.2rem;
+        }
+    }
+    .cuenta-resumen-cobro {
+        display:grid; gap:.3rem; padding:.6rem .7rem; margin:.55rem 0;
+        border:1px solid #dedede; border-radius:8px; background:#fff; font-size:.85rem;
+    }
+    .cuenta-cobro-fila { display:flex; justify-content:space-between; align-items:baseline; gap:.4rem; flex-wrap:wrap; }
+    .cuenta-cobro-fila > strong { white-space:nowrap; }
+    .cuenta-cobro-total { border-bottom:1px solid #e5e5e5; padding-bottom:.3rem; font-size:.94rem; }
+    .cuenta-cobro-estado { padding:.28rem .4rem; border-radius:5px; font-weight:700; font-size:.78rem; }
+    .cuenta-cobro-pagado { background:#e6f6eb; color:#196334; }
+    .cuenta-cobro-pendiente { background:#fff3db; color:#815100; }
+    .cuenta-cobro-vuelto { color:#176334; font-weight:800; }
+    /* Seguimiento por pestañas en media pantalla, sin alterar los pedidos. */
+    .pestanas-tipo-pedidos { display:flex; gap:.4rem; width:100%; margin:.1rem 0 .65rem; }
+    .pestana-tipo-pedido { flex:1 1 0; min-width:0; font-size:clamp(.75rem, 1.4vw, .95rem); display:flex; align-items:center; justify-content:center; gap:.5rem; min-height:40px; padding:.4rem .65rem; border:1px solid #cfd4db; border-radius:8px; background:#fff; color:#222; font-weight:800; }
+    .pestana-tipo-pedido.pestana-tipo-activa { background:#222; color:#fff; border-color:#222; }
+    .pestana-tipo-pedido span { flex-shrink:0; display:inline-flex; justify-content:center; align-items:center; min-width:24px; padding:.12rem .4rem; border-radius:20px; background:#e6e6e6; color:#222; font-size:.78rem; }
+    .pestana-tipo-pedido.pestana-tipo-activa span { background:#fff; }
+    .seguimiento-dos-columnas { display:block; }
+    @@media(max-width:900px) {
+        .pestanas-tipo-pedidos { gap:.3rem; margin:.1rem 0 .5rem; }
+        .seguimiento-columna { padding:.6rem; }
+        .seguimiento-columna .grilla-cuentas { grid-template-columns:minmax(0,1fr); }
+        .seguimiento-columna .cuenta-card { width:100%; max-width:none; }
+    }
 </style>
 
 @code {
@@ -1547,6 +1992,8 @@
     private bool cobrarAhora;
     private EnumTipoPago tipoPagoInmediato = EnumTipoPago.Efectivo;
     private string efectivoEntregadoTexto = "";
+    private bool efectivoAlRecibirDelivery;
+    private string efectivoPrevistoTexto = "";
     private EnumTipoServicio tipoNuevoPedido = EnumTipoServicio.TakeAway;
     private string nombreCliente = "";
     private int? idClienteExistente;
@@ -1575,7 +2022,23 @@
 
     // ---- Seguimiento (Administracion/Barra) ----
     private List<PedidoParaLlevarDTO> takeAways = new();
+    private EnumTipoServicio pestanaPedidos = EnumTipoServicio.TakeAway;
+    private bool mostrarRendiciones;
     private List<PedidoParaLlevarDTO> deliveries = new();
+    private bool mostrarCarritoCompacto;
+    private List<PedidoParaLlevarDTO> RendicionesPendientes => deliveries
+        .Where(c => c.TipoServicio == EnumTipoServicio.Delivery &&
+                    !c.EstaPagado && c.TodoEntregado &&
+                    c.IdDelivery.HasValue && c.EfectivoPrevistoDelivery.HasValue &&
+                    c.EfectivoPrevistoDelivery.Value >= c.TotalPedido && c.TotalPedido > 0 &&
+                    (c.EstadoComanda == EnumEstadoComanda.Abierta ||
+                     c.EstadoComanda == EnumEstadoComanda.PendienteCobro))
+        .ToList();
+    private int? idRendicionConfirmando;
+    private bool guardandoRendicion;
+    private string? mensajeRendicion;
+
+    private List<PedidoParaLlevarDTO> historialDeliveryHoy = new();
 
     //Para Delivery
     private string? MensajeDelivery;
@@ -1586,6 +2049,8 @@
 
     private int? idUsuarioActual;
     private bool esSoloDelivery;
+    private bool puedeAccederCaja;
+    private string? mensajePaseCaja;
 
     private IEnumerable<string> CategoriasDisponibles => productos
         .Select(p => p.NombreCategoria)
@@ -1663,6 +2128,7 @@
     {
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         var user = authState.User;
+        puedeAccederCaja = user.IsInRole("Administracion") || user.IsInRole("Caja");
         esSoloDelivery = user.IsInRole("Delivery") &&
                          !user.IsInRole("Administracion") &&
                          !user.IsInRole("Barra");
@@ -1708,6 +2174,10 @@
         {
             deliveries = respuestaDelivery.Respuesta;
         }
+
+        var respuestaHistorial = await http.Get<List<PedidoParaLlevarDTO>>("api/Pedido/Delivery/MisEntregasHoy");
+        if (!respuestaHistorial.Error && respuestaHistorial.Respuesta != null)
+            historialDeliveryHoy = respuestaHistorial.Respuesta;
 
         await InvokeAsync(StateHasChanged);
     }
@@ -1844,6 +2314,8 @@
         cobrarAhora = false;
         tipoPagoInmediato = EnumTipoPago.Efectivo;
         efectivoEntregadoTexto = "";
+        efectivoAlRecibirDelivery = false;
+        efectivoPrevistoTexto = "";
         carrito = new();
         busquedaProducto = "";
         categoriaSeleccionada = CategoriasDisponibles.FirstOrDefault() ?? "";
@@ -1974,6 +2446,13 @@
 
         if (!PedidoListoParaEnviar || enviandoPedido) return;
 
+        if (tipoNuevoPedido == EnumTipoServicio.Delivery && !cobrarAhora && efectivoAlRecibirDelivery &&
+            (!TryLeerImporte(efectivoPrevistoTexto, out var efectivoPrometido) || efectivoPrometido < TotalCarrito))
+        {
+            MensajeForm = "Ingresá con cuánto efectivo pagará el cliente. Debe alcanzar para cubrir el total.";
+            return;
+        }
+
         if (cobrarAhora && tipoPagoInmediato == EnumTipoPago.Efectivo &&
             !string.IsNullOrWhiteSpace(efectivoEntregadoTexto) &&
             (!TryLeerImporte(efectivoEntregadoTexto, out var recibido) || recibido < TotalCarrito))
@@ -1989,14 +2468,17 @@
         {
             IdUsuario = idUsuarioActual.Value,
             TipoServicio = tipoNuevoPedido,
-            NombreCliente = string.IsNullOrWhiteSpace(nombreCliente) && tipoNuevoPedido == EnumTipoServicio.Delivery
+            NombreCliente = tipoNuevoPedido == EnumTipoServicio.Delivery && !idClienteExistente.HasValue
                 ? ("Referencia: " + direccionCliente.Trim())[..Math.Min(("Referencia: " + direccionCliente.Trim()).Length, 100)]
                 : nombreCliente.Trim(),
             IdClienteExistente = idClienteExistente,
-            Telefono = string.IsNullOrWhiteSpace(telefonoCliente) ? null : telefonoCliente.Trim(),
+            Telefono = tipoNuevoPedido == EnumTipoServicio.Delivery || string.IsNullOrWhiteSpace(telefonoCliente)
+                ? null : telefonoCliente.Trim(),
             Direccion = tipoNuevoPedido == EnumTipoServicio.Delivery ? direccionCliente.Trim() : null,
             HoraDeseada = ConvertirHoraDeseada(horaDeseadaTexto),
             CobrarAhora = cobrarAhora,
+            EfectivoPrevistoDelivery = tipoNuevoPedido == EnumTipoServicio.Delivery && !cobrarAhora && efectivoAlRecibirDelivery &&
+                TryLeerImporte(efectivoPrevistoTexto, out var previsto) ? previsto : null,
             LineasPago = cobrarAhora
                 ? new List<LineaPagoDTO>
                   {
@@ -2065,14 +2547,48 @@
 
     private async Task CerrarPedido(PedidoParaLlevarDTO cuenta)
     {
+        mensajePaseCaja = null;
         var respuesta = await http.Put($"api/Comanda/{cuenta.IdComanda}/Cerrar", new { });
         if (respuesta.Error)
         {
-            MensajeForm = respuesta.ObtenerError();
+            mensajePaseCaja = respuesta.ObtenerError();
             return;
         }
 
+        if (cuenta.TipoServicio == EnumTipoServicio.TakeAway && puedeAccederCaja)
+        {
+            Navigation.NavigateTo("/caja");
+            return;
+        }
+
+        if (cuenta.TipoServicio == EnumTipoServicio.TakeAway)
+            mensajePaseCaja = $"La comanda {cuenta.NumeroComanda} se envió a Caja. Un usuario de Caja o Administración deberá cobrarla.";
+
         await CargarSeguimiento();
+    }
+
+    private async Task ConfirmarRendicion(PedidoParaLlevarDTO cuenta)
+    {
+        if (guardandoRendicion || idRendicionConfirmando != cuenta.IdComanda) return;
+        guardandoRendicion = true;
+        mensajeRendicion = null;
+        try
+        {
+            var resp = await http.Post($"api/Pedido/Delivery/{cuenta.IdComanda}/ConfirmarRendicion", new { });
+            if (resp.Error)
+            {
+                mensajeRendicion = resp.ObtenerError();
+                return;
+            }
+            idRendicionConfirmando = null;
+            mensajeRendicion = $"Rendición de {cuenta.NumeroComanda} registrada en Caja por ${cuenta.TotalPedido:N2}.";
+            await CargarSeguimiento();
+        }
+        catch (System.Net.Http.HttpRequestException)
+        {
+            mensajeRendicion = "No se pudo verificar la rendición. Actualizá el seguimiento y revisá Caja antes de reintentar.";
+        }
+        finally { guardandoRendicion = false; }
     }
 
     // Esto es lo del Delivery, en donde toma un pedido para repartirlo, y lo marca como entregado cuando se terminó

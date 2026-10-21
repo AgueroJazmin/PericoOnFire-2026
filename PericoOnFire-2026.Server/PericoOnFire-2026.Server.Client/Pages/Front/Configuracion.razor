@@ -23,6 +23,11 @@
             Configuración general
         </button>
 
+        <button class="tab-btn @(tabActiva == "apariencia" ? "tab-activa" : "")"
+                @onclick='() => CambiarTab("apariencia")'>
+            Apariencia
+        </button>
+
         <button class="tab-btn @(tabActiva == "mesas" ? "tab-activa" : "")"
                 @onclick='() => CambiarTab("mesas")'>
             Mesas
@@ -634,6 +639,35 @@
     }
 
     <!-- Nuevo de Mesas: salas + grilla, como en el diseño de referencia -->
+    @if (tabActiva == "apariencia")
+    {
+        <section class="perico-apariencia" aria-label="Ajustes de apariencia">
+            <h3>Apariencia</h3>
+            <p>Elegí el tamaño de letra para este dispositivo. No cambia la tipografía ni la configuración de otros equipos.</p>
+            <div class="perico-apariencia-tarjeta">
+                <label for="tamano-letra-dispositivo">Tamaño de letra: <strong>@tamanoLetraDispositivo%</strong></label>
+                <input id="tamano-letra-dispositivo" type="range" min="80" max="130" step="5"
+                       value="@tamanoLetraDispositivo" @oninput="CambiarTamanoLetra" />
+                <div class="perico-apariencia-extremos">
+                    <span>80 % · Más pequeña</span><span>130 % · Más grande</span>
+                </div>
+                <div class="perico-apariencia-ejemplo">
+                    <strong>Vista previa</strong>
+                    <p style="font-size:calc(1rem * @(tamanoLetraDispositivo / 100m))">Mesa 12 · Pedido en preparación</p>
+                    <small style="font-size:calc(.82rem * @(tamanoLetraDispositivo / 100m))">2 hamburguesas · 1 gaseosa</small>
+                </div>
+                <button class="btn btn-outline-secondary" @onclick="RestablecerTamanoLetra"
+                        disabled="@(tamanoLetraDispositivo == 100)">
+                    Restablecer al 100 %
+                </button>
+                @if (!string.IsNullOrWhiteSpace(mensajeTamanoLetra))
+                {
+                    <p class="text-muted" role="status">@mensajeTamanoLetra</p>
+                }
+            </div>
+        </section>
+    }
+
     @if (tabActiva == "mesas")
     {
         <div class="mesas-config">
@@ -833,6 +867,16 @@
 </div>
 
 <style>
+    .perico-apariencia { padding:1.2rem; background:#fff; border-radius:12px; max-width:750px; margin:1rem auto; }
+    .perico-apariencia h3 { font-weight:800; margin-bottom:.5rem; }
+    .perico-apariencia-tarjeta { display:flex; flex-direction:column; gap:.8rem; padding:1rem; background:#f7f8fa; border:1px solid #ddd; border-radius:10px; }
+    .perico-apariencia-tarjeta > label { font-weight:600; }
+    .perico-apariencia-tarjeta input[type="range"] { width:100%; cursor:pointer; accent-color:#dc1818; }
+    .perico-apariencia-extremos { display:flex; justify-content:space-between; gap:1rem; color:#666; font-size:.85rem; }
+    .perico-apariencia-ejemplo { background:white; border:1px solid #ddd; border-radius:8px; padding:1rem; }
+    .perico-apariencia-ejemplo p { margin:.5rem 0; }
+    .perico-apariencia-tarjeta .btn { align-self:flex-start; }
+
     .sala-tab-grupo { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; max-width: 100%; }
 
     .distribucion-acciones { display: flex; gap: .5rem; flex-wrap: wrap; }
@@ -1362,6 +1406,43 @@
 <PericoOnFire_2026.Server.Client.Shared.Confirmacion @ref="confirmacionGeneral" Titulo="Confirmar" textOk="Sí, continuar" textCancelar="Volver" />
 
 @code {
+
+    private int tamanoLetraDispositivo = 100;
+    private string? mensajeTamanoLetra;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            tamanoLetraDispositivo = await JS.InvokeAsync<int>("pericoTamanoLetra.obtener");
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (JSException) { mensajeTamanoLetra = "No se pudo leer la preferencia de este navegador."; }
+    }
+
+    private async Task CambiarTamanoLetra(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var valor)) return;
+        tamanoLetraDispositivo = Math.Clamp(valor, 80, 130);
+        try
+        {
+            tamanoLetraDispositivo = await JS.InvokeAsync<int>("pericoTamanoLetra.guardar", tamanoLetraDispositivo);
+            mensajeTamanoLetra = "Tamaño aplicado en este dispositivo.";
+        }
+        catch (JSException) { mensajeTamanoLetra = "No se pudo guardar la preferencia en este navegador."; }
+    }
+
+    private async Task RestablecerTamanoLetra()
+    {
+        tamanoLetraDispositivo = 100;
+        try
+        {
+            await JS.InvokeVoidAsync("pericoTamanoLetra.guardar", 100);
+            mensajeTamanoLetra = "Tamaño original restablecido.";
+        }
+        catch (JSException) { mensajeTamanoLetra = "No se pudo guardar la preferencia en este navegador."; }
+    }
 
     private bool corrigiendoDuplicadas;
     private async Task CorregirDuplicadas()
