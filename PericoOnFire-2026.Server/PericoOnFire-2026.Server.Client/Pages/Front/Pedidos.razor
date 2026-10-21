@@ -465,6 +465,23 @@
                                 @cuenta.NombreCliente
                                 <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
                             </div>
+                            <div class="delivery-cobro @(cuenta.EstaPagado ? "delivery-cobro-pagado" : "delivery-cobro-pendiente")">
+                                <div><strong>Total: $@cuenta.TotalPedido.ToString("N2")</strong></div>
+                                @if (cuenta.EstaPagado)
+                                {
+                                    <div>✓ Ya pagado @(string.IsNullOrWhiteSpace(cuenta.MediosPago) ? "" : "· " + cuenta.MediosPago). No cobrar nuevamente.</div>
+                                    @if (cuenta.EfectivoRecibido.HasValue)
+                                    {
+                                        <small>Registrado en caja: efectivo $@cuenta.EfectivoRecibido.Value.ToString("N2") · vuelto $@((cuenta.VueltoRegistrado ?? 0).ToString("N2")).</small>
+                                    }
+                                }
+                                else
+                                {
+                                    <div>⚠ Pendiente de cobro en el sistema. Confirmar con Caja antes de cobrar.</div>
+                                    <small>El efectivo que entregará el cliente y el vuelto a llevar aún no están registrados.</small>
+                                }
+                            </div>
+
                             <button class="btn btn-sm btn-primary w-100 mt-1" @onclick="() => TomarPedido(cuenta)">
                                 Tomar este pedido
                             </button>
@@ -503,12 +520,57 @@
                                 @cuenta.NombreCliente
                                 <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
                             </div>
+                            <div class="delivery-cobro @(cuenta.EstaPagado ? "delivery-cobro-pagado" : "delivery-cobro-pendiente")">
+                                <div><strong>Total: $@cuenta.TotalPedido.ToString("N2")</strong></div>
+                                @if (cuenta.EstaPagado)
+                                {
+                                    <div>✓ Ya pagado @(string.IsNullOrWhiteSpace(cuenta.MediosPago) ? "" : "· " + cuenta.MediosPago). No cobrar nuevamente.</div>
+                                    @if (cuenta.EfectivoRecibido.HasValue)
+                                    {
+                                        <small>Registrado en caja: efectivo $@cuenta.EfectivoRecibido.Value.ToString("N2") · vuelto $@((cuenta.VueltoRegistrado ?? 0).ToString("N2")).</small>
+                                    }
+                                }
+                                else
+                                {
+                                    <div>⚠ Pendiente de cobro en el sistema. Confirmar con Caja antes de cobrar.</div>
+                                    <small>El efectivo que entregará el cliente y el vuelto a llevar aún no están registrados.</small>
+                                }
+                            </div>
+
                             <button class="btn btn-sm btn-success w-100 mt-1" @onclick="() => MarcarEntregado(cuenta)">
                                 Marcar entregado
                             </button>
                         </div>
                     }
                 </div>
+                <hr />
+                <div class="delivery-historial-cabecera">
+                    <h4>Mis entregas de hoy</h4>
+                    <span>@HoraArgentina.HoyLocal.ToString("dd/MM/yyyy")</span>
+                </div>
+                <div class="delivery-historial-resumen">
+                    <strong>@historialDeliveryHoy.Count entregas</strong>
+                    <span>Valor total de pedidos: $@historialDeliveryHoy.Sum(c => c.TotalPedido).ToString("N2")</span>
+                </div>
+                @if (!historialDeliveryHoy.Any())
+                {
+                    <p class="texto-vacio">Todavía no registraste entregas hoy.</p>
+                }
+                else
+                {
+                    <div class="delivery-historial-lista">
+                        @foreach (var entrega in historialDeliveryHoy)
+                        {
+                            <div class="delivery-historial-item">
+                                <strong>@entrega.NumeroComanda</strong>
+                                <span>@entrega.NombreCliente</span>
+                                <span>@HoraArgentina.DesdeUtc(entrega.FechaEntrega!.Value).ToString("HH:mm")</span>
+                                <strong>$@entrega.TotalPedido.ToString("N2")</strong>
+                                <small>@entrega.Direccion · @(entrega.EstaPagado ? "Pagado" : "Pendiente de cobro")</small>
+                            </div>
+                        }
+                    </div>
+                }
             </section>
 
         </Authorized>
@@ -1532,6 +1594,17 @@
         .datos-cliente-superior .selector-tipo { margin:.1rem 0; }
     }
     @@media (max-width:520px) { .cliente-campos { grid-template-columns:1fr; } }
+    .delivery-cobro { margin:.6rem 0; border-radius:8px; padding:.65rem .75rem; display:grid; gap:.3rem; font-size:.88rem; }
+    .delivery-cobro-pagado { background:#eaf7ef; border:1px solid #c6e7d2; color:#14532d; }
+    .delivery-cobro-pendiente { background:#fff5dd; border:1px solid #efd89c; color:#694500; }
+    .delivery-cobro small { display:block; font-size:.77rem; }
+    .delivery-historial-cabecera { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; }
+    .delivery-historial-cabecera h4 { margin:0; }
+    .delivery-historial-resumen { display:flex; gap:1rem; flex-wrap:wrap; padding:.7rem 0; }
+    .delivery-historial-lista { display:grid; gap:.5rem; }
+    .delivery-historial-item { display:grid; grid-template-columns:100px 1fr auto auto; align-items:center; gap:.5rem; padding:.65rem; border:1px solid #e3e6eb; border-radius:8px; background:#fafafa; }
+    .delivery-historial-item small { grid-column:1/-1; color:#646b76; }
+    @@media(max-width:650px) { .delivery-historial-item { grid-template-columns:1fr 1fr; } }
 </style>
 
 @code {
@@ -1576,6 +1649,7 @@
     // ---- Seguimiento (Administracion/Barra) ----
     private List<PedidoParaLlevarDTO> takeAways = new();
     private List<PedidoParaLlevarDTO> deliveries = new();
+    private List<PedidoParaLlevarDTO> historialDeliveryHoy = new();
 
     //Para Delivery
     private string? MensajeDelivery;
@@ -1708,6 +1782,10 @@
         {
             deliveries = respuestaDelivery.Respuesta;
         }
+
+        var respuestaHistorial = await http.Get<List<PedidoParaLlevarDTO>>("api/Pedido/Delivery/MisEntregasHoy");
+        if (!respuestaHistorial.Error && respuestaHistorial.Respuesta != null)
+            historialDeliveryHoy = respuestaHistorial.Respuesta;
 
         await InvokeAsync(StateHasChanged);
     }
