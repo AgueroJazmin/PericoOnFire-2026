@@ -27,6 +27,8 @@ namespace PericoOnFire_2026.Shared.DTOs
         public string MediosPago { get; set; } = "";
         public decimal? EfectivoRecibido { get; set; }
         public decimal? VueltoRegistrado { get; set; }
+        // Dinero que el cliente dijo que entregará; no equivale a un pago confirmado.
+        public decimal? EfectivoPrevistoDelivery { get; set; }
         public DateTime? FechaEntrega { get; set; }
 
 
