@@ -27,9 +27,9 @@
             <div class="pedido-formulario-cabecera pedido-formulario-cabecera-superior">
                 <button id="perico-nuevo-pedido-abrir" type="button"
                         class="btn btn-danger pedido-formulario-toggle"
-                        aria-haspopup="dialog" aria-keyshortcuts="F8"
+                        aria-haspopup="dialog" aria-keyshortcuts="Control+Space"
                         @onclick="() => mostrarFormularioNuevoPedido = true">
-                    ＋ Nuevo pedido <span class="atajo-nuevo-pedido">F8</span>
+                    ＋ Nuevo pedido <span class="atajo-nuevo-pedido">Ctrl + Espacio</span>
                 </button>
                 @if (!mostrarFormularioNuevoPedido && !string.IsNullOrWhiteSpace(MensajeForm))
                 {
