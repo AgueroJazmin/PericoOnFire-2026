@@ -34,6 +34,17 @@
     }
     else
     {
+        <nav class="pestanas-salas-movil" aria-label="Seleccionar sector del bar">
+            @foreach (var opcion in salas.OrderBy(s => s.Orden))
+            {
+                <button type="button"
+                        class="pestana-sala-movil @(SalaMovilActivaId == opcion.Id ? "pestana-sala-activa" : "")"
+                        aria-pressed="@(SalaMovilActivaId == opcion.Id)"
+                        @onclick="() => salaMovilId = opcion.Id">
+                    @opcion.Nombre
+                </button>
+            }
+        </nav>
         <div class="salas-operativas">
         @foreach (var sala in salas.OrderBy(s => s.Orden))
         {
@@ -41,7 +52,7 @@
             var filas = mesasDeSala.Any() ? mesasDeSala.Max(m => m.Fila) + 1 : 0;
             var columnas = mesasDeSala.Any() ? mesasDeSala.Max(m => m.Columna) + 1 : 0;
 
-            <section class="sala-operativa">
+            <section class="sala-operativa @(SalaMovilActivaId == sala.Id ? "sala-operativa-activa" : "")">
                 <h3 class="sala-operativa-titulo">@sala.Nombre</h3>
 
                 @if (!mesasDeSala.Any())
@@ -1517,6 +1528,33 @@
         .panel-mesa.panel-mesa-centrado { width:calc(100vw - 1rem); }
         .panel-mesa-botones > .btn { flex:1 1 100%; }
     }
+    /* Pestañas exclusivas de celular: respetan las posiciones reales guardadas. */
+    .pestanas-salas-movil { display: none; }
+    @@media (max-width: 780px) {
+        .pestanas-salas-movil { display:flex; gap:.5rem; padding:0 0 .7rem; width:100%; overflow-x:auto; }
+        .pestana-sala-movil { flex:1 0 auto; min-height:44px; border:1px solid #d3d7dc; border-radius:9px; padding:.5rem 1rem; background:white; font-weight:700; color:#333; }
+        .pestana-sala-movil.pestana-sala-activa { color:#fff; background:#222; border-color:#222; }
+        .salas-operativas { display:block; width:100%; }
+        .sala-operativa { display:none; width:100%; max-width:100%; box-sizing:border-box; overflow:hidden; }
+        .sala-operativa.sala-operativa-activa { display:block; }
+        .sala-operativa-titulo { font-size:1.08rem; margin-bottom:.35rem; }
+        .grilla-salon-operativa { width:100%; max-width:100%; padding:.4rem 0 .75rem; overflow-x:auto; overscroll-behavior-x:contain; }
+        .fila-grilla-operativa { gap:.12rem; }
+        .celda-operativa { width:108px; height:96px; }
+        .mesa { width:76px; height:58px; }
+        .mesa.tamanio-chica { width:62px; height:48px; }
+        .mesa.tamanio-grande { width:84px; height:64px; }
+        .mesa::before { left:-15px; width:12px; }
+        .mesa::after { right:-15px; width:12px; }
+        .mesa .numero-mesa::before { top:-16px; }
+        .mesa .numero-mesa::after { bottom:-16px; }
+    }
+    @@media (max-width: 380px) {
+        .celda-operativa { width:99px; height:90px; }
+        .mesa { width:70px; height:54px; }
+        .mesa.tamanio-chica { width:60px; height:46px; }
+        .mesa.tamanio-grande { width:78px; height:60px; }
+    }
 </style>
 
 @code {
@@ -1526,6 +1564,10 @@
     private bool cargandoInicial = true;
     private List<MesaDTO> mesas = new();
     private List<SalaDTO> salas = new();
+    // En celular se muestra un sector por vez; escritorio conserva todas las salas.
+    private int? salaMovilId;
+    private int? SalaMovilActivaId => salaMovilId.HasValue && salas.Any(s => s.Id == salaMovilId)
+        ? salaMovilId : salas.OrderBy(s => s.Orden).Select(s => (int?)s.Id).FirstOrDefault();
     private List<ProductoListadoDTO> productos = new();
 
     private MesaDTO? mesaSeleccionada;
