@@ -31,6 +31,8 @@ namespace PericoOnFire_2026.Shared.DTOs
 
         // Cobro opcional en el mismo acto de creación. Sin pago, queda abierta.
         public bool CobrarAhora { get; set; }
+        // Previsión de efectivo para entregar al repartidor; NO registra un cobro.
+        public decimal? EfectivoPrevistoDelivery { get; set; }
         public List<LineaPagoDTO> LineasPago { get; set; } = new();
 
         [MinLength(1)]
