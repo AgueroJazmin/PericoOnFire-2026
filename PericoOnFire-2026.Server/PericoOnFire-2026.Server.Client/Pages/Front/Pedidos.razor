@@ -148,6 +148,58 @@
                     </section>
                     }
                 </div>
+                <section class="rendiciones-delivery" aria-label="Rendiciones pendientes de Delivery">
+                    <div class="rendiciones-titulo">
+                        <h3>Delivery · Pendientes de rendición</h3>
+                        <span>@RendicionesPendientes.Count</span>
+                    </div>
+                    @if (!RendicionesPendientes.Any())
+                    {
+                        <p class="texto-vacio">No hay entregas en efectivo pendientes de rendición.</p>
+                    }
+                    else
+                    {
+                        <div class="rendiciones-grid">
+                            @foreach (var cuenta in RendicionesPendientes)
+                            {
+                                <div class="rendicion-tarjeta">
+                                    <div class="rendicion-encabezado">
+                                        <strong>@cuenta.NumeroComanda · @cuenta.NombreCliente</strong>
+                                        <span>Entregado · Sin rendir</span>
+                                    </div>
+                                    <small>Repartidor: @cuenta.NombreDelivery</small>
+                                    <div class="rendicion-importes">
+                                        <div><span>Total de venta</span><strong>$@cuenta.TotalPedido.ToString("N2")</strong></div>
+                                        <div><span>Cliente pagó con (previsto)</span><strong>$@cuenta.EfectivoPrevistoDelivery!.Value.ToString("N2")</strong></div>
+                                        <div><span>Vuelto previsto</span><strong>$@((cuenta.EfectivoPrevistoDelivery.Value - cuenta.TotalPedido).ToString("N2"))</strong></div>
+                                        <div class="rendicion-neto"><span>Dinero a rendir en Caja</span><strong>$@cuenta.TotalPedido.ToString("N2")</strong></div>
+                                    </div>
+                                    @if (idRendicionConfirmando == cuenta.IdComanda)
+                                    {
+                                        <p class="rendicion-alerta">Confirmá solo después de recibir y contar el efectivo del repartidor. Esta acción registra el cobro en Caja.</p>
+                                        <div class="rendicion-botones">
+                                            <button class="btn btn-sm btn-outline-secondary" disabled="@guardandoRendicion" @onclick="() => idRendicionConfirmando = null">Volver</button>
+                                            <button class="btn btn-sm btn-success" disabled="@guardandoRendicion" @onclick="() => ConfirmarRendicion(cuenta)">
+                                                @(guardandoRendicion ? "Registrando..." : "Sí, recibí el dinero")
+                                            </button>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-sm btn-success" disabled="@guardandoRendicion"
+                                                @onclick="() => idRendicionConfirmando = cuenta.IdComanda">
+                                            Confirmar rendición y registrar en Caja
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(mensajeRendicion))
+                    {
+                        <div class="alert alert-info mt-2" role="status">@mensajeRendicion</div>
+                    }
+                </section>
             </section>
 
             <div class="pedido-formulario-cabecera">
@@ -1651,6 +1703,22 @@
     .delivery-historial-item { display:grid; grid-template-columns:100px 1fr auto auto; align-items:center; gap:.5rem; padding:.65rem; border:1px solid #e3e6eb; border-radius:8px; background:#fafafa; }
     .delivery-historial-item small { grid-column:1/-1; color:#646b76; }
     @@media(max-width:650px) { .delivery-historial-item { grid-template-columns:1fr 1fr; } }
+
+    .rendiciones-delivery { margin-top:1.2rem; padding:.85rem; border:1px solid #dde2e8; border-radius:10px; background:#f8fafc; }
+    .rendiciones-titulo { display:flex; justify-content:space-between; align-items:center; gap:.6rem; margin-bottom:.8rem; }
+    .rendiciones-titulo h3 { font-size:1.08rem; font-weight:800; margin:0; }
+    .rendiciones-titulo span { border-radius:99px; background:#24272c; color:white; padding:.2rem .65rem; }
+    .rendiciones-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr)); gap:.75rem; }
+    .rendicion-tarjeta { display:grid; gap:.5rem; padding:.8rem; border-radius:10px; background:white; border:1px solid #d7dee6; }
+    .rendicion-encabezado { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.4rem; }
+    .rendicion-encabezado span { color:#97600b; font-size:.74rem; font-weight:800; }
+    .rendicion-tarjeta > small { color:#616975; }
+    .rendicion-importes { display:grid; gap:.3rem; }
+    .rendicion-importes > div { display:flex; justify-content:space-between; gap:.5rem; flex-wrap:wrap; }
+    .rendicion-neto { border-top:1px solid #ddd; padding-top:.45rem; font-size:1.05rem; }
+    .rendicion-alerta { background:#fff4db; border-radius:8px; padding:.6rem; font-size:.83rem; margin:0; }
+    .rendicion-botones { display:flex; gap:.5rem; }
+    .rendicion-tarjeta .btn { min-height:36px; }
 </style>
 
 @code {
@@ -1697,6 +1765,18 @@
     // ---- Seguimiento (Administracion/Barra) ----
     private List<PedidoParaLlevarDTO> takeAways = new();
     private List<PedidoParaLlevarDTO> deliveries = new();
+    private List<PedidoParaLlevarDTO> RendicionesPendientes => deliveries
+        .Where(c => c.TipoServicio == EnumTipoServicio.Delivery &&
+                    !c.EstaPagado && c.TodoEntregado &&
+                    c.IdDelivery.HasValue && c.EfectivoPrevistoDelivery.HasValue &&
+                    c.EfectivoPrevistoDelivery.Value >= c.TotalPedido && c.TotalPedido > 0 &&
+                    (c.EstadoComanda == EnumEstadoComanda.Abierta ||
+                     c.EstadoComanda == EnumEstadoComanda.PendienteCobro))
+        .ToList();
+    private int? idRendicionConfirmando;
+    private bool guardandoRendicion;
+    private string? mensajeRendicion;
+
     private List<PedidoParaLlevarDTO> historialDeliveryHoy = new();
 
     //Para Delivery
@@ -2210,6 +2290,30 @@
         }
 
         await CargarSeguimiento();
+    }
+
+    private async Task ConfirmarRendicion(PedidoParaLlevarDTO cuenta)
+    {
+        if (guardandoRendicion || idRendicionConfirmando != cuenta.IdComanda) return;
+        guardandoRendicion = true;
+        mensajeRendicion = null;
+        try
+        {
+            var resp = await http.Post($"api/Pedido/Delivery/{cuenta.IdComanda}/ConfirmarRendicion", new { });
+            if (resp.Error)
+            {
+                mensajeRendicion = resp.ObtenerError();
+                return;
+            }
+            idRendicionConfirmando = null;
+            mensajeRendicion = $"Rendición de {cuenta.NumeroComanda} registrada en Caja por ${cuenta.TotalPedido:N2}.";
+            await CargarSeguimiento();
+        }
+        catch (System.Net.Http.HttpRequestException)
+        {
+            mensajeRendicion = "No se pudo verificar la rendición. Actualizá el seguimiento y revisá Caja antes de reintentar.";
+        }
+        finally { guardandoRendicion = false; }
     }
 
     // Esto es lo del Delivery, en donde toma un pedido para repartirlo, y lo marca como entregado cuando se terminó
