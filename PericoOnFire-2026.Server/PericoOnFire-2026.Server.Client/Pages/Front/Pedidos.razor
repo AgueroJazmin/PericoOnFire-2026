@@ -36,10 +36,24 @@
                     <span class="alert @(MensajeFormEsExito ? "alert-success" : "alert-warning") mb-0 py-2" role="status">@MensajeForm</span>
                 }
             </div>
-            @* Seguimiento de pedidos primero; el formulario se despliega a pedido del usuario. *@
+            <nav class="pestanas-tipo-pedidos" aria-label="Elegir tipo de pedido">
+                <button type="button" class="pestana-tipo-pedido @(pestanaPedidos == EnumTipoServicio.TakeAway ? "pestana-tipo-activa" : "")"
+                        aria-pressed="@(pestanaPedidos == EnumTipoServicio.TakeAway)"
+                        @onclick="() => pestanaPedidos = EnumTipoServicio.TakeAway">
+                    Take Away <span>@takeAways.Count</span>
+                </button>
+                <button type="button" class="pestana-tipo-pedido @(pestanaPedidos == EnumTipoServicio.Delivery ? "pestana-tipo-activa" : "")"
+                        aria-pressed="@(pestanaPedidos == EnumTipoServicio.Delivery)"
+                        @onclick="() => pestanaPedidos = EnumTipoServicio.Delivery">
+                    Delivery <span>@(deliveries.Count + RendicionesPendientes.Count)</span>
+                </button>
+            </nav>
+            @* Se muestra una modalidad a la vez para evitar desplazarse entre ambas. *@
             <section class="panel-seguimiento" aria-label="Pedidos en curso">
                 <div class="seguimiento-dos-columnas">
                     @foreach (var grupo in new[] { new { Titulo = "Take Away", Cuentas = takeAways }, new { Titulo = "Delivery", Cuentas = deliveries } })
+                    {
+                    @if (pestanaPedidos == (grupo.Titulo == "Take Away" ? EnumTipoServicio.TakeAway : EnumTipoServicio.Delivery))
                     {
                     <section class="seguimiento-columna" aria-label="@grupo.Titulo">
                         <h3 class="seguimiento-columna-titulo">@grupo.Titulo <span>@grupo.Cuentas.Count</span></h3>
@@ -217,7 +231,10 @@
                         </div>
                     </section>
                     }
+                    }
                 </div>
+                @if (pestanaPedidos == EnumTipoServicio.Delivery)
+                {
                 <section class="rendiciones-delivery" aria-label="Rendiciones pendientes de Delivery">
                     <div class="rendiciones-titulo">
                         <h3>Delivery · Pendientes de rendición</h3>
@@ -270,6 +287,7 @@
                         <div class="alert alert-info mt-2" role="status">@mensajeRendicion</div>
                     }
                 </section>
+                }
             </section>
 
 
@@ -1941,6 +1959,19 @@
     .cuenta-cobro-pagado { background:#e6f6eb; color:#196334; }
     .cuenta-cobro-pendiente { background:#fff3db; color:#815100; }
     .cuenta-cobro-vuelto { color:#176334; font-weight:800; }
+    /* Seguimiento por pestañas en media pantalla, sin alterar los pedidos. */
+    .pestanas-tipo-pedidos { display:flex; gap:.4rem; width:100%; margin:.1rem 0 .65rem; }
+    .pestana-tipo-pedido { flex:1 1 0; display:flex; align-items:center; justify-content:center; gap:.5rem; min-height:40px; padding:.4rem .65rem; border:1px solid #cfd4db; border-radius:8px; background:#fff; color:#222; font-weight:800; }
+    .pestana-tipo-pedido.pestana-tipo-activa { background:#222; color:#fff; border-color:#222; }
+    .pestana-tipo-pedido span { display:inline-flex; justify-content:center; align-items:center; min-width:24px; padding:.12rem .4rem; border-radius:20px; background:#e6e6e6; color:#222; font-size:.78rem; }
+    .pestana-tipo-pedido.pestana-tipo-activa span { background:#fff; }
+    .seguimiento-dos-columnas { display:block; }
+    @@media(max-width:900px) {
+        .pestanas-tipo-pedidos { gap:.3rem; margin:.1rem 0 .5rem; }
+        .seguimiento-columna { padding:.6rem; }
+        .seguimiento-columna .grilla-cuentas { grid-template-columns:minmax(0,1fr); }
+        .seguimiento-columna .cuenta-card { width:100%; max-width:none; }
+    }
 </style>
 
 @code {
@@ -1986,6 +2017,7 @@
 
     // ---- Seguimiento (Administracion/Barra) ----
     private List<PedidoParaLlevarDTO> takeAways = new();
+    private EnumTipoServicio pestanaPedidos = EnumTipoServicio.TakeAway;
     private List<PedidoParaLlevarDTO> deliveries = new();
     private bool mostrarCarritoCompacto;
     private List<PedidoParaLlevarDTO> RendicionesPendientes => deliveries
