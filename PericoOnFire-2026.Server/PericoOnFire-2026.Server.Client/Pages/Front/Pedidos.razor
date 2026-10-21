@@ -129,7 +129,9 @@
                                 <div class="cuenta-card-info aviso-pago">🔔 Listo para retirar</div>
                             }
 
-                            @if (PuedeCerrar(cuenta))
+                            @if (PuedeCerrar(cuenta) &&
+                                 !(cuenta.TipoServicio == EnumTipoServicio.Delivery &&
+                                   cuenta.EfectivoPrevistoDelivery.HasValue && cuenta.IdDelivery.HasValue))
                             {
                                 <button class="btn btn-sm btn-dark w-100 mt-1" @onclick="() => CerrarPedido(cuenta)">
                                     Pasar a Caja
