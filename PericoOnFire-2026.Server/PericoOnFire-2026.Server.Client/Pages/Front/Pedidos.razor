@@ -24,6 +24,18 @@
                 <div class="alert alert-info" role="status">@mensajePaseCaja</div>
             }
 
+            <div class="pedido-formulario-cabecera pedido-formulario-cabecera-superior">
+                <button id="perico-nuevo-pedido-abrir" type="button"
+                        class="btn btn-danger pedido-formulario-toggle"
+                        aria-haspopup="dialog" aria-keyshortcuts="F1"
+                        @onclick="() => mostrarFormularioNuevoPedido = true">
+                    ＋ Nuevo pedido <span class="atajo-nuevo-pedido">F1</span>
+                </button>
+                @if (!mostrarFormularioNuevoPedido && !string.IsNullOrWhiteSpace(MensajeForm))
+                {
+                    <span class="alert @(MensajeFormEsExito ? "alert-success" : "alert-warning") mb-0 py-2" role="status">@MensajeForm</span>
+                }
+            </div>
             @* Seguimiento de pedidos primero; el formulario se despliega a pedido del usuario. *@
             <section class="panel-seguimiento" aria-label="Pedidos en curso">
                 <div class="seguimiento-dos-columnas">
@@ -210,24 +222,14 @@
                 </section>
             </section>
 
-            <div class="pedido-formulario-cabecera">
-                <button type="button" class="btn btn-danger pedido-formulario-toggle"
-                        aria-haspopup="dialog"
-                        @onclick="() => mostrarFormularioNuevoPedido = true">
-                    ＋ Cargar nuevo pedido
-                </button>
-                @if (!mostrarFormularioNuevoPedido && !string.IsNullOrWhiteSpace(MensajeForm))
-                {
-                    <span class="alert @(MensajeFormEsExito ? "alert-success" : "alert-warning") mb-0 py-2" role="status">@MensajeForm</span>
-                }
-            </div>
+
             @if (mostrarFormularioNuevoPedido)
             {
                 <div class="pedido-modal-fondo">
                     <div class="pedido-modal-ventana" role="dialog" aria-modal="true" aria-label="Cargar nuevo pedido">
                         <div class="pedido-modal-barra">
                             <strong>Cargar nuevo pedido</strong>
-                            <button type="button" class="pedido-modal-cerrar" aria-label="Cerrar ventana de nuevo pedido"
+                            <button id="perico-nuevo-pedido-cerrar" type="button" class="pedido-modal-cerrar" aria-label="Cerrar ventana de nuevo pedido" aria-keyshortcuts="Escape"
                                     disabled="@enviandoPedido" @onclick="() => mostrarFormularioNuevoPedido = false">×</button>
                         </div>
                         <div class="panel-nuevo-pedido">
@@ -255,7 +257,7 @@
                         <div class="cliente-linea">
                             <strong>Cliente</strong>
                             <div class="buscador-cliente-contenedor">
-                                <input class="form-control form-control-sm" type="search" autocomplete="off"
+                                <input id="perico-buscar-cliente-pedido" class="form-control form-control-sm" type="search" autocomplete="off"
                                        placeholder="Buscar nombre, teléfono o referencia de WhatsApp..."
                                        value="@busquedaCliente" @oninput="BuscarClienteExistente" />
                                 @if (resultadosCliente.Any())
@@ -1582,6 +1584,9 @@
     @@media(max-width:780px) { .seguimiento-dos-columnas { grid-template-columns:minmax(0,1fr); } }
     .pedido-formulario-cabecera { display:flex; align-items:center; flex-wrap:wrap; gap:.8rem; margin:1.15rem 0 .7rem; }
     .pedido-formulario-toggle { min-height:44px; font-weight:700; }
+    .pedido-formulario-cabecera-superior { margin:.15rem 0 .8rem; }
+    .atajo-nuevo-pedido { display:inline-flex; align-items:center; margin-left:.4rem; padding:.12rem .38rem; background:#ffffff28; border:1px solid #ffffff85; border-radius:5px; font-size:.73rem; font-weight:700; vertical-align:middle; }
+
     .panel-seguimiento { margin-bottom:1rem; }
 
     .pago-inmediato { display:flex; flex-wrap:wrap; align-items:center; gap:.7rem; padding:.6rem 1rem; border-top:1px solid #ddd; background:#fff9eb; color:#222; flex-shrink:0; }
