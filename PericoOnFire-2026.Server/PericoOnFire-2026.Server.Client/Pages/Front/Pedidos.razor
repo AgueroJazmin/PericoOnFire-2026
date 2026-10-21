@@ -27,9 +27,9 @@
             <div class="pedido-formulario-cabecera pedido-formulario-cabecera-superior">
                 <button id="perico-nuevo-pedido-abrir" type="button"
                         class="btn btn-danger pedido-formulario-toggle"
-                        aria-haspopup="dialog" aria-keyshortcuts="F1"
+                        aria-haspopup="dialog" aria-keyshortcuts="F8"
                         @onclick="() => mostrarFormularioNuevoPedido = true">
-                    ＋ Nuevo pedido <span class="atajo-nuevo-pedido">F1</span>
+                    ＋ Nuevo pedido <span class="atajo-nuevo-pedido">F8</span>
                 </button>
                 @if (!mostrarFormularioNuevoPedido && !string.IsNullOrWhiteSpace(MensajeForm))
                 {
@@ -129,6 +129,56 @@
                                     }
                                 </div>
                             }
+
+                            @* Resumen financiero para quien gestiona Take Away / Delivery.
+                               Los importes previstos no son cobros confirmados en Caja. *@
+                            <div class="cuenta-resumen-cobro" aria-label="Información de cobro de la comanda">
+                                <div class="cuenta-cobro-fila cuenta-cobro-total">
+                                    <span>Total de la venta</span>
+                                    <strong>$@cuenta.TotalPedido.ToString("N2")</strong>
+                                </div>
+                                @if (cuenta.EstaPagado)
+                                {
+                                    <div class="cuenta-cobro-estado cuenta-cobro-pagado">
+                                        ✓ Pagado @(string.IsNullOrWhiteSpace(cuenta.MediosPago) ? "" : "· " + cuenta.MediosPago)
+                                    </div>
+                                    @if (cuenta.EfectivoRecibido.HasValue)
+                                    {
+                                        <div class="cuenta-cobro-fila">
+                                            <span>Efectivo registrado</span>
+                                            <strong>$@cuenta.EfectivoRecibido.Value.ToString("N2")</strong>
+                                        </div>
+                                        <div class="cuenta-cobro-fila">
+                                            <span>Vuelto registrado</span>
+                                            <strong>$@((cuenta.VueltoRegistrado ?? 0).ToString("N2"))</strong>
+                                        </div>
+                                    }
+                                }
+                                else if (cuenta.TipoServicio == EnumTipoServicio.Delivery && cuenta.EfectivoPrevistoDelivery.HasValue)
+                                {
+                                    <div class="cuenta-cobro-estado cuenta-cobro-pendiente">Efectivo al entregar · Sin rendir</div>
+                                    <div class="cuenta-cobro-fila">
+                                        <span>Cliente paga con</span>
+                                        <strong>$@cuenta.EfectivoPrevistoDelivery.Value.ToString("N2")</strong>
+                                    </div>
+                                    <div class="cuenta-cobro-fila cuenta-cobro-vuelto">
+                                        <span>Vuelto que lleva Delivery</span>
+                                        <strong>$@((cuenta.EfectivoPrevistoDelivery.Value - cuenta.TotalPedido).ToString("N2"))</strong>
+                                    </div>
+                                    <div class="cuenta-cobro-fila">
+                                        <span>Importe a rendir en Caja</span>
+                                        <strong>$@cuenta.TotalPedido.ToString("N2")</strong>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="cuenta-cobro-estado cuenta-cobro-pendiente">
+                                        @(cuenta.TipoServicio == EnumTipoServicio.TakeAway
+                                            ? "Pendiente de cobro al retirar / en Caja"
+                                            : "Cobro pendiente · Medio de pago no indicado")
+                                    </div>
+                                }
+                            </div>
 
                             @* Estado de pago: independiente del estado físico del pedido, porque
                                a veces se cobra antes (transferencia) y a veces al retirar/entregar. *@
@@ -1880,6 +1930,17 @@
             grid-template-columns:repeat(2,minmax(0,1fr)); gap:.2rem;
         }
     }
+    .cuenta-resumen-cobro {
+        display:grid; gap:.3rem; padding:.6rem .7rem; margin:.55rem 0;
+        border:1px solid #dedede; border-radius:8px; background:#fff; font-size:.85rem;
+    }
+    .cuenta-cobro-fila { display:flex; justify-content:space-between; align-items:baseline; gap:.4rem; flex-wrap:wrap; }
+    .cuenta-cobro-fila > strong { white-space:nowrap; }
+    .cuenta-cobro-total { border-bottom:1px solid #e5e5e5; padding-bottom:.3rem; font-size:.94rem; }
+    .cuenta-cobro-estado { padding:.28rem .4rem; border-radius:5px; font-weight:700; font-size:.78rem; }
+    .cuenta-cobro-pagado { background:#e6f6eb; color:#196334; }
+    .cuenta-cobro-pendiente { background:#fff3db; color:#815100; }
+    .cuenta-cobro-vuelto { color:#176334; font-weight:800; }
 </style>
 
 @code {
