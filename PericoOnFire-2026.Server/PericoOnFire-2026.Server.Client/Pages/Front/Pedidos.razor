@@ -352,6 +352,31 @@
                     </fieldset>
 
                     <div class="pago-inmediato">
+                        @if (tipoNuevoPedido == EnumTipoServicio.Delivery && !cobrarAhora)
+                        {
+                            <label class="pago-inmediato-opcion">
+                                <input type="checkbox" @bind="efectivoAlRecibirDelivery" disabled="@enviandoPedido" />
+                                <strong>Cliente paga en efectivo al recibir</strong>
+                            </label>
+                            @if (efectivoAlRecibirDelivery)
+                            {
+                                <label class="pago-inmediato-metodo">
+                                    ¿Con cuánto paga el cliente?
+                                    <input type="text" inputmode="decimal" class="form-control form-control-sm"
+                                           placeholder="Ej.: 30000 o 30.000"
+                                           @bind="efectivoPrevistoTexto" @bind:event="oninput"
+                                           disabled="@enviandoPedido" />
+                                </label>
+                                @if (TryLeerImporte(efectivoPrevistoTexto, out var efectivoPrevisto) && efectivoPrevisto >= TotalCarrito)
+                                {
+                                    <strong class="delivery-vuelto-previsto">Vuelto a llevar: $@((efectivoPrevisto - TotalCarrito).ToString("N2"))</strong>
+                                }
+                                else
+                                {
+                                    <small class="text-danger">Indicá el efectivo que entregará el cliente (mínimo $@TotalCarrito.ToString("N2")).</small>
+                                }
+                            }
+                        }
                         <label class="pago-inmediato-opcion">
                             <input type="checkbox" @bind="cobrarAhora" disabled="@enviandoPedido" />
                             <strong>El cliente paga ahora</strong>
@@ -477,8 +502,18 @@
                                 }
                                 else
                                 {
-                                    <div>⚠ Pendiente de cobro en el sistema. Confirmar con Caja antes de cobrar.</div>
-                                    <small>El efectivo que entregará el cliente y el vuelto a llevar aún no están registrados.</small>
+                                    @if (cuenta.EfectivoPrevistoDelivery.HasValue)
+                                    {
+                                        <div><strong>💵 Cobra en efectivo al entregar: $@cuenta.TotalPedido.ToString("N2")</strong></div>
+                                        <div>Cliente paga con: <strong>$@cuenta.EfectivoPrevistoDelivery.Value.ToString("N2")</strong></div>
+                                        <div class="delivery-vuelto-previsto">Vuelto a llevar: <strong>$@((cuenta.EfectivoPrevistoDelivery.Value - cuenta.TotalPedido).ToString("N2"))</strong></div>
+                                        <small>Cobro previsto: todavía no está registrado como pagado en Caja.</small>
+                                    }
+                                    else
+                                    {
+                                        <div>⚠ Pendiente de cobro. Consultá con Barra/Caja cómo se cobrará.</div>
+                                        <small>No se registró el medio de pago ni un vuelto previsto.</small>
+                                    }
                                 }
                             </div>
 
@@ -532,8 +567,18 @@
                                 }
                                 else
                                 {
-                                    <div>⚠ Pendiente de cobro en el sistema. Confirmar con Caja antes de cobrar.</div>
-                                    <small>El efectivo que entregará el cliente y el vuelto a llevar aún no están registrados.</small>
+                                    @if (cuenta.EfectivoPrevistoDelivery.HasValue)
+                                    {
+                                        <div><strong>💵 Cobra en efectivo al entregar: $@cuenta.TotalPedido.ToString("N2")</strong></div>
+                                        <div>Cliente paga con: <strong>$@cuenta.EfectivoPrevistoDelivery.Value.ToString("N2")</strong></div>
+                                        <div class="delivery-vuelto-previsto">Vuelto a llevar: <strong>$@((cuenta.EfectivoPrevistoDelivery.Value - cuenta.TotalPedido).ToString("N2"))</strong></div>
+                                        <small>Cobro previsto: todavía no está registrado como pagado en Caja.</small>
+                                    }
+                                    else
+                                    {
+                                        <div>⚠ Pendiente de cobro. Consultá con Barra/Caja cómo se cobrará.</div>
+                                        <small>No se registró el medio de pago ni un vuelto previsto.</small>
+                                    }
                                 }
                             </div>
 
@@ -1594,6 +1639,7 @@
         .datos-cliente-superior .selector-tipo { margin:.1rem 0; }
     }
     @@media (max-width:520px) { .cliente-campos { grid-template-columns:1fr; } }
+    .delivery-vuelto-previsto { font-weight:800; color:#176a35; }
     .delivery-cobro { margin:.6rem 0; border-radius:8px; padding:.65rem .75rem; display:grid; gap:.3rem; font-size:.88rem; }
     .delivery-cobro-pagado { background:#eaf7ef; border:1px solid #c6e7d2; color:#14532d; }
     .delivery-cobro-pendiente { background:#fff5dd; border:1px solid #efd89c; color:#694500; }
@@ -1620,6 +1666,8 @@
     private bool cobrarAhora;
     private EnumTipoPago tipoPagoInmediato = EnumTipoPago.Efectivo;
     private string efectivoEntregadoTexto = "";
+    private bool efectivoAlRecibirDelivery;
+    private string efectivoPrevistoTexto = "";
     private EnumTipoServicio tipoNuevoPedido = EnumTipoServicio.TakeAway;
     private string nombreCliente = "";
     private int? idClienteExistente;
@@ -1922,6 +1970,8 @@
         cobrarAhora = false;
         tipoPagoInmediato = EnumTipoPago.Efectivo;
         efectivoEntregadoTexto = "";
+        efectivoAlRecibirDelivery = false;
+        efectivoPrevistoTexto = "";
         carrito = new();
         busquedaProducto = "";
         categoriaSeleccionada = CategoriasDisponibles.FirstOrDefault() ?? "";
@@ -2052,6 +2102,13 @@
 
         if (!PedidoListoParaEnviar || enviandoPedido) return;
 
+        if (tipoNuevoPedido == EnumTipoServicio.Delivery && !cobrarAhora && efectivoAlRecibirDelivery &&
+            (!TryLeerImporte(efectivoPrevistoTexto, out var efectivoPrometido) || efectivoPrometido < TotalCarrito))
+        {
+            MensajeForm = "Ingresá con cuánto efectivo pagará el cliente. Debe alcanzar para cubrir el total.";
+            return;
+        }
+
         if (cobrarAhora && tipoPagoInmediato == EnumTipoPago.Efectivo &&
             !string.IsNullOrWhiteSpace(efectivoEntregadoTexto) &&
             (!TryLeerImporte(efectivoEntregadoTexto, out var recibido) || recibido < TotalCarrito))
@@ -2075,6 +2132,8 @@
             Direccion = tipoNuevoPedido == EnumTipoServicio.Delivery ? direccionCliente.Trim() : null,
             HoraDeseada = ConvertirHoraDeseada(horaDeseadaTexto),
             CobrarAhora = cobrarAhora,
+            EfectivoPrevistoDelivery = tipoNuevoPedido == EnumTipoServicio.Delivery && !cobrarAhora && efectivoAlRecibirDelivery &&
+                TryLeerImporte(efectivoPrevistoTexto, out var previsto) ? previsto : null,
             LineasPago = cobrarAhora
                 ? new List<LineaPagoDTO>
                   {
