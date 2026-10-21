@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
+using PericoOnFire_2026.Shared.Utilidades;
 using Microsoft.AspNetCore.Mvc;
 using PericoOnFire_2026.BD.Datos;
 using PericoOnFire_2026.BD.Datos.Entity;
@@ -167,6 +169,7 @@ namespace PericoOnFire_2026.Server.Controllers
 
             var comandas = await context.Comandas
                 .Include(c => c.Cliente)
+                .Include(c => c.Pagos)
                 .Include(c => c.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado))
                     .ThenInclude(p => p.DetallesPedido)
                         .ThenInclude(d => d.Producto)
@@ -202,6 +205,15 @@ namespace PericoOnFire_2026.Server.Controllers
                     Direccion = c.Cliente?.Direccion,
                     FechaApertura = c.FechaApertura,
                     HoraDeseada = c.HoraDeseada,
+                    TotalPedido = pedidosActivos.SelectMany(p => p.DetallesPedido)
+                        .Sum(d => d.Cantidad * d.PrecioUnitario),
+                    EstaPagado = c.Estado == EnumEstadoComanda.Pagada,
+                    MediosPago = c.Estado == EnumEstadoComanda.Pagada
+                        ? string.Join(", ", c.Pagos.Select(p => p.TipoPago.ToString()).Distinct()) : "",
+                    EfectivoRecibido = c.Estado == EnumEstadoComanda.Pagada && c.Pagos.Any(p => p.TipoPago == EnumTipoPago.Efectivo)
+                        ? c.Pagos.Where(p => p.TipoPago == EnumTipoPago.Efectivo).Sum(p => p.MontoPagado) : null,
+                    VueltoRegistrado = c.Estado == EnumEstadoComanda.Pagada && c.Pagos.Any(p => p.TipoPago == EnumTipoPago.Efectivo)
+                        ? c.Pagos.Where(p => p.TipoPago == EnumTipoPago.Efectivo).Sum(p => p.Vuelto) : null,
                     Items = pedidosActivos
                         .SelectMany(p => p.DetallesPedido)
                         .Select(d => new ItemCuentaDTO
@@ -223,6 +235,65 @@ namespace PericoOnFire_2026.Server.Controllers
             }).ToList();
 
             return Ok(resultado);
+        }
+
+        // Historial del día argentino del repartidor autenticado. Es solo lectura y
+        // conserva los datos aunque la comanda haya sido pagada/cerrada.
+        [HttpGet("Delivery/MisEntregasHoy")]
+        [Authorize(Roles = "Delivery,Administracion")]
+        public async Task<ActionResult<List<PedidoParaLlevarDTO>>> MisEntregasHoy()
+        {
+            var identity = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var usuario = await context.Usuarios.AsNoTracking()
+                .FirstOrDefaultAsync(u => u.IdApplicationUser == identity && u.Activo);
+            if (usuario == null) return Unauthorized("No se encontró un repartidor activo vinculado a tu cuenta.");
+
+            var inicioUtc = HoraArgentina.InicioDiaUtc(HoraArgentina.HoyLocal);
+            var finUtc = inicioUtc.AddDays(1);
+
+            var comandas = await context.Comandas.AsNoTracking()
+                .Where(c => c.TipoServicio == EnumTipoServicio.Delivery &&
+                    c.Pedidos.Any(p => p.IdDelivery == usuario.Id &&
+                        p.Estado == EnumEstadoPedido.Entregado &&
+                        p.FechaEntregado >= inicioUtc && p.FechaEntregado < finUtc))
+                .Include(c => c.Cliente)
+                .Include(c => c.Pagos)
+                .Include(c => c.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado))
+                    .ThenInclude(p => p.DetallesPedido)
+                        .ThenInclude(d => d.Producto)
+                .ToListAsync();
+
+            var numeros = await NumeroComandaDiario.ObtenerVariosAsync(
+                context, comandas.Select(c => (c.Id, c.FechaApertura)));
+
+            return Ok(comandas
+                .Where(c => c.Pedidos.Any() &&
+                    c.Pedidos.All(p => p.Estado == EnumEstadoPedido.Entregado &&
+                        p.IdDelivery == usuario.Id && p.FechaEntregado.HasValue))
+                .Select(c => new PedidoParaLlevarDTO
+                {
+                    IdComanda = c.Id,
+                    NumeroDiario = numeros.GetValueOrDefault(c.Id),
+                    TipoServicio = c.TipoServicio,
+                    EstadoComanda = c.Estado,
+                    NombreCliente = c.Cliente?.Nombre ?? "",
+                    Telefono = c.Cliente?.Telefono,
+                    Direccion = c.Cliente?.Direccion,
+                    FechaApertura = c.FechaApertura,
+                    FechaEntrega = c.Pedidos.Max(p => p.FechaEntregado),
+                    TotalPedido = c.Pedidos.SelectMany(p => p.DetallesPedido)
+                        .Sum(d => d.Cantidad * d.PrecioUnitario),
+                    EstaPagado = c.Estado == EnumEstadoComanda.Pagada,
+                    MediosPago = c.Estado == EnumEstadoComanda.Pagada
+                        ? string.Join(", ", c.Pagos.Select(p => p.TipoPago.ToString()).Distinct()) : "",
+                    EfectivoRecibido = c.Estado == EnumEstadoComanda.Pagada && c.Pagos.Any(p => p.TipoPago == EnumTipoPago.Efectivo)
+                        ? c.Pagos.Where(p => p.TipoPago == EnumTipoPago.Efectivo).Sum(p => p.MontoPagado) : null,
+                    VueltoRegistrado = c.Estado == EnumEstadoComanda.Pagada && c.Pagos.Any(p => p.TipoPago == EnumTipoPago.Efectivo)
+                        ? c.Pagos.Where(p => p.TipoPago == EnumTipoPago.Efectivo).Sum(p => p.Vuelto) : null,
+                    IdDelivery = usuario.Id
+                })
+                .OrderByDescending(c => c.FechaEntrega)
+                .ToList());
         }
 
         // El repartidor toma toda la comanda de una vez, por eso exige que todos los pedidos activos
