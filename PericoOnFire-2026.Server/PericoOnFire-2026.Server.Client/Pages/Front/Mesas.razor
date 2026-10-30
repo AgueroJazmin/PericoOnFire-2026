@@ -158,7 +158,7 @@
                                 <div class="pedido-card pedido-card-pendiente">
 
                                     <div class="panel-pedido-encabezado">
-                                        <span class="pedido-estado">Pendiente</span>
+                                            <span class="est-badge est-pendiente">Pendiente</span>
                                         <div class="panel-pedido-acciones">
                                             @if (comandaActual.Estado == EnumEstadoComanda.Abierta)
                                             {
@@ -194,7 +194,7 @@
                                                                                                   : "")">
 
                                     <div class="panel-pedido-encabezado">
-                                        <span class="pedido-estado">@pedido.Estado</span>
+                                            <span class="est-badge est-@pedido.Estado.ToString().ToLower()">@pedido.Estado</span>
                                         @if (pedido.Estado == EnumEstadoPedido.ListoParaRetirar)
                                         {
                                             <button class="btn btn-sm btn-success panel-btn-entregar"
