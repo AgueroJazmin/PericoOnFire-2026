@@ -28,6 +28,8 @@ namespace PericoOnFire_2026.BD.Datos.Entity
         public DateTime? HoraDeseada { get; set; }
 
         public decimal Total { get; set; } = 0;
+        public decimal Descuento { get; set; } = 0;
+        public decimal? DescuentoPorcentaje { get; set; }
 
         public int CantidadComensales { get; set; }
 

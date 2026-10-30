@@ -191,7 +191,31 @@
                         </table>
 
                         <div class="total-cuenta">
-                            Total a cobrar: <strong>$@cuentaSeleccionada.Total.ToString("0.00")</strong>
+                            Total a cobrar: <strong>$@TotalACobrar.ToString("0.00")</strong>
+                        </div>
+
+                        <div class="descuento-cuenta" style="margin:.5rem 0;max-width:320px">
+                            <label>
+                                Descuento
+                                <select class="form-select form-select-sm" @bind="tipoDescuento" @bind:after="AlCambiarDescuento">
+                                    <option value="@EnumTipoDescuento.Ninguno">Sin descuento</option>
+                                    <option value="@EnumTipoDescuento.Porcentaje">Porcentaje (%)</option>
+                                    <option value="@EnumTipoDescuento.MontoFijo">Monto fijo ($)</option>
+                                </select>
+                            </label>
+                            @if (tipoDescuento != EnumTipoDescuento.Ninguno)
+                            {
+                                <input type="number" min="0" step="0.01" class="form-control form-control-sm mt-1"
+                                       @bind="valorDescuento" @bind:event="oninput" @bind:after="AlCambiarDescuento" />
+                            }
+                            @if (DescuentoCalculado > 0)
+                            {
+                                <small>Subtotal $@cuentaSeleccionada.Total.ToString("0.00") − descuento $@DescuentoCalculado.ToString("0.00")</small>
+                            }
+                            @if (ErrorDescuento != null)
+                            {
+                                <small class="text-danger d-block">@ErrorDescuento</small>
+                            }
                         </div>
 
                         @if (!CajaAbierta)
@@ -283,7 +307,7 @@
         <p>
             Vas a cerrar la cuenta de
             @(cuentaSeleccionada.NumeroMesa != null ? $"Mesa {cuentaSeleccionada.NumeroMesa}" : cuentaSeleccionada.TipoServicio.ToString())
-            por <strong>$@cuentaSeleccionada.Total.ToString("0.00")</strong>:
+            por <strong>$@TotalACobrar.ToString("0.00")</strong>:
         </p>
         <ul class="detalle-cobro">
             @foreach (var linea in cobro.Lineas)
@@ -664,11 +688,32 @@
         }
     }
 
-    .caja-layout { grid-template-columns:minmax(240px,280px) minmax(0,1fr); }
-    .caja-layout > * { min-width:0; }
-    .tabla-detalle { table-layout:fixed; overflow-wrap:anywhere; }
-    .caja-tabs { flex-wrap:wrap; }
-    @@media(max-width:760px) { .caja-layout { grid-template-columns:minmax(0,1fr); } .tabla-detalle { table-layout:auto; } }
+    .caja-layout {
+        grid-template-columns: minmax(240px,280px) minmax(0,1fr);
+    }
+
+        .caja-layout > * {
+            min-width: 0;
+        }
+
+    .tabla-detalle {
+        table-layout: fixed;
+        overflow-wrap: anywhere;
+    }
+
+    .caja-tabs {
+        flex-wrap: wrap;
+    }
+
+    @@media(max-width:760px) {
+        .caja-layout {
+            grid-template-columns: minmax(0,1fr);
+        }
+
+        .tabla-detalle {
+            table-layout: auto;
+        }
+    }
 
 </style>
 
@@ -697,10 +742,39 @@
 
     private bool CajaAbierta => estado?.Abierta == true;
 
+    // ---- Descuento (porcentaje o monto fijo) aplicado al cobrar ----
+    private EnumTipoDescuento tipoDescuento = EnumTipoDescuento.Ninguno;
+    private decimal valorDescuento;
+
+    private decimal DescuentoCalculado => cuentaSeleccionada == null ? 0
+        : CalculoDescuento.Calcular(cuentaSeleccionada.Total, tipoDescuento, valorDescuento, out _);
+
+    private string? ErrorDescuento
+    {
+        get
+        {
+            if (cuentaSeleccionada == null) return null;
+            CalculoDescuento.Calcular(cuentaSeleccionada.Total, tipoDescuento, valorDescuento, out var error);
+            return error;
+        }
+    }
+
+    private decimal TotalACobrar => cuentaSeleccionada == null ? 0 : cuentaSeleccionada.Total - DescuentoCalculado;
+
+    private void AlCambiarDescuento()
+    {
+        if (tipoDescuento == EnumTipoDescuento.Ninguno) valorDescuento = 0;
+
+        if (lineasPago.Count == 1 && !lineasEditadas.Contains(lineasPago[0]))
+            lineasPago[0].Monto = TotalACobrar;
+        else
+            Rebalancear(null);
+    }
+
     private ResultadoCobro CobroActual =>
         cuentaSeleccionada == null
             ? CobroCombinado.Evaluar(0, lineasPago)
-            : CobroCombinado.Evaluar(cuentaSeleccionada.Total, lineasPago);
+            : CobroCombinado.Evaluar(TotalACobrar, lineasPago);
 
     private decimal TotalCobrado => lineasPago.Sum(l => l.Monto);
 
@@ -810,6 +884,9 @@
         {
             new LineaPagoDTO { TipoPago = EnumTipoPago.Efectivo, Monto = cuenta.Total }
         };
+
+        tipoDescuento = EnumTipoDescuento.Ninguno;
+        valorDescuento = 0;
     }
 
     private void AlEditarMonto(LineaPagoDTO linea)
@@ -837,7 +914,7 @@
 
         if (cuentaSeleccionada != null && lineasPago.Count == 1 && !lineasEditadas.Contains(lineasPago[0]))
         {
-            lineasPago[0].Monto = cuentaSeleccionada.Total;
+            lineasPago[0].Monto = TotalACobrar;
         }
         else
         {
@@ -854,7 +931,7 @@
         var candidata = lineasPago.LastOrDefault(l => !ReferenceEquals(l, editada) && !lineasEditadas.Contains(l));
         if (candidata == null) return;
 
-        var resto = cuentaSeleccionada.Total - lineasPago.Where(l => !ReferenceEquals(l, candidata)).Sum(l => l.Monto);
+        var resto = TotalACobrar - lineasPago.Where(l => !ReferenceEquals(l, candidata)).Sum(l => l.Monto);
         candidata.Monto = Math.Max(resto, 0);
     }
 
@@ -883,12 +960,20 @@
     {
         if (cuentaSeleccionada == null || idUsuarioActual == null) return;
 
+        if (ErrorDescuento != null)
+        {
+            Mensaje = ErrorDescuento;
+            return;
+        }
+
         procesando = true;
 
         var dto = new RegistrarPagoDTO
         {
             IdComanda = cuentaSeleccionada.Id,
             IdUsuarioCaja = idUsuarioActual.Value,
+            TipoDescuento = tipoDescuento,
+            ValorDescuento = valorDescuento,
             Lineas = lineasPago
                 .Where(l => l.Monto > 0)
                 .Select(l => new LineaPagoDTO { TipoPago = l.TipoPago, Monto = l.Monto })

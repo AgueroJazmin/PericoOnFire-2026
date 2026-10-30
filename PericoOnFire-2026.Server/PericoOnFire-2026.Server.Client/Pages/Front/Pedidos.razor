@@ -90,9 +90,14 @@
                             <ul class="lista-items">
                                 @foreach (var item in cuenta.Items)
                                 {
-                                    <li>@item.Cantidad x @item.NombreProducto</li>
+                                    <li>
+                                        @item.Cantidad x @item.NombreProducto
+                                        <span class="item-precio">($@item.PrecioUnitario.ToString("N2") c/u = $@item.Subtotal.ToString("N2"))</span>
+                                    </li>
                                 }
                             </ul>
+
+                                            <div class="cuenta-total">Total: $@cuenta.TotalPedido.ToString("N2")</div>
 
                             <div class="badges-sector">
                                 @foreach (var pedido in cuenta.Pedidos)
@@ -239,6 +244,46 @@
                                     Eliminar comanda vacía
                                 </button>
                             }
+
+                            @if (PuedeCambiarTipo(cuenta))
+                            {
+                                                @if (cambiandoTipoId == cuenta.IdComanda)
+                                                {
+                                                    <div class="mt-1">
+                                                        @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway)
+                                                        {
+                                                            <label class="dato-cliente">
+                                                                Dirección / referencia de WhatsApp
+                                                                <input class="form-control form-control-sm" maxlength="100" required
+                                                                       @bind="nuevaDireccionCambio" @bind:event="oninput" />
+                                                            </label>
+                                                        }
+                                                        else
+                                                        {
+                                                            <label class="dato-cliente">
+                                                                Nombre y apellido
+                                                                <input class="form-control form-control-sm" maxlength="100"
+                                                                       @bind="nuevoNombreCambio" @bind:event="oninput" />
+                                                            </label>
+                                                        }
+                                                        <div class="d-flex gap-1 mt-1">
+                                                            <button class="btn btn-sm btn-primary flex-fill" disabled="@CambioTipoIncompleto(cuenta)"
+                                                                    @onclick="() => ConfirmarCambioTipo(cuenta)">
+                                                                Confirmar
+                                                            </button>
+                                                            <button class="btn btn-sm btn-outline-secondary flex-fill" @onclick="CerrarCambioTipo">Cancelar</button>
+                                                        </div>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <button class="btn btn-sm btn-outline-primary w-100 mt-1" @onclick="() => AbrirCambioTipo(cuenta)">
+                                                        @(cuenta.TipoServicio == EnumTipoServicio.TakeAway ? "Pasar a Delivery" : "Pasar a Take Away")
+                                                    </button>
+                                                }
+                            }
+
+
 
 
 
@@ -641,9 +686,15 @@
                             <ul class="lista-items">
                                 @foreach (var item in cuenta.Items)
                                 {
-                                    <li>@item.Cantidad x @item.NombreProducto</li>
+                                    <li>
+                                        @item.Cantidad x @item.NombreProducto
+                                        <span class="item-precio">($@item.PrecioUnitario.ToString("N2") c/u = $@item.Subtotal.ToString("N2"))</span>
+                                    </li>
                                 }
                             </ul>
+
+                            <div class="cuenta-total">Total: $@cuenta.TotalPedido.ToString("N2")</div>
+
                             @if (cuenta.HoraDeseada.HasValue)
                             {
                                 <div class="cuenta-card-info @ClaseHorarioProximo(cuenta)">🕒 Para las @cuenta.HoraDeseada.Value.ToLocalTime().ToString("HH:mm")</div>
@@ -706,9 +757,15 @@
                             <ul class="lista-items">
                                 @foreach (var item in cuenta.Items)
                                 {
-                                    <li>@item.Cantidad x @item.NombreProducto</li>
+                                    <li>
+                                        @item.Cantidad x @item.NombreProducto
+                                        <span class="item-precio">($@item.PrecioUnitario.ToString("N2") c/u = $@item.Subtotal.ToString("N2"))</span>
+                                    </li>
                                 }
                             </ul>
+
+                            <div class="cuenta-total">Total: $@cuenta.TotalPedido.ToString("N2")</div>
+
                             @if (cuenta.HoraDeseada.HasValue)
                             {
                                 <div class="cuenta-card-info @ClaseHorarioProximo(cuenta)">🕒 Para las @cuenta.HoraDeseada.Value.ToLocalTime().ToString("HH:mm")</div>
@@ -791,29 +848,6 @@
     .pedidos-pagina {
         padding: 1rem;
     }
-
-    /* Estados de pedidos y comandas (se usan en todas las pantallas) */
-            .est-badge {
-            display: inline-block;
-            font-size: 1.05rem;
-            font-weight: 800;
-            line-height: 1.2;
-            padding: .3rem .85rem;
-            border-radius: 999px;
-            color: #fff;
-            text-shadow: 0 1px 1px rgba(0,0,0,.35);
-            background-image: linear-gradient(180deg, rgba(255,255,255,.3), rgba(255,255,255,0) 60%);
-            box-shadow: 0 2px 6px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.5);
-        }
-    .est-pendiente { background-color: #ff9800; }
-    .est-enpreparacion { background-color: #1e88e5; }
-    .est-listopararetirar { background-color: #00c853; }
-    .est-encamino { background-color: #8e24aa; }
-    .est-entregado { background-color: #00897b; }
-    .est-cancelado, .est-cancelada { background-color: #e53935; }
-    .est-abierta { background-color: #00acc1; }
-    .est-pendientecobro { background-color: #fdd835; color: #3b2f00; text-shadow: none; }
-    .est-pagada { background-color: #00c853; }
 
     .pedidos-header {
         display: flex;
@@ -2617,6 +2651,61 @@
             : null;
         await CargarSeguimiento();
     }
+
+    private int? cambiandoTipoId;
+private string nuevaDireccionCambio = "";
+private string nuevoNombreCambio = "";
+
+// Solo antes de que el repartidor lo tome (después ya no tiene sentido cambiarlo).
+private bool PuedeCambiarTipo(PedidoParaLlevarDTO cuenta) =>
+    !esSoloDelivery &&
+    cuenta.EstadoComanda != EnumEstadoComanda.Cancelada &&
+    !cuenta.IdDelivery.HasValue &&
+    !cuenta.Pedidos.Any(p => p.Estado == EnumEstadoPedido.EnCamino || p.Estado == EnumEstadoPedido.Entregado);
+
+private bool CambioTipoIncompleto(PedidoParaLlevarDTO cuenta) =>
+    cuenta.TipoServicio == EnumTipoServicio.TakeAway
+        ? string.IsNullOrWhiteSpace(nuevaDireccionCambio)
+        : string.IsNullOrWhiteSpace(nuevoNombreCambio);
+
+private void AbrirCambioTipo(PedidoParaLlevarDTO cuenta)
+{
+    cambiandoTipoId = cuenta.IdComanda;
+    nuevaDireccionCambio = cuenta.Direccion ?? "";
+    nuevoNombreCambio = cuenta.NombreCliente.StartsWith("Referencia:") ? "" : cuenta.NombreCliente;
+}
+
+private void CerrarCambioTipo()
+{
+    cambiandoTipoId = null;
+    nuevaDireccionCambio = "";
+    nuevoNombreCambio = "";
+}
+
+private async Task ConfirmarCambioTipo(PedidoParaLlevarDTO cuenta)
+{
+    var nuevoTipo = cuenta.TipoServicio == EnumTipoServicio.TakeAway
+        ? EnumTipoServicio.Delivery
+        : EnumTipoServicio.TakeAway;
+
+    var dto = new CambiarTipoServicioDTO
+    {
+        NuevoTipo = nuevoTipo,
+        Direccion = nuevoTipo == EnumTipoServicio.Delivery ? nuevaDireccionCambio : null,
+        NombreCliente = nuevoTipo == EnumTipoServicio.TakeAway ? nuevoNombreCambio : null
+    };
+
+    var respuesta = await http.Put($"api/Comanda/{cuenta.IdComanda}/CambiarTipo", dto);
+    if (respuesta.Error)
+    {
+        MensajeForm = respuesta.ObtenerError();
+        return;
+    }
+
+    MensajeForm = null;
+    CerrarCambioTipo();
+    await CargarSeguimiento();
+}
 
     private async Task ConfirmarRendicion(PedidoParaLlevarDTO cuenta)
     {

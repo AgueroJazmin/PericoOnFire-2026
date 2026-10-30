@@ -57,46 +57,46 @@ namespace PericoOnFire_2026.Server.Controllers
         {
             return await OperacionAtomica.EjecutarAsync<ActionResult<TurnoCajaDTO>>(context, async () =>
             {
-            var montoInicial = Math.Round(dto.MontoInicial, 2);
-            if (montoInicial < 0)
-                return Conflict("El monto inicial no puede ser negativo.");
-            if (montoInicial > MontoMaximo)
-                return Conflict("El monto inicial es demasiado grande.");
+                var montoInicial = Math.Round(dto.MontoInicial, 2);
+                if (montoInicial < 0)
+                    return Conflict("El monto inicial no puede ser negativo.");
+                if (montoInicial > MontoMaximo)
+                    return Conflict("El monto inicial es demasiado grande.");
 
-            var usuario = await ObtenerUsuarioActualAsync();
-            if (usuario == null)
-                return Conflict("No se encontró un usuario de negocio asociado a esta cuenta.");
+                var usuario = await ObtenerUsuarioActualAsync();
+                if (usuario == null)
+                    return Conflict("No se encontró un usuario de negocio asociado a esta cuenta.");
 
-            if (await CajaActual.ObtenerTurnoAbiertoAsync(context) != null)
-                return Conflict("Ya hay una caja abierta. Cerrá el turno actual antes de abrir otro.");
+                if (await CajaActual.ObtenerTurnoAbiertoAsync(context) != null)
+                    return Conflict("Ya hay una caja abierta. Cerrá el turno actual antes de abrir otro.");
 
-            var turno = new TurnoCaja
-            {
-                Estado = EnumEstadoTurnoCaja.Abierto,
-                IdUsuarioApertura = usuario.Id,
-                FechaApertura = DateTime.UtcNow,
-                MontoInicial = montoInicial,
-                EstadoRegistro = EnumEstadoRegistro.activo
-            };
+                var turno = new TurnoCaja
+                {
+                    Estado = EnumEstadoTurnoCaja.Abierto,
+                    IdUsuarioApertura = usuario.Id,
+                    FechaApertura = DateTime.UtcNow,
+                    MontoInicial = montoInicial,
+                    EstadoRegistro = EnumEstadoRegistro.activo
+                };
 
-            context.TurnosCaja.Add(turno);
+                context.TurnosCaja.Add(turno);
 
-            //Se deja la apertura escrita en la lista de movimientos, así el turno se lee completo de corrido.
-            context.MovimientosCaja.Add(new MovimientoCaja
-            {
-                IdUsuario = usuario.Id,
-                TurnoCaja = turno,
-                TipoMovimiento = EnumTipoMovCaja.Apertura,
-                Monto = montoInicial,
-                Motivo = "Apertura de caja",
-                FechaMovimiento = turno.FechaApertura,
-                EstadoRegistro = EnumEstadoRegistro.activo
-            });
+                //Se deja la apertura escrita en la lista de movimientos, así el turno se lee completo de corrido.
+                context.MovimientosCaja.Add(new MovimientoCaja
+                {
+                    IdUsuario = usuario.Id,
+                    TurnoCaja = turno,
+                    TipoMovimiento = EnumTipoMovCaja.Apertura,
+                    Monto = montoInicial,
+                    Motivo = "Apertura de caja",
+                    FechaMovimiento = turno.FechaApertura,
+                    EstadoRegistro = EnumEstadoRegistro.activo
+                });
 
-            await context.SaveChangesAsync();
+                await context.SaveChangesAsync();
 
-            return Ok(ArmarTurnoDTO(turno, usuario.Nombre, null));
-        
+                return Ok(ArmarTurnoDTO(turno, usuario.Nombre, null));
+
             });
         }
 
@@ -107,53 +107,53 @@ namespace PericoOnFire_2026.Server.Controllers
         {
             return await OperacionAtomica.EjecutarAsync<ActionResult<TurnoCajaDTO>>(context, async () =>
             {
-            var montoContado = Math.Round(dto.MontoContado, 2);
-            if (montoContado < 0)
-                return Conflict("El efectivo contado no puede ser negativo.");
-            if (montoContado > MontoMaximo)
-                return Conflict("El efectivo contado es demasiado grande.");
+                var montoContado = Math.Round(dto.MontoContado, 2);
+                if (montoContado < 0)
+                    return Conflict("El efectivo contado no puede ser negativo.");
+                if (montoContado > MontoMaximo)
+                    return Conflict("El efectivo contado es demasiado grande.");
 
-            var observaciones = string.IsNullOrWhiteSpace(dto.Observaciones) ? null : dto.Observaciones.Trim();
-            if (observaciones != null && observaciones.Length > 300)
-                return Conflict("Las observaciones no pueden superar los 300 caracteres.");
+                var observaciones = string.IsNullOrWhiteSpace(dto.Observaciones) ? null : dto.Observaciones.Trim();
+                if (observaciones != null && observaciones.Length > 300)
+                    return Conflict("Las observaciones no pueden superar los 300 caracteres.");
 
-            var turno = await CajaActual.ObtenerTurnoAbiertoAsync(context);
-            if (turno == null)
-                return Conflict("No hay ninguna caja abierta.");
+                var turno = await CajaActual.ObtenerTurnoAbiertoAsync(context);
+                if (turno == null)
+                    return Conflict("No hay ninguna caja abierta.");
 
-            var usuario = await ObtenerUsuarioActualAsync();
-            if (usuario == null)
-                return Conflict("No se encontró un usuario de negocio asociado a esta cuenta.");
+                var usuario = await ObtenerUsuarioActualAsync();
+                if (usuario == null)
+                    return Conflict("No se encontró un usuario de negocio asociado a esta cuenta.");
 
-            var estado = await ArmarEstadoAsync(turno);
-            var esperado = estado.EfectivoEsperado;
-            var diferencia = montoContado - esperado;
-            var ahora = DateTime.UtcNow;
+                var estado = await ArmarEstadoAsync(turno);
+                var esperado = estado.EfectivoEsperado;
+                var diferencia = montoContado - esperado;
+                var ahora = DateTime.UtcNow;
 
-            turno.Estado = EnumEstadoTurnoCaja.Cerrado;
-            turno.FechaCierre = ahora;
-            turno.IdUsuarioCierre = usuario.Id;
-            turno.MontoEsperado = esperado;
-            turno.MontoContado = montoContado;
-            turno.Diferencia = diferencia;
-            turno.ObservacionesCierre = observaciones;
+                turno.Estado = EnumEstadoTurnoCaja.Cerrado;
+                turno.FechaCierre = ahora;
+                turno.IdUsuarioCierre = usuario.Id;
+                turno.MontoEsperado = esperado;
+                turno.MontoContado = montoContado;
+                turno.Diferencia = diferencia;
+                turno.ObservacionesCierre = observaciones;
 
-            context.MovimientosCaja.Add(new MovimientoCaja
-            {
-                IdUsuario = usuario.Id,
-                IdTurnoCaja = turno.Id,
-                TipoMovimiento = EnumTipoMovCaja.Cierre,
-                Monto = montoContado,
-                Motivo = "Cierre de caja",
-                Observaciones = $"Esperado ${esperado:0.00} · Contado ${montoContado:0.00} · Diferencia ${diferencia:0.00}",
-                FechaMovimiento = ahora,
-                EstadoRegistro = EnumEstadoRegistro.activo
-            });
+                context.MovimientosCaja.Add(new MovimientoCaja
+                {
+                    IdUsuario = usuario.Id,
+                    IdTurnoCaja = turno.Id,
+                    TipoMovimiento = EnumTipoMovCaja.Cierre,
+                    Monto = montoContado,
+                    Motivo = "Cierre de caja",
+                    Observaciones = $"Esperado ${esperado:0.00} · Contado ${montoContado:0.00} · Diferencia ${diferencia:0.00}",
+                    FechaMovimiento = ahora,
+                    EstadoRegistro = EnumEstadoRegistro.activo
+                });
 
-            await context.SaveChangesAsync();
+                await context.SaveChangesAsync();
 
-            return Ok(ArmarTurnoDTO(turno, estado.Turno?.NombreUsuarioApertura, usuario.Nombre));
-        
+                return Ok(ArmarTurnoDTO(turno, estado.Turno?.NombreUsuarioApertura, usuario.Nombre));
+
             });
         }
 
@@ -219,66 +219,66 @@ namespace PericoOnFire_2026.Server.Controllers
         {
             return await OperacionAtomica.EjecutarAsync<ActionResult<MovimientoCajaDTO>>(context, async () =>
             {
-            var turno = await CajaActual.ObtenerTurnoAbiertoAsync(context);
-            if (turno == null)
-                return Conflict("La caja está cerrada. Abrí un turno para registrar movimientos.");
+                var turno = await CajaActual.ObtenerTurnoAbiertoAsync(context);
+                if (turno == null)
+                    return Conflict("La caja está cerrada. Abrí un turno para registrar movimientos.");
 
-            if (dto.TipoMovimiento is not (EnumTipoMovCaja.Ingreso or EnumTipoMovCaja.Egreso or EnumTipoMovCaja.Retiro))
-                return Conflict("Solo se pueden registrar ingresos, egresos o retiros.");
+                if (dto.TipoMovimiento is not (EnumTipoMovCaja.Ingreso or EnumTipoMovCaja.Egreso or EnumTipoMovCaja.Retiro))
+                    return Conflict("Solo se pueden registrar ingresos, egresos o retiros.");
 
-            var monto = Math.Round(dto.Monto, 2);
-            if (monto <= 0)
-                return Conflict("El monto debe ser mayor a cero.");
-            if (monto > MontoMaximo)
-                return Conflict("El monto es demasiado grande.");
+                var monto = Math.Round(dto.Monto, 2);
+                if (monto <= 0)
+                    return Conflict("El monto debe ser mayor a cero.");
+                if (monto > MontoMaximo)
+                    return Conflict("El monto es demasiado grande.");
 
-            var motivo = (dto.Motivo ?? string.Empty).Trim();
-            if (motivo.Length == 0)
-                return Conflict("El motivo es obligatorio.");
-            if (motivo.Length > 200)
-                return Conflict("El motivo no puede superar los 200 caracteres.");
+                var motivo = (dto.Motivo ?? string.Empty).Trim();
+                if (motivo.Length == 0)
+                    return Conflict("El motivo es obligatorio.");
+                if (motivo.Length > 200)
+                    return Conflict("El motivo no puede superar los 200 caracteres.");
 
-            var observaciones = string.IsNullOrWhiteSpace(dto.Observaciones) ? null : dto.Observaciones.Trim();
-            if (observaciones != null && observaciones.Length > 300)
-                return Conflict("Las observaciones no pueden superar los 300 caracteres.");
+                var observaciones = string.IsNullOrWhiteSpace(dto.Observaciones) ? null : dto.Observaciones.Trim();
+                if (observaciones != null && observaciones.Length > 300)
+                    return Conflict("Las observaciones no pueden superar los 300 caracteres.");
 
-            var usuario = await ObtenerUsuarioActualAsync();
-            if (usuario == null)
-                return Conflict("No se encontró un usuario de negocio asociado a esta cuenta.");
+                var usuario = await ObtenerUsuarioActualAsync();
+                if (usuario == null)
+                    return Conflict("No se encontró un usuario de negocio asociado a esta cuenta.");
 
-            if (dto.TipoMovimiento is EnumTipoMovCaja.Egreso or EnumTipoMovCaja.Retiro)
-            {
-                var estado = await ArmarEstadoAsync(turno);
-                if (monto > estado.EfectivoEsperado)
-                    return Conflict($"No hay suficiente efectivo en caja: hay ${estado.EfectivoEsperado:0.00} y querés sacar ${monto:0.00}.");
-            }
+                if (dto.TipoMovimiento is EnumTipoMovCaja.Egreso or EnumTipoMovCaja.Retiro)
+                {
+                    var estado = await ArmarEstadoAsync(turno);
+                    if (monto > estado.EfectivoEsperado)
+                        return Conflict($"No hay suficiente efectivo en caja: hay ${estado.EfectivoEsperado:0.00} y querés sacar ${monto:0.00}.");
+                }
 
-            var movimiento = new MovimientoCaja
-            {
-                IdUsuario = usuario.Id,
-                IdTurnoCaja = turno.Id,
-                TipoMovimiento = dto.TipoMovimiento,
-                Monto = monto,
-                Motivo = motivo,
-                Observaciones = observaciones,
-                FechaMovimiento = DateTime.UtcNow,
-                EstadoRegistro = EnumEstadoRegistro.activo
-            };
+                var movimiento = new MovimientoCaja
+                {
+                    IdUsuario = usuario.Id,
+                    IdTurnoCaja = turno.Id,
+                    TipoMovimiento = dto.TipoMovimiento,
+                    Monto = monto,
+                    Motivo = motivo,
+                    Observaciones = observaciones,
+                    FechaMovimiento = DateTime.UtcNow,
+                    EstadoRegistro = EnumEstadoRegistro.activo
+                };
 
-            context.MovimientosCaja.Add(movimiento);
-            await context.SaveChangesAsync();
+                context.MovimientosCaja.Add(movimiento);
+                await context.SaveChangesAsync();
 
-            return Ok(new MovimientoCajaDTO
-            {
-                Id = movimiento.Id,
-                FechaMovimiento = movimiento.FechaMovimiento,
-                TipoMovimiento = movimiento.TipoMovimiento,
-                Monto = movimiento.Monto,
-                Motivo = movimiento.Motivo,
-                Observaciones = movimiento.Observaciones,
-                NombreUsuario = usuario.Nombre
-            });
-        
+                return Ok(new MovimientoCajaDTO
+                {
+                    Id = movimiento.Id,
+                    FechaMovimiento = movimiento.FechaMovimiento,
+                    TipoMovimiento = movimiento.TipoMovimiento,
+                    Monto = movimiento.Monto,
+                    Motivo = movimiento.Motivo,
+                    Observaciones = movimiento.Observaciones,
+                    NombreUsuario = usuario.Nombre
+                });
+
             });
         }
 
@@ -310,6 +310,7 @@ namespace PericoOnFire_2026.Server.Controllers
                 Desde = rango.Value.Desde,
                 Hasta = rango.Value.Hasta,
                 TotalVendido = ventas.Sum(v => v.Total),
+                TotalDescuentos = ventas.Sum(v => v.Descuento),
                 CantidadVentas = ventas.Count
             };
 
@@ -454,7 +455,7 @@ namespace PericoOnFire_2026.Server.Controllers
 
             return (dia1, dia2, HoraArgentina.InicioDiaUtc(dia1), HoraArgentina.InicioDiaUtc(dia2).AddDays(1));
         }
-     
+
         private async Task<(DateTime Desde, DateTime Hasta, DateTime InicioUtc, DateTime FinUtc)?> ArmarRangoAsync(DateTime? desde, DateTime? hasta, bool todo)
         {
             if (!todo)
@@ -485,7 +486,9 @@ namespace PericoOnFire_2026.Server.Controllers
                     NombreCajero = p.UsuarioCaja.Nombre,
                     p.Comanda.TipoServicio,
                     FechaApertura = p.Comanda.FechaApertura,
-                    NumeroMesa = p.Comanda.Mesa != null ? (int?)p.Comanda.Mesa.NumeroMesa : null
+                    NumeroMesa = p.Comanda.Mesa != null ? (int?)p.Comanda.Mesa.NumeroMesa : null,
+                    Descuento = p.Comanda.Descuento,
+                    DescuentoPorcentaje = p.Comanda.DescuentoPorcentaje
                 })
                 .ToListAsync();
 
@@ -503,6 +506,8 @@ namespace PericoOnFire_2026.Server.Controllers
                     NumeroMesa = g.First().NumeroMesa,
                     FechaPago = g.Max(f => f.FechaPago),
                     Vuelto = g.Sum(f => f.Vuelto),
+                    Descuento = g.First().Descuento,
+                    DescuentoPorcentaje = g.First().DescuentoPorcentaje,
                     Total = g.Sum(f => f.MontoPagado - f.Vuelto),
                     NombreCajero = g.First().NombreCajero,
                     Pagos = g.GroupBy(f => f.TipoPago)

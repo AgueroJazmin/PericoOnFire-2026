@@ -8,7 +8,10 @@
 @inject IHttpServicio http
 @rendermode InteractiveWebAssembly
 
-@if (sinConexion) { <p class="alert alert-warning m-2" role="status">No se pudo actualizar la información. Reintentando…</p> }
+@if (sinConexion)
+{
+    <p class="alert alert-warning m-2" role="status">No se pudo actualizar la información. Reintentando…</p>
+}
 
 <div class="tablero">
     <h4>@TituloSector</h4>
@@ -196,6 +199,28 @@
         margin-bottom: .35rem;
     }
 
+    .cantidad-producto {
+        display: inline-block;
+        min-width: 2rem;
+        padding: 0 .45rem;
+        margin-right: .3rem;
+        border-radius: 8px;
+        background: #212529;
+        color: #fff;
+        font-size: 1.25rem;
+        font-weight: 800;
+        text-align: center;
+    }
+
+    .detalle-producto strong {
+        font-size: 1.1rem;
+    }
+
+    .total-unidades {
+        font-weight: 800;
+        margin-top: .3rem;
+    }
+
     .observacion-producto {
         margin-top: .2rem;
         padding: .4rem .5rem;
@@ -258,7 +283,13 @@
             font-size: 1.15rem;
         }
     }
-    .entregados-tablero > summary { cursor:pointer; padding:.6rem 0; font-weight:700; color:#555; }
+
+    .entregados-tablero > summary {
+        cursor: pointer;
+        padding: .6rem 0;
+        font-weight: 700;
+        color: #555;
+    }
 </style>
 
 @code {
@@ -421,7 +452,8 @@
             @foreach (var detalle in pedido.DetallesPedido)
             {
                 <li class="detalle-producto">
-                    <strong>@detalle.Cantidad x @detalle.NombreProducto</strong>
+                    <span class="cantidad-producto">@detalle.Cantidad</span>
+                    <strong>x @detalle.NombreProducto</strong>
                     @if (!string.IsNullOrWhiteSpace(detalle.Observacion))
                     {
                         <div class="observacion-producto">⚠ @detalle.Observacion</div>
@@ -429,6 +461,7 @@
                 </li>
             }
         </ul>
+        <div class="total-unidades">Total: @pedido.DetallesPedido.Sum(d => d.Cantidad) unidades</div>
         @if (MostrarItemsOtroSector && pedido.DetallesOtroSector.Any())
         {
             <ul class="items-otro-sector">

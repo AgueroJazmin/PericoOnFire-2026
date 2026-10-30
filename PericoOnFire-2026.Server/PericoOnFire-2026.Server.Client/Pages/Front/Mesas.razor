@@ -177,8 +177,8 @@
                                             .GroupBy(d => d.NombreProducto))
                                         {
                                             <li>
-                                                @productoAgrupado.Sum(d => d.Cantidad) x
-                                                @productoAgrupado.Key
+                                                @productoAgrupado.Sum(d => d.Cantidad) x @productoAgrupado.Key
+                                                <span class="item-precio">($@productoAgrupado.Sum(d => d.Cantidad * d.PrecioUnitario).ToString("N2"))</span>
                                             </li>
                                         }
                                     </ul>
@@ -216,6 +216,7 @@
                                         {
                                             <li>
                                                 @detalle.Cantidad x @detalle.NombreProducto
+                                                <span class="item-precio">($@((detalle.Cantidad * detalle.PrecioUnitario).ToString("N2")))</span>
                                             </li>
                                         }
                                     </ul>
@@ -240,6 +241,17 @@
                         </div>
                     }
                     </div>
+                }
+
+                @{
+                    var totalMesa = pedidosActuales
+                        .Where(p => p.Estado != EnumEstadoPedido.Cancelado)
+                        .SelectMany(p => p.DetallesPedido)
+                        .Sum(d => d.Cantidad * d.PrecioUnitario);
+                }
+                @if (totalMesa > 0)
+                {
+                    <div class="cuenta-total">Total: $@totalMesa.ToString("N2")</div>
                 }
 
                 @if (comandaActual.Estado == EnumEstadoComanda.PendienteCobro)

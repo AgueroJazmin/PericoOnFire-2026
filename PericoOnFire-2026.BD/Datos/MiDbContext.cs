@@ -36,12 +36,12 @@ namespace PericoOnFire_2026.BD.Datos
             // Aquí puedes configurar tus entidades y relaciones
 
             var cascadeFKs = modelBuilder.Model
-                .G­etEntityTypes()
+                .GetEntityTypes()
                 .SelectMany(t => t.GetForeignKeys())
-                .Where(fk => !fk.IsOwnership && fk.DeleteBehavior == DeleteBehavior.Casca­de);
+                .Where(fk => !fk.IsOwnership && fk.DeleteBehavior == DeleteBehavior.Cascade);
             foreach (var fk in cascadeFKs)
             {
-                fk.DeleteBehavior = DeleteBehavior.Restr­ict;
+                fk.DeleteBehavior = DeleteBehavior.Restrict;
             }
 
             modelBuilder.Entity<Subcategoria>()
@@ -63,6 +63,14 @@ namespace PericoOnFire_2026.BD.Datos
             modelBuilder.Entity<Comanda>()
                 .Property(c => c.Total)
                 .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Comanda>()
+                .Property(c => c.Descuento)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Comanda>()
+                .Property(c => c.DescuentoPorcentaje)
+                .HasPrecision(5, 2);
 
             modelBuilder.Entity<Pago>()
                 .Property(p => p.MontoTotal)

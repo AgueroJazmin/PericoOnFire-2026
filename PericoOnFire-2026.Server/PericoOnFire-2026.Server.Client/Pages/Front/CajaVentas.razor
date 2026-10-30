@@ -145,6 +145,10 @@
                     {
                         <span class="cv-chip cv-chip-vuelto">Vuelto @Dinero(venta.Vuelto)</span>
                     }
+                    @if (venta.Descuento > 0)
+                    {
+                        <span class="cv-chip">Descuento @Dinero(venta.Descuento)@(venta.DescuentoPorcentaje.HasValue ? $" ({venta.DescuentoPorcentaje:0.##}%)" : "")</span>
+                    }
                 </div>
                 <div class="cv-venta-info">@FechaHora(venta.FechaPago) · Cobró @(venta.NombreCajero ?? "—")</div>
             </article>

@@ -20,6 +20,14 @@ namespace PericoOnFire_2026.Shared.Utilidades
             return string.IsNullOrWhiteSpace(observaciones) ? texto : observaciones.Trim() + "\n" + texto;
         }
 
+        // Saca la previsión de efectivo de las observaciones (se usa al pasar un Delivery a Take Away).
+        public static string? Quitar(string? observaciones)
+        {
+            if (string.IsNullOrWhiteSpace(observaciones)) return observaciones;
+            var limpio = Patron.Replace(observaciones, "").Trim();
+            return string.IsNullOrWhiteSpace(limpio) ? null : limpio;
+        }
+
         public static decimal? Leer(string? observaciones)
         {
             if (string.IsNullOrWhiteSpace(observaciones)) return null;
