@@ -31,7 +31,7 @@
                 <summary>
                     <span><strong>Comanda @comanda.NumeroDiario</strong><small>@HoraArgentina.DesdeUtc(comanda.FechaApertura).ToString("dd/MM/yyyy HH:mm")</small></span>
                     <span>@(comanda.NumeroMesa.HasValue ? $"Mesa {comanda.NumeroMesa} · {comanda.Sala}" : $"{comanda.TipoServicio} · {comanda.Cliente}")</span>
-                    <span class="estado @(comanda.Estado == EnumEstadoComanda.Cancelada ? "cancelada" : "")">@comanda.Estado</span>
+                    <span class="est-badge est-@comanda.Estado.ToString().ToLower()">@comanda.Estado</span>
                     <strong>$@comanda.Total.ToString("N2")</strong>
                 </summary>
                 <div class="detalle">
