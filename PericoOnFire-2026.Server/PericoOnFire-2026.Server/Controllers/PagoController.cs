@@ -86,82 +86,90 @@ namespace PericoOnFire_2026.Server.Controllers
         {
             try
             {
-            return await OperacionAtomica.EjecutarAsync<ActionResult<PagoRegistradoDTO>>(context, async () =>
-            {
-            var cuenta = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var cajero = await context.Usuarios.AsNoTracking().FirstOrDefaultAsync(u => u.IdApplicationUser == cuenta && u.Activo);
-            if (cajero == null) return Conflict("Tu cuenta no tiene un empleado activo asociado. Revisá la configuración del usuario antes de cobrar.");
-            var turno = await CajaActual.ObtenerTurnoAbiertoAsync(context);
-            if (turno == null)
-                return Conflict("La caja está cerrada. Abrí un turno antes de cobrar.");
-
-            var comanda = await context.Comandas
-                .Include(c => c.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado))
-                    .ThenInclude(p => p.DetallesPedido)
-                .FirstOrDefaultAsync(c => c.Id == dto.IdComanda);
-
-            if (comanda == null)
-                return NotFound();
-
-            if (comanda.Estado == EnumEstadoComanda.Pagada ||
-                await context.Pagos.AnyAsync(p => p.IdComanda == comanda.Id))
-                return Conflict("Esta comanda ya tiene un cobro registrado. Actualizá Caja para ver su estado.");
-
-            if (comanda.Estado != EnumEstadoComanda.PendienteCobro)
-                return Conflict("Esta comanda no está pendiente de cobro.");
-
-            var total = comanda.Pedidos
-                .Where(p => p.Estado != EnumEstadoPedido.Cancelado)
-                .SelectMany(p => p.DetallesPedido)
-                .Sum(d => d.Cantidad * d.PrecioUnitario);
-
-            if (total <= 0)
-                return Conflict("La comanda no tiene productos para cobrar.");
-
-            var cobro = CobroCombinado.Evaluar(total, dto.Lineas);
-            if (!cobro.EsValido)
-                return Conflict(cobro.Error);
-
-            //MontoTotal es el de la cuenta en todas las filas; el vuelto se carga solo en la de efectivo.
-            var ahora = DateTime.UtcNow;
-            var pagos = cobro.Lineas
-                .Select(l => new Pago
+                return await OperacionAtomica.EjecutarAsync<ActionResult<PagoRegistradoDTO>>(context, async () =>
                 {
-                    IdComanda = comanda.Id,
-                    IdUsuarioCaja = cajero.Id,
-                    IdTurnoCaja = turno.Id,
-                    TipoPago = l.TipoPago,
-                    MontoTotal = total,
-                    MontoPagado = l.Monto,
-                    Vuelto = l.TipoPago == EnumTipoPago.Efectivo ? cobro.Vuelto : 0,
-                    FechaPago = ahora,
-                    EstadoRegistro = EnumEstadoRegistro.activo
-                })
-                .ToList();
+                    var cuenta = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                    var cajero = await context.Usuarios.AsNoTracking().FirstOrDefaultAsync(u => u.IdApplicationUser == cuenta && u.Activo);
+                    if (cajero == null) return Conflict("Tu cuenta no tiene un empleado activo asociado. Revisá la configuración del usuario antes de cobrar.");
+                    var turno = await CajaActual.ObtenerTurnoAbiertoAsync(context);
+                    if (turno == null)
+                        return Conflict("La caja está cerrada. Abrí un turno antes de cobrar.");
 
-            context.Pagos.AddRange(pagos);
+                    var comanda = await context.Comandas
+                        .Include(c => c.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado))
+                            .ThenInclude(p => p.DetallesPedido)
+                        .FirstOrDefaultAsync(c => c.Id == dto.IdComanda);
 
-            comanda.Estado = EnumEstadoComanda.Pagada;
-            comanda.Total = total;
-            comanda.FechaCierre = ahora;
+                    if (comanda == null)
+                        return NotFound();
 
-            if (comanda.IdMesa.HasValue)
-            {
-                var mesa = await context.Mesas.FindAsync(comanda.IdMesa.Value);
-                if (mesa != null)
-                    mesa.Estado = EnumEstadoMesa.Libre;
-            }
+                    if (comanda.Estado == EnumEstadoComanda.Pagada ||
+                        await context.Pagos.AnyAsync(p => p.IdComanda == comanda.Id))
+                        return Conflict("Esta comanda ya tiene un cobro registrado. Actualizá Caja para ver su estado.");
 
-            await context.SaveChangesAsync();
+                    if (comanda.Estado != EnumEstadoComanda.PendienteCobro)
+                        return Conflict("Esta comanda no está pendiente de cobro.");
 
-            return Ok(new PagoRegistradoDTO
-            {
-                IdPago = pagos[0].Id,
-                MontoTotal = total,
-                Vuelto = cobro.Vuelto
-            });
-        
-            });
+                    var subtotal = comanda.Pedidos
+                        .Where(p => p.Estado != EnumEstadoPedido.Cancelado)
+                        .SelectMany(p => p.DetallesPedido)
+                        .Sum(d => d.Cantidad * d.PrecioUnitario);
+
+                    if (subtotal <= 0)
+                        return Conflict("La comanda no tiene productos para cobrar.");
+
+                    var descuento = CalculoDescuento.Calcular(subtotal, dto.TipoDescuento, dto.ValorDescuento, out var errorDescuento);
+                    if (errorDescuento != null)
+                        return Conflict(errorDescuento);
+
+                    var total = subtotal - descuento;
+
+                    var cobro = CobroCombinado.Evaluar(total, dto.Lineas);
+                    if (!cobro.EsValido)
+                        return Conflict(cobro.Error);
+
+                    //MontoTotal es el de la cuenta en todas las filas; el vuelto se carga solo en la de efectivo.
+                    var ahora = DateTime.UtcNow;
+                    var pagos = cobro.Lineas
+                        .Select(l => new Pago
+                        {
+                            IdComanda = comanda.Id,
+                            IdUsuarioCaja = cajero.Id,
+                            IdTurnoCaja = turno.Id,
+                            TipoPago = l.TipoPago,
+                            MontoTotal = total,
+                            MontoPagado = l.Monto,
+                            Vuelto = l.TipoPago == EnumTipoPago.Efectivo ? cobro.Vuelto : 0,
+                            FechaPago = ahora,
+                            EstadoRegistro = EnumEstadoRegistro.activo
+                        })
+                        .ToList();
+
+                    context.Pagos.AddRange(pagos);
+
+                    comanda.Estado = EnumEstadoComanda.Pagada;
+                    comanda.Total = total;
+                    comanda.Descuento = descuento;
+                    comanda.DescuentoPorcentaje = dto.TipoDescuento == EnumTipoDescuento.Porcentaje ? dto.ValorDescuento : null;
+                    comanda.FechaCierre = ahora;
+
+                    if (comanda.IdMesa.HasValue)
+                    {
+                        var mesa = await context.Mesas.FindAsync(comanda.IdMesa.Value);
+                        if (mesa != null)
+                            mesa.Estado = EnumEstadoMesa.Libre;
+                    }
+
+                    await context.SaveChangesAsync();
+
+                    return Ok(new PagoRegistradoDTO
+                    {
+                        IdPago = pagos[0].Id,
+                        MontoTotal = total,
+                        Vuelto = cobro.Vuelto
+                    });
+
+                });
             }
             catch (Exception ex) when (OperacionAtomica.EsConflictoConcurrente(ex))
             {
@@ -185,38 +193,38 @@ namespace PericoOnFire_2026.Server.Controllers
         {
             return await OperacionAtomica.EjecutarAsync<ActionResult>(context, async () =>
             {
-            var comanda = await context.Comandas
-                .Include(c => c.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado))
-                    .ThenInclude(p => p.DetallesPedido)
-                .FirstOrDefaultAsync(c => c.Id == idComanda);
+                var comanda = await context.Comandas
+                    .Include(c => c.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado))
+                        .ThenInclude(p => p.DetallesPedido)
+                    .FirstOrDefaultAsync(c => c.Id == idComanda);
 
-            if (comanda == null)
-                return NotFound();
+                if (comanda == null)
+                    return NotFound();
 
-            if (comanda.Estado != EnumEstadoComanda.PendienteCobro)
-                return Conflict("Esta comanda no está pendiente de cobro.");
+                if (comanda.Estado != EnumEstadoComanda.PendienteCobro)
+                    return Conflict("Esta comanda no está pendiente de cobro.");
 
-            var total = comanda.Pedidos
-                .Where(p => p.Estado != EnumEstadoPedido.Cancelado)
-                .SelectMany(p => p.DetallesPedido)
-                .Sum(d => d.Cantidad * d.PrecioUnitario);
+                var total = comanda.Pedidos
+                    .Where(p => p.Estado != EnumEstadoPedido.Cancelado)
+                    .SelectMany(p => p.DetallesPedido)
+                    .Sum(d => d.Cantidad * d.PrecioUnitario);
 
-            if (total > 0)
-                return Conflict("Esta comanda tiene productos cargados, no se puede cerrar sin cobro.");
+                if (total > 0)
+                    return Conflict("Esta comanda tiene productos cargados, no se puede cerrar sin cobro.");
 
-            comanda.Estado = EnumEstadoComanda.Cancelada;
-            comanda.FechaCierre = DateTime.UtcNow;
+                comanda.Estado = EnumEstadoComanda.Cancelada;
+                comanda.FechaCierre = DateTime.UtcNow;
 
-            if (comanda.IdMesa.HasValue)
-            {
-                var mesa = await context.Mesas.FindAsync(comanda.IdMesa.Value);
-                if (mesa != null)
-                    mesa.Estado = EnumEstadoMesa.Libre;
-            }
+                if (comanda.IdMesa.HasValue)
+                {
+                    var mesa = await context.Mesas.FindAsync(comanda.IdMesa.Value);
+                    if (mesa != null)
+                        mesa.Estado = EnumEstadoMesa.Libre;
+                }
 
-            await context.SaveChangesAsync();
-            return Ok();
-        
+                await context.SaveChangesAsync();
+                return Ok();
+
             });
         }
     }

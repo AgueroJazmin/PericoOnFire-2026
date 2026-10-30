@@ -15,5 +15,6 @@ namespace PericoOnFire_2026.Shared.DTOs
         public List<TotalPorConceptoDTO> PorTipoServicio { get; set; } = new();
         public List<TotalPorConceptoDTO> PorDia { get; set; } = new();
         public List<TotalPorConceptoDTO> ProductosMasVendidos { get; set; } = new();
+        public decimal TotalDescuentos { get; set; }
     }
 }

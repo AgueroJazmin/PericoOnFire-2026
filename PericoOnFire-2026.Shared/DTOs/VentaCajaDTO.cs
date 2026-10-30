@@ -19,6 +19,8 @@ namespace PericoOnFire_2026.Shared.DTOs
         public decimal Vuelto { get; set; }
         public string? NombreCajero { get; set; }
         public List<LineaPagoDTO> Pagos { get; set; } = new();
+        public decimal Descuento { get; set; }
+        public decimal? DescuentoPorcentaje { get; set; }
     }
 
 }

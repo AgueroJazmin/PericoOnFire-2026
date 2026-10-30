@@ -12,5 +12,9 @@ namespace PericoOnFire_2026.Shared.DTOs
         public int IdComanda { get; set; }
         public int IdUsuarioCaja { get; set; }
         public List<LineaPagoDTO> Lineas { get; set; } = new();
+
+        //Estos dos son los que agrego para que se pueda aplicar un descuento a la cuenta. Se aplicará sobre el total de la cuenta.
+        public EnumTipoDescuento TipoDescuento { get; set; } = EnumTipoDescuento.Ninguno;
+        public decimal ValorDescuento { get; set; } // % o $ según TipoDescuento
     }
 }
