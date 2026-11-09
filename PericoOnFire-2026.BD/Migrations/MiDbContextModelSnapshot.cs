@@ -667,6 +667,35 @@ namespace PericoOnFire_2026.BD.Migrations
                     b.ToTable("Productos");
                 });
 
+            modelBuilder.Entity("PericoOnFire_2026.BD.Datos.Entity.PromocionItem", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Cantidad")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("EstadoRegistro")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("IdProductoComponente")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("IdProductoPromo")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdProductoComponente");
+
+                    b.HasIndex("IdProductoPromo");
+
+                    b.ToTable("PromocionItems");
+                });
+
             modelBuilder.Entity("PericoOnFire_2026.BD.Datos.Entity.Sala", b =>
                 {
                     b.Property<int>("Id")
@@ -1030,6 +1059,25 @@ namespace PericoOnFire_2026.BD.Migrations
                     b.Navigation("Subcategoria");
                 });
 
+            modelBuilder.Entity("PericoOnFire_2026.BD.Datos.Entity.PromocionItem", b =>
+                {
+                    b.HasOne("PericoOnFire_2026.BD.Datos.Entity.Producto", "ProductoComponente")
+                        .WithMany()
+                        .HasForeignKey("IdProductoComponente")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("PericoOnFire_2026.BD.Datos.Entity.Producto", "ProductoPromo")
+                        .WithMany("ComponentesPromo")
+                        .HasForeignKey("IdProductoPromo")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("ProductoComponente");
+
+                    b.Navigation("ProductoPromo");
+                });
+
             modelBuilder.Entity("PericoOnFire_2026.BD.Datos.Entity.Subcategoria", b =>
                 {
                     b.HasOne("PericoOnFire_2026.BD.Datos.Entity.Categoria", "Categoria")
@@ -1089,6 +1137,8 @@ namespace PericoOnFire_2026.BD.Migrations
 
             modelBuilder.Entity("PericoOnFire_2026.BD.Datos.Entity.Producto", b =>
                 {
+                    b.Navigation("ComponentesPromo");
+
                     b.Navigation("DetallesPedido");
                 });
 

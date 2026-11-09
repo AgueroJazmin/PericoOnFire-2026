@@ -16,5 +16,8 @@ namespace PericoOnFire_2026.Shared.DTOs
         public string NombreProducto { get; set; } = ""; //para no tener que armar otra clase solo para mostrar el nombre
         public EnumSectorDestino SectorDestino { get; set; }
 
+        // Solo se completa si el producto es una promo: qué trae adentro cada una.
+        public List<ComponentePromoDTO> Componentes { get; set; } = new();
+
     }
 }

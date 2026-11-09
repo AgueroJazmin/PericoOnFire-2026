@@ -15,5 +15,8 @@ namespace PericoOnFire_2026.Shared.DTOs
         public string NombreCategoria { get; set; } = "";
         public EnumSectorDestino SectorDestino { get; set; }
         public bool Activo { get; set; }
+
+        // Si el producto es una promo, qué trae adentro. Si está vacío es un producto común.
+        public List<ComponentePromoDTO> Componentes { get; set; } = new();
     }
 }

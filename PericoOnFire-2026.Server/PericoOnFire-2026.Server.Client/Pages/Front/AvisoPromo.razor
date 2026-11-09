@@ -1,0 +1,88 @@
+﻿@using PericoOnFire_2026.Shared.DTOs
+
+@* Aviso para el mozo/cajero: si lo que cargó suelto alcanza para una promo que sale menos, se lo avisa.
+   Solo avisa: el mozo decide si cambia los productos sueltos por la promo. *@
+
+@if (avisos.Count > 0)
+{
+    <div class="aviso-promo" role="status">
+        @foreach (var a in avisos)
+        {
+            <div class="aviso-promo-item">
+                <strong>💡 Hay una promo para esto:</strong>
+                @a.Promo.Nombre
+                <div class="aviso-promo-detalle">
+                    @a.Veces @(a.Veces == 1 ? "promo" : "promos") = $@((a.Promo.Precio * a.Veces).ToString("N0"))
+                    en vez de $@a.PrecioSuelto.ToString("N0") por los productos sueltos
+                    (ahorra $@((a.PrecioSuelto - a.Promo.Precio * a.Veces).ToString("N0"))).
+                </div>
+                <small>Para aplicarla: sacá los productos sueltos y agregá la promo.</small>
+            </div>
+        }
+    </div>
+}
+
+<style>
+    .aviso-promo {
+        margin-top: .6rem;
+    }
+
+    .aviso-promo-item {
+        margin-bottom: .4rem;
+        padding: .5rem .6rem;
+        border-left: 4px solid #1976d2;
+        border-radius: 4px;
+        background: #e3f2fd;
+        color: #0d47a1;
+        font-size: .9rem;
+    }
+
+    .aviso-promo-detalle {
+        font-weight: 700;
+        margin-top: .15rem;
+    }
+</style>
+
+@code {
+    [Parameter] public List<ItemPedidoDTO> Carrito { get; set; } = new();
+    [Parameter] public List<ProductoListadoDTO> Productos { get; set; } = new();
+
+    private record AvisoPromoItem(ProductoListadoDTO Promo, int Veces, decimal PrecioSuelto);
+
+    private List<AvisoPromoItem> avisos
+    {
+        get
+        {
+            var resultado = new List<AvisoPromoItem>();
+            if (Carrito.Count == 0) return resultado;
+
+            var cantidades = Carrito
+                .GroupBy(i => i.IdProducto)
+                .ToDictionary(g => g.Key, g => g.Sum(i => i.Cantidad));
+
+            foreach (var promo in Productos.Where(p => p.Activo && p.Componentes.Count > 0))
+            {
+                // Cuántas veces entra la promo con lo que ya está cargado.
+                var veces = promo.Componentes.Min(c =>
+                    cantidades.TryGetValue(c.IdProducto, out var cant) ? cant / Math.Max(1, c.Cantidad) : 0);
+                if (veces < 1) continue;
+
+                // Cuánto salen esos mismos productos sueltos.
+                decimal suelto = 0;
+                var completo = true;
+                foreach (var c in promo.Componentes)
+                {
+                    var prod = Productos.FirstOrDefault(p => p.Id == c.IdProducto);
+                    if (prod == null) { completo = false; break; }
+                    suelto += prod.Precio * c.Cantidad * veces;
+                }
+
+                // Solo se avisa si la promo conviene.
+                if (completo && suelto > promo.Precio * veces)
+                    resultado.Add(new AvisoPromoItem(promo, veces, suelto));
+            }
+
+            return resultado;
+        }
+    }
+}

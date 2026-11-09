@@ -22,6 +22,7 @@ namespace PericoOnFire_2026.BD.Datos
         public DbSet<Categoria> Categorias { get; set; }
         public DbSet<Subcategoria> Subcategorias { get; set; }
         public DbSet<Producto> Productos { get; set; }
+        public DbSet<PromocionItem> PromocionItems { get; set; }
         public DbSet<Comanda> Comandas { get; set; }
         public DbSet<Pedido> Pedidos { get; set; }
         public DbSet<DetallePedido> DetallesPedido { get; set; }
@@ -210,6 +211,18 @@ namespace PericoOnFire_2026.BD.Datos
                 .HasOne(m => m.TurnoCaja)
                 .WithMany(t => t.Movimientos)
                 .HasForeignKey(m => m.IdTurnoCaja)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<PromocionItem>()
+                .HasOne(i => i.ProductoPromo)
+                .WithMany(p => p.ComponentesPromo)
+                .HasForeignKey(i => i.IdProductoPromo)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<PromocionItem>()
+                .HasOne(i => i.ProductoComponente)
+                .WithMany()
+                .HasForeignKey(i => i.IdProductoComponente)
                 .OnDelete(DeleteBehavior.Restrict);
         }
         public MiDbContext(DbContextOptions options) : base(options)
