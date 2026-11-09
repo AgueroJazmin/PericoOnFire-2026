@@ -12,7 +12,10 @@
 @rendermode InteractiveWebAssembly
 @attribute [Authorize(Roles = "Administracion,Barra,Delivery")]
 
-@if (sinConexion) { <p class="alert alert-warning m-2" role="status">No se pudo actualizar la información. Reintentando…</p> }
+@if (sinConexion)
+{
+    <p class="alert alert-warning m-2" role="status">No se pudo actualizar la información. Reintentando…</p>
+}
 
 <div class="pedidos-pagina">
 
@@ -58,196 +61,199 @@
                 <div class="seguimiento-dos-columnas">
                     @foreach (var grupo in new[] { new { Titulo = "Take Away", Cuentas = takeAways }, new { Titulo = "Delivery", Cuentas = deliveries } })
                     {
-                    @if (!mostrarRendiciones && pestanaPedidos == (grupo.Titulo == "Take Away" ? EnumTipoServicio.TakeAway : EnumTipoServicio.Delivery))
-                    {
-                    <section class="seguimiento-columna" aria-label="@grupo.Titulo">
-                        <h3 class="seguimiento-columna-titulo">@grupo.Titulo <span>@grupo.Cuentas.Count</span></h3>
-                        @if (!grupo.Cuentas.Any())
+                        @if (!mostrarRendiciones && pestanaPedidos == (grupo.Titulo == "Take Away" ? EnumTipoServicio.TakeAway : EnumTipoServicio.Delivery))
                         {
-                            <p class="texto-vacio">No hay pedidos en curso.</p>
-                        }
-                        <div class="grilla-cuentas">
-                    @foreach (var cuenta in grupo.Cuentas)
-                    {
-                        <div class="cuenta-card">
-                            @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway)
-                            {
-                                <div class="cuenta-card-titulo">
-                                    @cuenta.NombreCliente
-                                    <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="cuenta-card-info">📍 @cuenta.Direccion</div>
-                            }
-
-                            @if (!string.IsNullOrWhiteSpace(cuenta.Telefono))
-                            {
-                                <div class="cuenta-card-info">☎ @cuenta.Telefono</div>
-                            }
-
-                            <ul class="lista-items">
-                                @foreach (var item in cuenta.Items.OrderBy(i => i.EsNuevo))
+                            <section class="seguimiento-columna" aria-label="@grupo.Titulo">
+                                <h3 class="seguimiento-columna-titulo">@grupo.Titulo <span>@grupo.Cuentas.Count</span></h3>
+                                @if (!grupo.Cuentas.Any())
                                 {
-                                    <li>
-                                        @item.Cantidad x @item.NombreProducto
-                                        <span class="item-precio">($@item.PrecioUnitario.ToString("N2") c/u = $@item.Subtotal.ToString("N2"))</span>
-                                        @if (item.EsNuevo) { <span class="badge-nuevo">NUEVO</span> }
-                                    </li>
+                                    <p class="texto-vacio">No hay pedidos en curso.</p>
                                 }
-                            </ul>
+                                <div class="grilla-cuentas">
+                                    @foreach (var cuenta in grupo.Cuentas)
+                                    {
+                                        <div class="cuenta-card">
+                                            @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway)
+                                            {
+                                                <div class="cuenta-card-titulo">
+                                                    @cuenta.NombreCliente
+                                                    <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div class="cuenta-card-info">📍 @cuenta.Direccion</div>
+                                            }
+
+                                            @if (!string.IsNullOrWhiteSpace(cuenta.Telefono))
+                                            {
+                                                <div class="cuenta-card-info">☎ @cuenta.Telefono</div>
+                                            }
+
+                                            <ul class="lista-items">
+                                                @foreach (var item in cuenta.Items.OrderBy(i => i.EsNuevo))
+                                                {
+                                                    <li>
+                                                        @item.Cantidad x @item.NombreProducto
+                                                        <span class="item-precio">($@item.PrecioUnitario.ToString("N2") c/u = $@item.Subtotal.ToString("N2"))</span>
+                                                        @if (item.EsNuevo)
+                                                        {
+                                                            <span class="badge-nuevo">NUEVO</span>
+                                                        }
+                                                    </li>
+                                                }
+                                            </ul>
 
                                             <div class="cuenta-total">Total: $@cuenta.TotalPedido.ToString("N2")</div>
 
-                            <div class="badges-sector">
-                                @foreach (var pedido in cuenta.Pedidos)
-                                {
+                                            <div class="badges-sector">
+                                                @foreach (var pedido in cuenta.Pedidos)
+                                                {
                                                     <span class="est-badge est-@pedido.Estado.ToString().ToLower()">@pedido.Sector: @pedido.Estado</span>
-                                }
-                            </div>
+                                                }
+                                            </div>
 
-                            @if (cuenta.TipoServicio == EnumTipoServicio.Delivery)
-                            {
-                                <div class="cuenta-card-titulo cuenta-card-titulo-final">
-                                    @cuenta.NombreCliente
-                                    <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
-                                </div>
-                            }
+                                            @if (cuenta.TipoServicio == EnumTipoServicio.Delivery)
+                                            {
+                                                <div class="cuenta-card-titulo cuenta-card-titulo-final">
+                                                    @cuenta.NombreCliente
+                                                    <span class="cuenta-card-numero">· @cuenta.NumeroComanda</span>
+                                                </div>
+                                            }
 
-                            @if (editandoHorarioId == cuenta.IdComanda)
-                            {
-                                <div class="editor-horario">
-                                    <label>@(cuenta.TipoServicio == EnumTipoServicio.Delivery ? "Horario de entrega" : "Horario de retiro")</label>
-                                    <input type="time" value="@horaEditando"
-                                           @oninput="e => horaEditando = e.Value?.ToString() ?? string.Empty" />
-                                    <div class="editor-horario-acciones">
-                                        <button class="btn-cancelar-observacion" @onclick="CancelarEdicionHorario">Cancelar</button>
-                                        <button class="btn-guardar-observacion" @onclick="() => GuardarHoraDeseada(cuenta)">Guardar</button>
-                                    </div>
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="cuenta-card-info @ClaseHorarioProximo(cuenta)">
-                                    🕒 @(cuenta.HoraDeseada.HasValue
-                                                                                                                    ? $"Para las {cuenta.HoraDeseada.Value.ToLocalTime():HH:mm}"
-                                                                                                                    : "Sin horario indicado")
-                                    <button class="btn-editar-horario" @onclick="() => EditarHoraDeseada(cuenta)">✎ editar</button>
-                                </div>
-                            }
+                                            @if (editandoHorarioId == cuenta.IdComanda)
+                                            {
+                                                <div class="editor-horario">
+                                                    <label>@(cuenta.TipoServicio == EnumTipoServicio.Delivery ? "Horario de entrega" : "Horario de retiro")</label>
+                                                    <input type="time" value="@horaEditando"
+                                                           @oninput="e => horaEditando = e.Value?.ToString() ?? string.Empty" />
+                                                    <div class="editor-horario-acciones">
+                                                        <button class="btn-cancelar-observacion" @onclick="CancelarEdicionHorario">Cancelar</button>
+                                                        <button class="btn-guardar-observacion" @onclick="() => GuardarHoraDeseada(cuenta)">Guardar</button>
+                                                    </div>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div class="cuenta-card-info @ClaseHorarioProximo(cuenta)">
+                                                    🕒 @(cuenta.HoraDeseada.HasValue
+                                                                                                                                                                        ? $"Para las {cuenta.HoraDeseada.Value.ToLocalTime():HH:mm}"
+                                                                                                                                                                        : "Sin horario indicado")
+                                                    <button class="btn-editar-horario" @onclick="() => EditarHoraDeseada(cuenta)">✎ editar</button>
+                                                </div>
+                                            }
 
-                            @if (cuenta.TipoServicio == EnumTipoServicio.Delivery)
-                            {
-                                <div class="cuenta-card-info">
-                                    @if (cuenta.IdDelivery == null)
-                                    {
-                                        <span>Sin repartidor asignado</span>
-                                    }
-                                    else if (cuenta.TodoEnCamino)
-                                    {
-                                        <span>En camino con @cuenta.NombreDelivery</span>
-                                    }
-                                    else if (cuenta.TodoEntregado)
-                                    {
-                                        <span>Entregado por @cuenta.NombreDelivery</span>
-                                    }
-                                </div>
-                            }
+                                            @if (cuenta.TipoServicio == EnumTipoServicio.Delivery)
+                                            {
+                                                <div class="cuenta-card-info">
+                                                    @if (cuenta.IdDelivery == null)
+                                                    {
+                                                        <span>Sin repartidor asignado</span>
+                                                    }
+                                                    else if (cuenta.TodoEnCamino)
+                                                    {
+                                                        <span>En camino con @cuenta.NombreDelivery</span>
+                                                    }
+                                                    else if (cuenta.TodoEntregado)
+                                                    {
+                                                        <span>Entregado por @cuenta.NombreDelivery</span>
+                                                    }
+                                                </div>
+                                            }
 
-                            @* Resumen financiero para quien gestiona Take Away / Delivery.
+                                            @* Resumen financiero para quien gestiona Take Away / Delivery.
                                Los importes previstos no son cobros confirmados en Caja. *@
-                            <div class="cuenta-resumen-cobro" aria-label="Información de cobro de la comanda">
-                                <div class="cuenta-cobro-fila cuenta-cobro-total">
-                                    <span>Total de la venta</span>
-                                    <strong>$@cuenta.TotalPedido.ToString("N2")</strong>
-                                </div>
-                                @if (cuenta.EstaPagado)
-                                {
-                                    <div class="cuenta-cobro-estado cuenta-cobro-pagado">
-                                        ✓ Pagado @(string.IsNullOrWhiteSpace(cuenta.MediosPago) ? "" : "· " + cuenta.MediosPago)
-                                    </div>
-                                    @if (cuenta.EfectivoRecibido.HasValue)
-                                    {
-                                        <div class="cuenta-cobro-fila">
-                                            <span>Efectivo registrado</span>
-                                            <strong>$@cuenta.EfectivoRecibido.Value.ToString("N2")</strong>
-                                        </div>
-                                        <div class="cuenta-cobro-fila">
-                                            <span>Vuelto registrado</span>
-                                            <strong>$@((cuenta.VueltoRegistrado ?? 0).ToString("N2"))</strong>
-                                        </div>
-                                    }
-                                }
-                                else if (cuenta.TipoServicio == EnumTipoServicio.Delivery && cuenta.EfectivoPrevistoDelivery.HasValue)
-                                {
-                                    <div class="cuenta-cobro-estado cuenta-cobro-pendiente">Efectivo al entregar · Cobro todavía no registrado</div>
-                                    <div class="cuenta-cobro-fila">
-                                        <span>Cliente paga con</span>
-                                        <strong>$@cuenta.EfectivoPrevistoDelivery.Value.ToString("N2")</strong>
-                                    </div>
-                                    <div class="cuenta-cobro-fila cuenta-cobro-vuelto">
-                                        <span>Vuelto que lleva Delivery</span>
-                                        <strong>$@((cuenta.EfectivoPrevistoDelivery.Value - cuenta.TotalPedido).ToString("N2"))</strong>
-                                    </div>
-                                    <div class="cuenta-cobro-fila">
-                                        <span>Importe a rendir en Caja</span>
-                                        <strong>$@cuenta.TotalPedido.ToString("N2")</strong>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <div class="cuenta-cobro-estado cuenta-cobro-pendiente">
-                                        @(cuenta.TipoServicio == EnumTipoServicio.TakeAway
-                                            ? "Pendiente de cobro al retirar / en Caja"
-                                            : "Cobro pendiente · Medio de pago no indicado")
-                                    </div>
-                                }
-                            </div>
+                                            <div class="cuenta-resumen-cobro" aria-label="Información de cobro de la comanda">
+                                                <div class="cuenta-cobro-fila cuenta-cobro-total">
+                                                    <span>Total de la venta</span>
+                                                    <strong>$@cuenta.TotalPedido.ToString("N2")</strong>
+                                                </div>
+                                                @if (cuenta.EstaPagado)
+                                                {
+                                                    <div class="cuenta-cobro-estado cuenta-cobro-pagado">
+                                                        ✓ Pagado @(string.IsNullOrWhiteSpace(cuenta.MediosPago) ? "" : "· " + cuenta.MediosPago)
+                                                    </div>
+                                                    @if (cuenta.EfectivoRecibido.HasValue)
+                                                    {
+                                                        <div class="cuenta-cobro-fila">
+                                                            <span>Efectivo registrado</span>
+                                                            <strong>$@cuenta.EfectivoRecibido.Value.ToString("N2")</strong>
+                                                        </div>
+                                                        <div class="cuenta-cobro-fila">
+                                                            <span>Vuelto registrado</span>
+                                                            <strong>$@((cuenta.VueltoRegistrado ?? 0).ToString("N2"))</strong>
+                                                        </div>
+                                                    }
+                                                }
+                                                else if (cuenta.TipoServicio == EnumTipoServicio.Delivery && cuenta.EfectivoPrevistoDelivery.HasValue)
+                                                {
+                                                    <div class="cuenta-cobro-estado cuenta-cobro-pendiente">Efectivo al entregar · Cobro todavía no registrado</div>
+                                                    <div class="cuenta-cobro-fila">
+                                                        <span>Cliente paga con</span>
+                                                        <strong>$@cuenta.EfectivoPrevistoDelivery.Value.ToString("N2")</strong>
+                                                    </div>
+                                                    <div class="cuenta-cobro-fila cuenta-cobro-vuelto">
+                                                        <span>Vuelto que lleva Delivery</span>
+                                                        <strong>$@((cuenta.EfectivoPrevistoDelivery.Value - cuenta.TotalPedido).ToString("N2"))</strong>
+                                                    </div>
+                                                    <div class="cuenta-cobro-fila">
+                                                        <span>Importe a rendir en Caja</span>
+                                                        <strong>$@cuenta.TotalPedido.ToString("N2")</strong>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <div class="cuenta-cobro-estado cuenta-cobro-pendiente">
+                                                        @(cuenta.TipoServicio == EnumTipoServicio.TakeAway
+                                                            ? "Pendiente de cobro al retirar / en Caja"
+                                                            : "Cobro pendiente · Medio de pago no indicado")
+                                                    </div>
+                                                }
+                                            </div>
 
-                            @* Estado de pago: independiente del estado físico del pedido, porque
+                                            @* Estado de pago: independiente del estado físico del pedido, porque
                                a veces se cobra antes (transferencia) y a veces al retirar/entregar. *@
-                            @switch (cuenta.EstadoComanda)
-                            {
-                                case EnumEstadoComanda.PendienteCobro:
-                                    <div class="cuenta-card-info aviso-pago">💰 Pendiente de pago en caja</div>
-                                    break;
-                                case EnumEstadoComanda.Pagada:
-                                    <div class="cuenta-card-info aviso-pago-ok">✅ Pagado</div>
-                                    break;
-                            }
+                                            @switch (cuenta.EstadoComanda)
+                                            {
+                                                case EnumEstadoComanda.PendienteCobro:
+                                                    <div class="cuenta-card-info aviso-pago">💰 Pendiente de pago en caja</div>
+                                                    break;
+                                                case EnumEstadoComanda.Pagada:
+                                                    <div class="cuenta-card-info aviso-pago-ok">✅ Pagado</div>
+                                                    break;
+                                            }
 
-                            @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway && cuenta.TodoListo && cuenta.EstadoComanda == EnumEstadoComanda.Abierta)
-                            {
-                                <div class="cuenta-card-info aviso-pago">🔔 Listo para retirar</div>
-                            }
+                                            @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway && cuenta.TodoListo && cuenta.EstadoComanda == EnumEstadoComanda.Abierta)
+                                            {
+                                                <div class="cuenta-card-info aviso-pago">🔔 Listo para retirar</div>
+                                            }
 
-                            @if (PuedeCerrar(cuenta) &&
-                                 !(cuenta.TipoServicio == EnumTipoServicio.Delivery &&
-                                   cuenta.EfectivoPrevistoDelivery.HasValue && cuenta.IdDelivery.HasValue))
-                            {
-                                <button class="btn btn-sm btn-dark w-100 mt-1" @onclick="() => CerrarPedido(cuenta)">
-                                    Pasar a Caja
-                                </button>
-                            }
+                                            @if (PuedeCerrar(cuenta) &&
+                                                 !(cuenta.TipoServicio == EnumTipoServicio.Delivery &&
+                                                   cuenta.EfectivoPrevistoDelivery.HasValue && cuenta.IdDelivery.HasValue))
+                                            {
+                                                <button class="btn btn-sm btn-dark w-100 mt-1" @onclick="() => CerrarPedido(cuenta)">
+                                                    Pasar a Caja
+                                                </button>
+                                            }
 
-                            @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway && cuenta.EstadoComanda == EnumEstadoComanda.Pagada)
-                            {
-                                <button class="btn btn-sm btn-outline-success w-100 mt-1" @onclick="() => MarcarRetiradoTakeAway(cuenta)">
-                                    Marcar retirado por el cliente
-                                </button>
-                            }
+                                            @if (cuenta.TipoServicio == EnumTipoServicio.TakeAway && cuenta.EstadoComanda == EnumEstadoComanda.Pagada)
+                                            {
+                                                <button class="btn btn-sm btn-outline-success w-100 mt-1" @onclick="() => MarcarRetiradoTakeAway(cuenta)">
+                                                    Marcar retirado por el cliente
+                                                </button>
+                                            }
 
 
-                            @if (cuenta.EstadoComanda == EnumEstadoComanda.Abierta && !cuenta.Pedidos.Any())
-                            {
-                                <button class="btn btn-sm btn-outline-danger w-100 mt-1" @onclick="() => EliminarComandaVacia(cuenta)">
-                                    Eliminar comanda vacía
-                                </button>
-                            }
+                                            @if (cuenta.EstadoComanda == EnumEstadoComanda.Abierta && !cuenta.Pedidos.Any())
+                                            {
+                                                <button class="btn btn-sm btn-outline-danger w-100 mt-1" @onclick="() => EliminarComandaVacia(cuenta)">
+                                                    Eliminar comanda vacía
+                                                </button>
+                                            }
 
-                            @if (PuedeCambiarTipo(cuenta))
-                            {
+                                            @if (PuedeCambiarTipo(cuenta))
+                                            {
                                                 @if (cambiandoTipoId == cuenta.IdComanda)
                                                 {
                                                     <div class="mt-1">
@@ -282,121 +288,121 @@
                                                         @(cuenta.TipoServicio == EnumTipoServicio.TakeAway ? "Pasar a Delivery" : "Pasar a Take Away")
                                                     </button>
                                                 }
-                            }
+                                            }
 
-                            @if (cuenta.DevolucionPendiente > 0)
-                            {
-                                <div class="alert alert-warning py-1 px-2 mt-1 mb-0">
-                                    Hay que devolver <strong>$@cuenta.DevolucionPendiente.ToString("N2")</strong> al cliente (se registra en Caja).
-                                </div>
-                            }
-                            @if (cuenta.EstadoComanda == EnumEstadoComanda.PendienteCobro && cuenta.YaPagado > 0)
-                            {
-                                <div class="alert alert-info py-1 px-2 mt-1 mb-0">
-                                    Se modificó el pedido: falta cobrar la diferencia en Caja.
-                                </div>
-                            }
+                                            @if (cuenta.DevolucionPendiente > 0)
+                                            {
+                                                <div class="alert alert-warning py-1 px-2 mt-1 mb-0">
+                                                    Hay que devolver <strong>$@cuenta.DevolucionPendiente.ToString("N2")</strong> al cliente (se registra en Caja).
+                                                </div>
+                                            }
+                                            @if (cuenta.EstadoComanda == EnumEstadoComanda.PendienteCobro && cuenta.YaPagado > 0)
+                                            {
+                                                <div class="alert alert-info py-1 px-2 mt-1 mb-0">
+                                                    Se modificó el pedido: falta cobrar la diferencia en Caja.
+                                                </div>
+                                            }
 
-                            @if (PuedeEditarPedido(cuenta))
-                            {
-                                <button class="btn btn-sm btn-outline-primary w-100 mt-1" @onclick="() => AbrirEdicionComanda(cuenta)">
-                                    Editar productos
-                                </button>
-                            }
+                                            @if (PuedeEditarPedido(cuenta))
+                                            {
+                                                <button class="btn btn-sm btn-outline-primary w-100 mt-1" @onclick="() => AbrirEdicionComanda(cuenta)">
+                                                    Editar productos
+                                                </button>
+                                            }
 
-                            @if (PuedeCancelarPedido(cuenta))
-                            {
-                                @if (cancelandoPedidoId == cuenta.IdComanda)
-                                {
-                                    <div class="mt-1">
-                                        <label class="dato-cliente">
-                                            Motivo de la cancelación
-                                            <textarea class="form-control form-control-sm" rows="2" maxlength="300"
-                                                      @bind="motivoCancelacionPedido" @bind:event="oninput"></textarea>
-                                        </label>
-                                        <div class="d-flex gap-1 mt-1">
-                                            <button class="btn btn-sm btn-danger flex-fill"
-                                                    disabled="@(string.IsNullOrWhiteSpace(motivoCancelacionPedido))"
-                                                    @onclick="() => ConfirmarCancelarPedido(cuenta)">
-                                                Confirmar cancelación
-                                            </button>
-                                            <button class="btn btn-sm btn-outline-secondary flex-fill" @onclick="CerrarCancelarPedido">Volver</button>
+                                            @if (PuedeCancelarPedido(cuenta))
+                                            {
+                                                @if (cancelandoPedidoId == cuenta.IdComanda)
+                                                {
+                                                    <div class="mt-1">
+                                                        <label class="dato-cliente">
+                                                            Motivo de la cancelación
+                                                            <textarea class="form-control form-control-sm" rows="2" maxlength="300"
+                                                                      @bind="motivoCancelacionPedido" @bind:event="oninput"></textarea>
+                                                        </label>
+                                                        <div class="d-flex gap-1 mt-1">
+                                                            <button class="btn btn-sm btn-danger flex-fill"
+                                                                    disabled="@(string.IsNullOrWhiteSpace(motivoCancelacionPedido))"
+                                                                    @onclick="() => ConfirmarCancelarPedido(cuenta)">
+                                                                Confirmar cancelación
+                                                            </button>
+                                                            <button class="btn btn-sm btn-outline-secondary flex-fill" @onclick="CerrarCancelarPedido">Volver</button>
+                                                        </div>
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <button class="btn btn-sm btn-outline-danger w-100 mt-1" @onclick="() => AbrirCancelarPedido(cuenta)">
+                                                        Cancelar pedido
+                                                    </button>
+                                                }
+                                            }
+
+
+
+
+
                                         </div>
-                                    </div>
-                                }
-                                else
-                                {
-                                    <button class="btn btn-sm btn-outline-danger w-100 mt-1" @onclick="() => AbrirCancelarPedido(cuenta)">
-                                        Cancelar pedido
-                                    </button>
-                                }
-                            }
-
-
-
-
-
-                        </div>
-                    }
-                        </div>
-                    </section>
-                    }
+                                    }
+                                </div>
+                            </section>
+                        }
                     }
                 </div>
                 @if (mostrarRendiciones)
                 {
-                <section class="rendiciones-delivery" aria-label="Rendiciones pendientes de Delivery">
-                    <div class="rendiciones-titulo">
-                        <h3>Delivery · Pendientes de rendición</h3>
-                        <span>@RendicionesPendientes.Count</span>
-                    </div>
-                    @if (!RendicionesPendientes.Any())
-                    {
-                        <p class="texto-vacio">No hay entregas en efectivo pendientes de rendición.</p>
-                    }
-                    else
-                    {
-                        <div class="rendiciones-grid">
-                            @foreach (var cuenta in RendicionesPendientes)
-                            {
-                                <div class="rendicion-tarjeta">
-                                    <div class="rendicion-encabezado">
-                                        <strong>@cuenta.NumeroComanda · @cuenta.NombreCliente</strong>
-                                        <span>Entregado · Sin rendir</span>
-                                    </div>
-                                    <small>Repartidor: @cuenta.NombreDelivery</small>
-                                    <div class="rendicion-importes">
-                                        <div><span>Total de venta</span><strong>$@cuenta.TotalPedido.ToString("N2")</strong></div>
-                                        <div><span>Cliente pagó con (previsto)</span><strong>$@cuenta.EfectivoPrevistoDelivery!.Value.ToString("N2")</strong></div>
-                                        <div><span>Vuelto previsto</span><strong>$@((cuenta.EfectivoPrevistoDelivery.Value - cuenta.TotalPedido).ToString("N2"))</strong></div>
-                                        <div class="rendicion-neto"><span>Dinero a rendir en Caja</span><strong>$@cuenta.TotalPedido.ToString("N2")</strong></div>
-                                    </div>
-                                    @if (idRendicionConfirmando == cuenta.IdComanda)
-                                    {
-                                        <p class="rendicion-alerta">Confirmá solo después de recibir y contar el efectivo del repartidor. Esta acción registra el cobro en Caja.</p>
-                                        <div class="rendicion-botones">
-                                            <button class="btn btn-sm btn-outline-secondary" disabled="@guardandoRendicion" @onclick="() => idRendicionConfirmando = null">Volver</button>
-                                            <button class="btn btn-sm btn-success" disabled="@guardandoRendicion" @onclick="() => ConfirmarRendicion(cuenta)">
-                                                @(guardandoRendicion ? "Registrando..." : "Sí, recibí el dinero")
-                                            </button>
-                                        </div>
-                                    }
-                                    else
-                                    {
-                                        <button class="btn btn-sm btn-success" disabled="@guardandoRendicion"
-                                                @onclick="() => idRendicionConfirmando = cuenta.IdComanda">
-                                            Confirmar rendición y registrar en Caja
-                                        </button>
-                                    }
-                                </div>
-                            }
+                    <section class="rendiciones-delivery" aria-label="Rendiciones pendientes de Delivery">
+                        <div class="rendiciones-titulo">
+                            <h3>Delivery · Pendientes de rendición</h3>
+                            <span>@RendicionesPendientes.Count</span>
                         </div>
-                    }
-                    @if (!string.IsNullOrWhiteSpace(mensajeRendicion))
-                    {
-                        <div class="alert alert-info mt-2" role="status">@mensajeRendicion</div>
-                    }
-                </section>
+                        @if (!RendicionesPendientes.Any())
+                        {
+                            <p class="texto-vacio">No hay entregas en efectivo pendientes de rendición.</p>
+                        }
+                        else
+                        {
+                            <div class="rendiciones-grid">
+                                @foreach (var cuenta in RendicionesPendientes)
+                                {
+                                    <div class="rendicion-tarjeta">
+                                        <div class="rendicion-encabezado">
+                                            <strong>@cuenta.NumeroComanda · @cuenta.NombreCliente</strong>
+                                            <span>Entregado · Sin rendir</span>
+                                        </div>
+                                        <small>Repartidor: @cuenta.NombreDelivery</small>
+                                        <div class="rendicion-importes">
+                                            <div><span>Total de venta</span><strong>$@cuenta.TotalPedido.ToString("N2")</strong></div>
+                                            <div><span>Cliente pagó con (previsto)</span><strong>$@cuenta.EfectivoPrevistoDelivery!.Value.ToString("N2")</strong></div>
+                                            <div><span>Vuelto previsto</span><strong>$@((cuenta.EfectivoPrevistoDelivery.Value - cuenta.TotalPedido).ToString("N2"))</strong></div>
+                                            <div class="rendicion-neto"><span>Dinero a rendir en Caja</span><strong>$@cuenta.TotalPedido.ToString("N2")</strong></div>
+                                        </div>
+                                        @if (idRendicionConfirmando == cuenta.IdComanda)
+                                        {
+                                            <p class="rendicion-alerta">Confirmá solo después de recibir y contar el efectivo del repartidor. Esta acción registra el cobro en Caja.</p>
+                                            <div class="rendicion-botones">
+                                                <button class="btn btn-sm btn-outline-secondary" disabled="@guardandoRendicion" @onclick="() => idRendicionConfirmando = null">Volver</button>
+                                                <button class="btn btn-sm btn-success" disabled="@guardandoRendicion" @onclick="() => ConfirmarRendicion(cuenta)">
+                                                    @(guardandoRendicion ? "Registrando..." : "Sí, recibí el dinero")
+                                                </button>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-sm btn-success" disabled="@guardandoRendicion"
+                                                    @onclick="() => idRendicionConfirmando = cuenta.IdComanda">
+                                                Confirmar rendición y registrar en Caja
+                                            </button>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(mensajeRendicion))
+                        {
+                            <div class="alert alert-info mt-2" role="status">@mensajeRendicion</div>
+                        }
+                    </section>
                 }
             </section>
 
@@ -408,381 +414,397 @@
                         <div class="pedido-modal-barra">
                             <strong>@(EditandoPedido ? $"Editar pedido {cuentaEditando!.NumeroComanda}" : "Cargar nuevo pedido")</strong>
                             <button id="perico-nuevo-pedido-cerrar" type="button" class="pedido-modal-cerrar" aria-label="Cerrar ventana de nuevo pedido" aria-keyshortcuts="Escape"
-                                    disabled="@enviandoPedido" @onclick="CerrarFormularioPedido">×</button>
+                                    disabled="@enviandoPedido" @onclick="CerrarFormularioPedido">
+                                ×
+                            </button>
                         </div>
                         <div class="panel-nuevo-pedido">
-                <section class="modal-pedido" aria-label="Formulario de nuevo pedido">
-                    <header class="modal-pedido-header">
-                        <div class="modal-encabezado-contenido">
+                            <section class="modal-pedido" aria-label="Formulario de nuevo pedido">
+                                <header class="modal-pedido-header">
+                                    <div class="modal-encabezado-contenido">
 
-                            <div class="modal-identificacion">
-                                <h4>@(EditandoPedido ? "Editar pedido" : "Nuevo pedido")</h4>
-                                <span>@(EditandoPedido ? cuentaEditando!.TipoServicio : tipoNuevoPedido)</span>
-                            </div>
+                                        <div class="modal-identificacion">
+                                            <h4>@(EditandoPedido ? "Editar pedido" : "Nuevo pedido")</h4>
+                                            <span>@(EditandoPedido ? cuentaEditando!.TipoServicio : tipoNuevoPedido)</span>
+                                        </div>
 
 
 
-                        </div>
-
-                    </header>
-
-                    @if (!string.IsNullOrWhiteSpace(MensajeForm))
-                    {
-                        <div class="alert @(MensajeFormEsExito ? "alert-success" : "alert-danger") py-2">@MensajeForm</div>
-                    }
-
-                    @if (!EditandoPedido)
-                    {
-                    <fieldset class="datos-cliente datos-cliente-superior" disabled="@enviandoPedido" aria-label="Datos del cliente">
-                        <div class="cliente-linea">
-                            <strong>Cliente</strong>
-                            <div class="buscador-cliente-contenedor">
-                                <input id="perico-buscar-cliente-pedido" class="form-control form-control-sm" type="search" autocomplete="off"
-                                       placeholder="Buscar nombre, teléfono o referencia de WhatsApp..."
-                                       value="@busquedaCliente" @oninput="BuscarClienteExistente" />
-                                @if (resultadosCliente.Any())
-                                {
-                                    <div class="clientes-coincidencias" role="listbox" aria-label="Clientes encontrados">
-                                        @foreach (var clienteEncontrado in resultadosCliente)
-                                        {
-                                            <button type="button" class="cliente-coincidencia" @onclick="() => SeleccionarClienteExistente(clienteEncontrado)">
-                                                <strong>@clienteEncontrado.Nombre</strong>
-                                                <span>@(string.IsNullOrWhiteSpace(clienteEncontrado.Telefono) ? clienteEncontrado.Direccion : clienteEncontrado.Telefono)</span>
-                                            </button>
-                                        }
                                     </div>
-                                }
-                            </div>
-                            <div class="selector-tipo">
-                                <button type="button" class="@(tipoNuevoPedido == EnumTipoServicio.TakeAway ? "activo" : "")"
-                                        @onclick='() => tipoNuevoPedido = EnumTipoServicio.TakeAway'>Take Away</button>
-                                <button type="button" class="@(tipoNuevoPedido == EnumTipoServicio.Delivery ? "activo" : "")"
-                                        @onclick='() => tipoNuevoPedido = EnumTipoServicio.Delivery'>Delivery</button>
-                            </div>
-                        </div>
-                        <div class="cliente-campos">
-                            @if (tipoNuevoPedido == EnumTipoServicio.Delivery)
-                            {
-                                <label class="dato-cliente">Dirección / referencia de WhatsApp
-                                    <input class="form-control form-control-sm" maxlength="150" required
-                                           placeholder="Dirección de entrega o referencia de WhatsApp"
-                                           @bind="direccionCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
-                                </label>
-                                <label class="dato-cliente">Entrega (opcional)
-                                    <input type="time" class="form-control form-control-sm" value="@horaDeseadaTexto"
-                                           @oninput="e => horaDeseadaTexto = e.Value?.ToString() ?? string.Empty" />
-                                </label>
-                            }
-                            else
-                            {
-                                <label class="dato-cliente">Nombre y apellido
-                                    <input class="form-control form-control-sm" maxlength="100"
-                                           @bind="nombreCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
-                                </label>
-                                <div class="cliente-campos-secundarios">
-                                    <label class="dato-cliente">Teléfono
-                                        <input class="form-control form-control-sm" maxlength="30"
-                                               @bind="telefonoCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
-                                    </label>
-                                    <label class="dato-cliente">Retiro (opcional)
-                                        <input type="time" class="form-control form-control-sm" value="@horaDeseadaTexto"
-                                               @oninput="e => horaDeseadaTexto = e.Value?.ToString() ?? string.Empty" />
-                                    </label>
-                                </div>
-                            }
-                        </div>
-                    </fieldset>
-                    }
 
-                            <nav class="categorias categorias-superiores" aria-label="Categorías">
-                                @foreach (var categoria in CategoriasDisponibles)
+                                </header>
+
+                                @if (!string.IsNullOrWhiteSpace(MensajeForm))
                                 {
-                                    <button class="@(categoria == categoriaSeleccionada ? "activo" : "")"
-                                            @onclick="() => SeleccionarCategoria(categoria)">
-                                        <span>@IconoCategoria(categoria)</span>
-                                        @categoria
-                                    </button>
+                                    <div class="alert @(MensajeFormEsExito ? "alert-success" : "alert-danger") py-2">@MensajeForm</div>
                                 }
-                            </nav>
 
-                    <fieldset class="selector-productos" disabled="@enviandoPedido">
-                        <aside class="selector-resumen @(mostrarCarritoCompacto ? "carrito-compacto-abierto" : "carrito-compacto-cerrado")">
-                            <button type="button" class="carrito-compacto-toggle" aria-expanded="@mostrarCarritoCompacto"
-                                    @onclick="() => mostrarCarritoCompacto = !mostrarCarritoCompacto">
-                                <span>🧾 Pedido (@CantidadTotalItems)</span>
-                                <span>$@TotalCarrito.ToString("N2") @(mostrarCarritoCompacto ? "▴" : "▾")</span>
-                            </button>
-                            <div class="resumen-carrito">
-                                <strong>Pedido (@CantidadTotalItems)</strong>
-                                @if (!carrito.Any())
+                                @if (!EditandoPedido)
                                 {
-                                    <small>Todavía no agregaste productos.</small>
-                                }
-                                else
-                                {
-                                    @foreach (var item in carrito)
-                                    {
-                                        <div class="carrito-item">
-                                            <div class="carrito-item-linea">
-                                                <span>@item.Cantidad × @NombreProducto(item.IdProducto)</span>
-                                                <div class="carrito-acciones">
-                                                    <button class="btn-observacion"
-                                                            title="Agregar observación"
-                                                            aria-label="Agregar observación"
-                                                            @onclick="() => EditarObservacion(item)">
-                                                        ✎
-                                                    </button>
-                                                    <button class="btn-eliminar"
-                                                            title="Quitar producto"
-                                                            aria-label="Quitar producto"
-                                                            @onclick="() => QuitarDelCarrito(item)">
-                                                        ×
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            @if (!string.IsNullOrWhiteSpace(item.Observacion))
-                                            {
-                                                <small class="observacion-carrito">⚠ @item.Observacion</small>
-                                            }
-
-                                            @if (ReferenceEquals(itemEditandoObservacion, item))
-                                            {
-                                                <div class="editor-observacion">
-                                                    <label>Observación para cocina/barra</label>
-                                                    <input type="text"
-                                                           maxlength="300"
-                                                           placeholder="Ej.: sin aceitunas"
-                                                           @bind="textoObservacion"
-                                                           @bind:event="oninput" />
-                                                    <div class="editor-observacion-acciones">
-                                                        <button class="btn-cancelar-observacion" @onclick="CancelarObservacion">Cancelar</button>
-                                                        <button class="btn-guardar-observacion" @onclick="GuardarObservacion">Guardar</button>
+                                    <fieldset class="datos-cliente datos-cliente-superior" disabled="@enviandoPedido" aria-label="Datos del cliente">
+                                        <div class="cliente-linea">
+                                            <strong>Cliente</strong>
+                                            <div class="buscador-cliente-contenedor">
+                                                <input id="perico-buscar-cliente-pedido" class="form-control form-control-sm" type="search" autocomplete="off"
+                                                       placeholder="Buscar nombre, teléfono o referencia de WhatsApp..."
+                                                       value="@busquedaCliente" @oninput="BuscarClienteExistente" />
+                                                @if (resultadosCliente.Any())
+                                                {
+                                                    <div class="clientes-coincidencias" role="listbox" aria-label="Clientes encontrados">
+                                                        @foreach (var clienteEncontrado in resultadosCliente)
+                                                        {
+                                                            <button type="button" class="cliente-coincidencia" @onclick="() => SeleccionarClienteExistente(clienteEncontrado)">
+                                                                <strong>@clienteEncontrado.Nombre</strong>
+                                                                <span>@(string.IsNullOrWhiteSpace(clienteEncontrado.Telefono) ? clienteEncontrado.Direccion : clienteEncontrado.Telefono)</span>
+                                                            </button>
+                                                        }
                                                     </div>
+                                                }
+                                            </div>
+                                            <div class="selector-tipo">
+                                                <button type="button" class="@(tipoNuevoPedido == EnumTipoServicio.TakeAway ? "activo" : "")"
+                                                        @onclick='() => tipoNuevoPedido = EnumTipoServicio.TakeAway'>
+                                                    Take Away
+                                                </button>
+                                                <button type="button" class="@(tipoNuevoPedido == EnumTipoServicio.Delivery ? "activo" : "")"
+                                                        @onclick='() => tipoNuevoPedido = EnumTipoServicio.Delivery'>
+                                                    Delivery
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="cliente-campos">
+                                            @if (tipoNuevoPedido == EnumTipoServicio.Delivery)
+                                            {
+                                                <label class="dato-cliente">
+                                                    Dirección / referencia de WhatsApp
+                                                    <input class="form-control form-control-sm" maxlength="150" required
+                                                           placeholder="Dirección de entrega o referencia de WhatsApp"
+                                                           @bind="direccionCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
+                                                </label>
+                                                <label class="dato-cliente">
+                                                    Entrega (opcional)
+                                                    <input type="time" class="form-control form-control-sm" value="@horaDeseadaTexto"
+                                                           @oninput="e => horaDeseadaTexto = e.Value?.ToString() ?? string.Empty" />
+                                                </label>
+                                            }
+                                            else
+                                            {
+                                                <label class="dato-cliente">
+                                                    Nombre y apellido
+                                                    <input class="form-control form-control-sm" maxlength="100"
+                                                           @bind="nombreCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
+                                                </label>
+                                                <div class="cliente-campos-secundarios">
+                                                    <label class="dato-cliente">
+                                                        Teléfono
+                                                        <input class="form-control form-control-sm" maxlength="30"
+                                                               @bind="telefonoCliente" @bind:event="oninput" @bind:after="DesvincularClienteSeleccionado" />
+                                                    </label>
+                                                    <label class="dato-cliente">
+                                                        Retiro (opcional)
+                                                        <input type="time" class="form-control form-control-sm" value="@horaDeseadaTexto"
+                                                               @oninput="e => horaDeseadaTexto = e.Value?.ToString() ?? string.Empty" />
+                                                    </label>
                                                 </div>
                                             }
                                         </div>
-                                    }
+                                    </fieldset>
                                 }
-                                <AvisoPromo Carrito="carrito" Productos="productos" />
-                            </div>
-                        </aside>
 
-                        <nav class="subcategorias" aria-label="Subcategorías">
-                            @foreach (var subcategoria in SubcategoriasDisponibles)
-                            {
-                                <button class="@(subcategoria == subcategoriaSeleccionada ? "activo" : "")"
-                                        @onclick="() => { busquedaProducto = string.Empty; subcategoriaSeleccionada = subcategoria; }">
-                                    @subcategoria
-                                </button>
-                            }
-                        </nav>
-
-                        <div class="productos-modal">
-                    <div class="productos-buscador">
-                        <input type="search" class="form-control" aria-label="Buscar productos en todo el menú" placeholder="Buscar en todo el menú…" @bind="busquedaProducto" @bind:event="oninput" />
-                    </div>
-                            <div class="productos-titulo">
-                                <strong>@(string.IsNullOrWhiteSpace(busquedaProducto) ? subcategoriaSeleccionada : "Resultados")</strong>
-                                <span>@(string.IsNullOrWhiteSpace(busquedaProducto) ? categoriaSeleccionada : "Todo el menú")</span>
-                            </div>
-
-                            @foreach (var producto in ProductosVisibles)
-                            {
-                                var cantidad = CantidadProducto(producto.Id);
-                                <article class="producto-fila">
-                                    <div>
-                                        <strong>@producto.Nombre</strong>
-                                        <small>@(string.IsNullOrWhiteSpace(busquedaProducto) ? producto.SectorDestino.ToString() : producto.NombreSubcategoria)</small>
-                                    </div>
-                                    <span class="producto-precio">$@producto.Precio.ToString("N2")</span>
-                                    <div class="control-cantidad">
-                                        <button @onclick="() => DisminuirProducto(producto.Id)" disabled="@(cantidad == 0)">−</button>
-                                        <span>@cantidad</span>
-                                        <button @onclick="() => AumentarProducto(producto.Id)">+</button>
-                                    </div>
-                                </article>
-                            }
-
-                            @if (!ProductosVisibles.Any())
-                            {
-                                <p class="texto-vacio p-3">@(string.IsNullOrWhiteSpace(busquedaProducto) ? "No hay productos activos en esta subcategoría." : "No encontramos productos con ese nombre.")</p>
-                            }
-                        </div>
-                    </fieldset>
-
-                    @if (!EditandoPedido)
-                    {
-                    <div class="pago-inmediato">
-                        @if (tipoNuevoPedido == EnumTipoServicio.Delivery && !cobrarAhora)
-                        {
-                            <label class="pago-inmediato-opcion">
-                                <input type="checkbox" @bind="efectivoAlRecibirDelivery" disabled="@enviandoPedido" />
-                                <strong>Cliente paga en efectivo al recibir</strong>
-                            </label>
-                            @if (efectivoAlRecibirDelivery)
-                            {
-                                <label class="pago-inmediato-metodo">
-                                    ¿Con cuánto paga el cliente?
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm"
-                                           placeholder="Ej.: 30000 o 30.000"
-                                           @bind="efectivoPrevistoTexto" @bind:event="oninput"
-                                           disabled="@enviandoPedido" />
-                                </label>
-                                @if (TryLeerImporte(efectivoPrevistoTexto, out var efectivoPrevisto) && efectivoPrevisto >= TotalCarrito)
-                                {
-                                    <strong class="delivery-vuelto-previsto">Vuelto a llevar: $@((efectivoPrevisto - TotalCarrito).ToString("N2"))</strong>
-                                }
-                                else
-                                {
-                                    <small class="text-danger">Indicá el efectivo que entregará el cliente (mínimo $@TotalCarrito.ToString("N2")).</small>
-                                }
-                            }
-                        }
-                        <label class="pago-inmediato-opcion">
-                            <input type="checkbox" @bind="cobrarAhora" disabled="@enviandoPedido" />
-                            <strong>El cliente paga ahora</strong>
-                        </label>
-                        @if (cobrarAhora)
-                        {
-                            <label class="pago-inmediato-metodo">
-                                Medio de pago
-                                <select class="form-select form-select-sm" @bind="tipoPagoInmediato" disabled="@enviandoPedido">
-                                    @foreach (var tipo in TiposPagoCaja.Habilitados)
+                                <nav class="categorias categorias-superiores" aria-label="Categorías">
+                                    @foreach (var categoria in CategoriasDisponibles)
                                     {
-                                        <option value="@tipo">@TiposPagoCaja.Nombre(tipo)</option>
+                                        <button class="@(categoria == categoriaSeleccionada ? "activo" : "")"
+                                                @onclick="() => SeleccionarCategoria(categoria)">
+                                            <span>@IconoCategoria(categoria)</span>
+                                            @categoria
+                                        </button>
                                     }
-                                </select>
-                            </label>
-                            <div class="pago-inmediato-total">Total a cobrar: <strong>$@TotalCarrito.ToString("N2")</strong></div>
-                            @if (tipoPagoInmediato == EnumTipoPago.Efectivo)
-                            {
-                                <label class="pago-inmediato-metodo">
-                                    ¿Te entregaron más efectivo? (opcional, solo para calcular el vuelto)
-                                    <input type="text" inputmode="decimal" class="form-control form-control-sm"
-                                           placeholder="Ej.: 15000 o 15.000"
-                                           @bind="efectivoEntregadoTexto" @bind:event="oninput"
-                                           disabled="@enviandoPedido" />
-                                </label>
-                                @if (!string.IsNullOrWhiteSpace(efectivoEntregadoTexto))
-                                {
-                                    @if (TryLeerImporte(efectivoEntregadoTexto, out var efectivoIngresado))
-                                    {
-                                        @if (efectivoIngresado >= TotalCarrito)
+                                </nav>
+
+                                <fieldset class="selector-productos" disabled="@enviandoPedido">
+                                    <aside class="selector-resumen @(mostrarCarritoCompacto ? "carrito-compacto-abierto" : "carrito-compacto-cerrado")">
+                                        <button type="button" class="carrito-compacto-toggle" aria-expanded="@mostrarCarritoCompacto"
+                                                @onclick="() => mostrarCarritoCompacto = !mostrarCarritoCompacto">
+                                            <span>🧾 Pedido (@CantidadTotalItems)</span>
+                                            <span>$@TotalCarrito.ToString("N2") @(mostrarCarritoCompacto ? "▴" : "▾")</span>
+                                        </button>
+                                        <div class="resumen-carrito">
+                                            <strong>Pedido (@CantidadTotalItems)</strong>
+                                            @if (!carrito.Any())
+                                            {
+                                                <small>Todavía no agregaste productos.</small>
+                                            }
+                                            else
+                                            {
+                                                @foreach (var item in carrito)
+                                                {
+                                                    <div class="carrito-item">
+                                                        <div class="carrito-item-linea">
+                                                            <span>@item.Cantidad × @NombreProducto(item.IdProducto)</span>
+                                                            <div class="carrito-acciones">
+                                                                <button class="btn-observacion"
+                                                                        title="Agregar observación"
+                                                                        aria-label="Agregar observación"
+                                                                        @onclick="() => EditarObservacion(item)">
+                                                                    ✎
+                                                                </button>
+                                                                <button class="btn-eliminar"
+                                                                        title="Quitar producto"
+                                                                        aria-label="Quitar producto"
+                                                                        @onclick="() => QuitarDelCarrito(item)">
+                                                                    ×
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        @if (!string.IsNullOrWhiteSpace(item.Observacion))
+                                                        {
+                                                            <small class="observacion-carrito">⚠ @item.Observacion</small>
+                                                        }
+
+                                                        @if (ReferenceEquals(itemEditandoObservacion, item))
+                                                        {
+                                                            <div class="editor-observacion">
+                                                                <label>Observación para cocina/barra</label>
+                                                                <input type="text"
+                                                                       maxlength="300"
+                                                                       placeholder="Ej.: sin aceitunas"
+                                                                       @bind="textoObservacion"
+                                                                       @bind:event="oninput" />
+                                                                <div class="editor-observacion-acciones">
+                                                                    <button class="btn-cancelar-observacion" @onclick="CancelarObservacion">Cancelar</button>
+                                                                    <button class="btn-guardar-observacion" @onclick="GuardarObservacion">Guardar</button>
+                                                                </div>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                }
+                                            }
+                                            <AvisoPromo Carrito="carrito" Productos="productos" />
+                                        </div>
+                                    </aside>
+
+                                    <nav class="subcategorias" aria-label="Subcategorías">
+                                        @foreach (var subcategoria in SubcategoriasDisponibles)
                                         {
-                                            <small>Vuelto: $@((efectivoIngresado - TotalCarrito).ToString("N2"))</small>
+                                            <button class="@(subcategoria == subcategoriaSeleccionada ? "activo" : "")"
+                                                    @onclick="() => { busquedaProducto = string.Empty; subcategoriaSeleccionada = subcategoria; }">
+                                                @subcategoria
+                                            </button>
+                                        }
+                                    </nav>
+
+                                    <div class="productos-modal">
+                                        <div class="productos-buscador">
+                                            <input type="search" class="form-control" aria-label="Buscar productos en todo el menú" placeholder="Buscar en todo el menú…" @bind="busquedaProducto" @bind:event="oninput" />
+                                        </div>
+                                        <div class="productos-titulo">
+                                            <strong>@(string.IsNullOrWhiteSpace(busquedaProducto) ? subcategoriaSeleccionada : "Resultados")</strong>
+                                            <span>@(string.IsNullOrWhiteSpace(busquedaProducto) ? categoriaSeleccionada : "Todo el menú")</span>
+                                        </div>
+
+                                        @foreach (var producto in ProductosVisibles)
+                                        {
+                                            var cantidad = CantidadProducto(producto.Id);
+                                            <article class="producto-fila">
+                                                <div>
+                                                    <strong>@producto.Nombre</strong>
+                                                    @if (producto.Componentes.Any())
+                                                    {
+                                                        <span class="badge-promo">PROMO</span>
+                                                        <small class="promo-trae">Trae: @string.Join(" + ", producto.Componentes.Select(c => $"{c.Cantidad} × {c.NombreProducto}"))</small>
+                                                    }
+                                                    <small>@(string.IsNullOrWhiteSpace(busquedaProducto) ? producto.SectorDestino.ToString() : producto.NombreSubcategoria)</small>
+                                                </div>
+                                                <span class="producto-precio">$@producto.Precio.ToString("N2")</span>
+                                                <div class="control-cantidad">
+                                                    <button @onclick="() => DisminuirProducto(producto.Id)" disabled="@(cantidad == 0)">−</button>
+                                                    <span>@cantidad</span>
+                                                    <button @onclick="() => AumentarProducto(producto.Id)">+</button>
+                                                </div>
+                                            </article>
+                                        }
+
+                                        @if (!ProductosVisibles.Any())
+                                        {
+                                            <p class="texto-vacio p-3">@(string.IsNullOrWhiteSpace(busquedaProducto) ? "No hay productos activos en esta subcategoría." : "No encontramos productos con ese nombre.")</p>
+                                        }
+                                    </div>
+                                </fieldset>
+
+                                @if (!EditandoPedido)
+                                {
+                                    <div class="pago-inmediato">
+                                        @if (tipoNuevoPedido == EnumTipoServicio.Delivery && !cobrarAhora)
+                                        {
+                                            <label class="pago-inmediato-opcion">
+                                                <input type="checkbox" @bind="efectivoAlRecibirDelivery" disabled="@enviandoPedido" />
+                                                <strong>Cliente paga en efectivo al recibir</strong>
+                                            </label>
+                                            @if (efectivoAlRecibirDelivery)
+                                            {
+                                                <label class="pago-inmediato-metodo">
+                                                    ¿Con cuánto paga el cliente?
+                                                    <input type="text" inputmode="decimal" class="form-control form-control-sm"
+                                                           placeholder="Ej.: 30000 o 30.000"
+                                                           @bind="efectivoPrevistoTexto" @bind:event="oninput"
+                                                           disabled="@enviandoPedido" />
+                                                </label>
+                                                @if (TryLeerImporte(efectivoPrevistoTexto, out var efectivoPrevisto) && efectivoPrevisto >= TotalCarrito)
+                                                {
+                                                    <strong class="delivery-vuelto-previsto">Vuelto a llevar: $@((efectivoPrevisto - TotalCarrito).ToString("N2"))</strong>
+                                                }
+                                                else
+                                                {
+                                                    <small class="text-danger">Indicá el efectivo que entregará el cliente (mínimo $@TotalCarrito.ToString("N2")).</small>
+                                                }
+                                            }
+                                        }
+                                        <label class="pago-inmediato-opcion">
+                                            <input type="checkbox" @bind="cobrarAhora" disabled="@enviandoPedido" />
+                                            <strong>El cliente paga ahora</strong>
+                                        </label>
+                                        @if (cobrarAhora)
+                                        {
+                                            <label class="pago-inmediato-metodo">
+                                                Medio de pago
+                                                <select class="form-select form-select-sm" @bind="tipoPagoInmediato" disabled="@enviandoPedido">
+                                                    @foreach (var tipo in TiposPagoCaja.Habilitados)
+                                                    {
+                                                        <option value="@tipo">@TiposPagoCaja.Nombre(tipo)</option>
+                                                    }
+                                                </select>
+                                            </label>
+                                            <div class="pago-inmediato-total">Total a cobrar: <strong>$@TotalCarrito.ToString("N2")</strong></div>
+                                            @if (tipoPagoInmediato == EnumTipoPago.Efectivo)
+                                            {
+                                                <label class="pago-inmediato-metodo">
+                                                    ¿Te entregaron más efectivo? (opcional, solo para calcular el vuelto)
+                                                    <input type="text" inputmode="decimal" class="form-control form-control-sm"
+                                                           placeholder="Ej.: 15000 o 15.000"
+                                                           @bind="efectivoEntregadoTexto" @bind:event="oninput"
+                                                           disabled="@enviandoPedido" />
+                                                </label>
+                                                @if (!string.IsNullOrWhiteSpace(efectivoEntregadoTexto))
+                                                {
+                                                    @if (TryLeerImporte(efectivoEntregadoTexto, out var efectivoIngresado))
+                                                    {
+                                                        @if (efectivoIngresado >= TotalCarrito)
+                                                        {
+                                                            <small>Vuelto: $@((efectivoIngresado - TotalCarrito).ToString("N2"))</small>
+                                                        }
+                                                        else
+                                                        {
+                                                            <small class="text-danger">El efectivo recibido no alcanza para cubrir el pedido.</small>
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        <small class="text-danger">Ingresá un importe válido, por ejemplo 15000 o 15.000.</small>
+                                                    }
+                                                }
+                                            }
+                                            <small>El cobro se registra en el turno de Caja abierto al confirmar el pedido.</small>
                                         }
                                         else
                                         {
-                                            <small class="text-danger">El efectivo recibido no alcanza para cubrir el pedido.</small>
+                                            <small>El pedido se envía sin cobrar. Podés registrarlo en Caja después.</small>
                                         }
-                                    }
-                                    else
-                                    {
-                                        <small class="text-danger">Ingresá un importe válido, por ejemplo 15000 o 15.000.</small>
-                                    }
-                                }
-                            }
-                            <small>El cobro se registra en el turno de Caja abierto al confirmar el pedido.</small>
-                        }
-                        else
-                        {
-                            <small>El pedido se envía sin cobrar. Podés registrarlo en Caja después.</small>
-                        }
-                    </div>
-                    }
-                    else
-                    {
-                    <div class="pago-inmediato">
-                            <div>Total anterior: <strong>$@TotalAntesEdicion.ToString("N2")</strong></div>
-
-                            @if (EdicionConDescuento)
-                            {
-                                <label class="pago-inmediato-opcion">
-                                    Descuento
-                                    <select class="form-select form-select-sm" @bind="tipoDescuentoEdicion" disabled="@enviandoPedido">
-                                        <option value="@EnumTipoDescuento.Ninguno">Sin descuento</option>
-                                        <option value="@EnumTipoDescuento.Porcentaje">Porcentaje (%)</option>
-                                        <option value="@EnumTipoDescuento.MontoFijo">Monto fijo ($)</option>
-                                    </select>
-                                </label>
-                                @if (tipoDescuentoEdicion != EnumTipoDescuento.Ninguno)
-                                {
-                                    <input type="number" min="0" step="0.01" class="form-control form-control-sm"
-                                           @bind="valorDescuentoEdicion" @bind:event="oninput" disabled="@enviandoPedido" />
-                                }
-                                @if (ErrorDescuentoEdicion != null)
-                                {
-                                    <small class="text-danger">@ErrorDescuentoEdicion</small>
-                                }
-                                else if (DescuentoEdicion > 0)
-                                {
-                                    <small>Descuento aplicado: $@DescuentoEdicion.ToString("N2")</small>
-                                }
-                            }
-
-                            @if (EdicionPideEfectivoPrevisto)
-                            {
-                                <label class="pago-inmediato-opcion">
-                                    Efectivo que entregará el cliente
-                                    <input class="form-control form-control-sm" inputmode="decimal"
-                                           @bind="efectivoPrevistoEdicionTexto" @bind:event="oninput" disabled="@enviandoPedido" />
-                                </label>
-                                @if (!EfectivoPrevistoEdicionValido)
-                                {
-                                    <small class="text-danger">Tiene que cubrir el nuevo total ($@TotalEdicion.ToString("N2")).</small>
-                                }
-                            }
-
-                            <div>Nuevo total: <strong>$@TotalEdicion.ToString("N2")</strong></div>
-
-                            @if (cuentaEditando!.YaPagado > 0)
-                            {
-                                @if (DiferenciaEdicion > 0)
-                                {
-                                    <small>El cliente ya pagó $@cuentaEditando.YaPagado.ToString("N2"). Falta cobrar <strong>$@DiferenciaEdicion.ToString("N2")</strong> en Caja.</small>
-                                }
-                                else if (DiferenciaEdicion < 0)
-                                {
-                                    <small class="text-danger">El cliente ya pagó $@cuentaEditando.YaPagado.ToString("N2"). Hay que devolverle <strong>$@((-DiferenciaEdicion).ToString("N2"))</strong>: se registra en Caja como egreso.</small>
+                                    </div>
                                 }
                                 else
                                 {
-                                    <small>El total no cambia: no hay nada para cobrar ni devolver.</small>
+                                    <div class="pago-inmediato">
+                                        <div>Total anterior: <strong>$@TotalAntesEdicion.ToString("N2")</strong></div>
+
+                                        @if (EdicionConDescuento)
+                                        {
+                                            <label class="pago-inmediato-opcion">
+                                                Descuento
+                                                <select class="form-select form-select-sm" @bind="tipoDescuentoEdicion" disabled="@enviandoPedido">
+                                                    <option value="@EnumTipoDescuento.Ninguno">Sin descuento</option>
+                                                    <option value="@EnumTipoDescuento.Porcentaje">Porcentaje (%)</option>
+                                                    <option value="@EnumTipoDescuento.MontoFijo">Monto fijo ($)</option>
+                                                </select>
+                                            </label>
+                                            @if (tipoDescuentoEdicion != EnumTipoDescuento.Ninguno)
+                                            {
+                                                <input type="number" min="0" step="0.01" class="form-control form-control-sm"
+                                                       @bind="valorDescuentoEdicion" @bind:event="oninput" disabled="@enviandoPedido" />
+                                            }
+                                            @if (ErrorDescuentoEdicion != null)
+                                            {
+                                                <small class="text-danger">@ErrorDescuentoEdicion</small>
+                                            }
+                                            else if (DescuentoEdicion > 0)
+                                            {
+                                                <small>Descuento aplicado: $@DescuentoEdicion.ToString("N2")</small>
+                                            }
+                                        }
+
+                                        @if (EdicionPideEfectivoPrevisto)
+                                        {
+                                            <label class="pago-inmediato-opcion">
+                                                Efectivo que entregará el cliente
+                                                <input class="form-control form-control-sm" inputmode="decimal"
+                                                       @bind="efectivoPrevistoEdicionTexto" @bind:event="oninput" disabled="@enviandoPedido" />
+                                            </label>
+                                            @if (!EfectivoPrevistoEdicionValido)
+                                            {
+                                                <small class="text-danger">Tiene que cubrir el nuevo total ($@TotalEdicion.ToString("N2")).</small>
+                                            }
+                                        }
+
+                                        <div>Nuevo total: <strong>$@TotalEdicion.ToString("N2")</strong></div>
+
+                                        @if (cuentaEditando!.YaPagado > 0)
+                                        {
+                                            @if (DiferenciaEdicion > 0)
+                                            {
+                                                <small>El cliente ya pagó $@cuentaEditando.YaPagado.ToString("N2"). Falta cobrar <strong>$@DiferenciaEdicion.ToString("N2")</strong> en Caja.</small>
+                                            }
+                                            else if (DiferenciaEdicion < 0)
+                                            {
+                                                <small class="text-danger">El cliente ya pagó $@cuentaEditando.YaPagado.ToString("N2"). Hay que devolverle <strong>$@((-DiferenciaEdicion).ToString("N2"))</strong>: se registra en Caja como egreso.</small>
+                                            }
+                                            else
+                                            {
+                                                <small>El total no cambia: no hay nada para cobrar ni devolver.</small>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <small>El pedido todavía no está cobrado: el nuevo total se cobra en Caja.</small>
+                                        }
+                                        <small>Lo que agregues sale marcado como NUEVO en Cocina y Barra.</small>
+                                    </div>
                                 }
-                            }
-                            else
-                            {
-                                <small>El pedido todavía no está cobrado: el nuevo total se cobra en Caja.</small>
-                            }
-                            <small>Lo que agregues sale marcado como NUEVO en Cocina y Barra.</small>
-                        </div>
-                    }
-                    <footer class="modal-pedido-footer">
-                        @if (!PedidoListoParaEnviar && !enviandoPedido)
-                        {
-                            <p class="pedido-datos-faltantes" role="status">@DatosFaltantesPedido</p>
-                        }
-                        <div>
-                            <span>Total</span>
-                            <strong>$@TotalMostrado.ToString("N2")</strong>
-                        </div>
-                        @if (EditandoPedido)
-                        {
-                            <button class="btn btn-outline-secondary" @onclick="CerrarFormularioPedido" disabled="@enviandoPedido">Cancelar</button>
-                            <button class="btn btn-success" @onclick="GuardarEdicionComanda" disabled="@(!EdicionListaParaGuardar || enviandoPedido)">
-                                @(enviandoPedido ? "Guardando..." : "Guardar cambios")
-                            </button>
-                        }
-                        else
-                        {
-                            <button class="btn btn-outline-secondary" @onclick="ReiniciarFormularioPedido" disabled="@enviandoPedido">Vaciar</button>
-                            <button class="btn btn-success" @onclick="EnviarPedido" disabled="@(!PedidoListoParaEnviar || enviandoPedido)">
-                                @(enviandoPedido ? "Guardando..." : cobrarAhora ? "Cobrar y enviar a cocina/barra" : "Enviar a cocina/barra")
-                            </button>
-                        }
-                    </footer>
-                </section>
+                                <footer class="modal-pedido-footer">
+                                    @if (!PedidoListoParaEnviar && !enviandoPedido)
+                                    {
+                                        <p class="pedido-datos-faltantes" role="status">@DatosFaltantesPedido</p>
+                                    }
+                                    <div>
+                                        <span>Total</span>
+                                        <strong>$@TotalMostrado.ToString("N2")</strong>
+                                    </div>
+                                    @if (EditandoPedido)
+                                    {
+                                        <button class="btn btn-outline-secondary" @onclick="CerrarFormularioPedido" disabled="@enviandoPedido">Cancelar</button>
+                                        <button class="btn btn-success" @onclick="GuardarEdicionComanda" disabled="@(!EdicionListaParaGuardar || enviandoPedido)">
+                                            @(enviandoPedido ? "Guardando..." : "Guardar cambios")
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-outline-secondary" @onclick="ReiniciarFormularioPedido" disabled="@enviandoPedido">Vaciar</button>
+                                        <button class="btn btn-success" @onclick="EnviarPedido" disabled="@(!PedidoListoParaEnviar || enviandoPedido)">
+                                            @(enviandoPedido ? "Guardando..." : cobrarAhora ? "Cobrar y enviar a cocina/barra" : "Enviar a cocina/barra")
+                                        </button>
+                                    }
+                                </footer>
+                            </section>
                         </div>
                     </div>
                 </div>
@@ -822,7 +844,10 @@
                                     <li>
                                         @item.Cantidad x @item.NombreProducto
                                         <span class="item-precio">($@item.PrecioUnitario.ToString("N2") c/u = $@item.Subtotal.ToString("N2"))</span>
-                                        @if (item.EsNuevo) { <span class="badge-nuevo">NUEVO</span> }
+                                        @if (item.EsNuevo)
+                                        {
+                                            <span class="badge-nuevo">NUEVO</span>
+                                        }
                                     </li>
                                 }
                             </ul>
@@ -894,7 +919,10 @@
                                     <li>
                                         @item.Cantidad x @item.NombreProducto
                                         <span class="item-precio">($@item.PrecioUnitario.ToString("N2") c/u = $@item.Subtotal.ToString("N2"))</span>
-                                        @if (item.EsNuevo) { <span class="badge-nuevo">NUEVO</span> }
+                                        @if (item.EsNuevo)
+                                        {
+                                            <span class="badge-nuevo">NUEVO</span>
+                                        }
                                     </li>
                                 }
                             </ul>
@@ -979,6 +1007,22 @@
 
 
 <style>
+    .badge-promo {
+        display: inline-block;
+        margin-left: .35rem;
+        padding: .05rem .45rem;
+        border-radius: 6px;
+        background: #ffc107;
+        color: #3b2f00;
+        font-size: .75rem;
+        font-weight: 800;
+    }
+
+    .promo-trae {
+        display: block;
+        color: #6c757d;
+    }
+
     .badge-nuevo {
         display: inline-block;
         margin-left: .35rem;
@@ -1153,7 +1197,7 @@
     }
 
     /* Todo lo de acá abajo es una copia fiel del modal de Mesas.razor para que
-        el "Agregar productos" se sienta igual en las dos pantallas*/
+            el "Agregar productos" se sienta igual en las dos pantallas*/
 
     .btn-cerrar {
         border: none;
@@ -1594,7 +1638,7 @@
     }
 
     /* tablet y menos: el modal se apila (subcategorías > productos > pedido) y crece con su contenido;
-           solo la lista de productos tiene scroll propio */
+               solo la lista de productos tiene scroll propio */
     @@media (max-width: 900px) {
         .modal-pedido {
             width: 100%;
@@ -1745,36 +1789,157 @@
             }
     }
 
-    .selector-resumen { background: #f7f8fa; padding-bottom: 1rem; }
-    .resumen-carrito { position: static; padding: 1rem; border: 1px solid #d7dce2; border-radius: 10px; background: white; box-shadow: 0 3px 12px #00000008; }
-    .resumen-carrito > strong { padding-bottom: .6rem; border-bottom: 2px solid #ef1111; }
-    .carrito-item { background: #fff; border-left: 3px solid #ef1111; }
-    .carrito-item-linea { font-size: 1rem; line-height: 1.5; }
-    .carrito-item-linea > span { min-width: 0; overflow-wrap: anywhere; }
-    .carrito-acciones button { min-width: 44px; min-height: 44px; border: 1px solid #ddd; border-radius: 6px; }
-    .control-cantidad button { width: 36px; height: 36px; }
-    .producto-fila > div:first-child { min-width: 0; overflow-wrap: anywhere; }
-    .producto-fila { gap: .5rem; }
-    .producto-precio { font-size: .9rem; }
-    @@media (max-width: 900px) {
-        .resumen-carrito { min-height: 150px; margin-top: 1rem; padding: .85rem; }
-        .control-cantidad button { width: 44px; height: 44px; }
-        .modal-pedido-footer { position: sticky; bottom: 0; z-index: 5; box-shadow: 0 -4px 12px #00000012; }
-        .pedidos-pagina { padding: .5rem; }
+    .selector-resumen {
+        background: #f7f8fa;
+        padding-bottom: 1rem;
     }
 
-    .datos-cliente { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; flex-shrink: 0; }
-    .datos-cliente > strong, .datos-cliente > .selector-tipo, .datos-cliente > .ayuda-horario { grid-column: 1 / -1; margin: 0; }
-    .dato-cliente { display: flex; flex-direction: column; gap: .25rem; font-size: .8rem; min-width: 0; }
-    .dato-cliente input { min-height: 36px; }
-    .resumen-carrito { flex: 1 1 180px; min-height: 180px; overflow-y: auto; }
-    .selector-resumen { overflow: hidden; }
-    @@media(max-width:900px) { .selector-resumen { overflow: visible; } .resumen-carrito { flex: 0 0 auto; max-height: none; overflow: visible; } .dato-cliente input { min-height:44px; } }
-    @@media(max-width:360px) { .datos-cliente { grid-template-columns: 1fr; } }
-    fieldset.selector-productos { padding: 0; margin: 0; border: 0; min-width: 0; }
+    .resumen-carrito {
+        position: static;
+        padding: 1rem;
+        border: 1px solid #d7dce2;
+        border-radius: 10px;
+        background: white;
+        box-shadow: 0 3px 12px #00000008;
+    }
+
+        .resumen-carrito > strong {
+            padding-bottom: .6rem;
+            border-bottom: 2px solid #ef1111;
+        }
+
+    .carrito-item {
+        background: #fff;
+        border-left: 3px solid #ef1111;
+    }
+
+    .carrito-item-linea {
+        font-size: 1rem;
+        line-height: 1.5;
+    }
+
+        .carrito-item-linea > span {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+    .carrito-acciones button {
+        min-width: 44px;
+        min-height: 44px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+    }
+
+    .control-cantidad button {
+        width: 36px;
+        height: 36px;
+    }
+
+    .producto-fila > div:first-child {
+        min-width: 0;
+        overflow-wrap: anywhere;
+    }
+
+    .producto-fila {
+        gap: .5rem;
+    }
+
+    .producto-precio {
+        font-size: .9rem;
+    }
+
+    @@media (max-width: 900px) {
+        .resumen-carrito {
+            min-height: 150px;
+            margin-top: 1rem;
+            padding: .85rem;
+        }
+
+        .control-cantidad button {
+            width: 44px;
+            height: 44px;
+        }
+
+        .modal-pedido-footer {
+            position: sticky;
+            bottom: 0;
+            z-index: 5;
+            box-shadow: 0 -4px 12px #00000012;
+        }
+
+        .pedidos-pagina {
+            padding: .5rem;
+        }
+    }
+
+    .datos-cliente {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .6rem;
+        flex-shrink: 0;
+    }
+
+        .datos-cliente > strong, .datos-cliente > .selector-tipo, .datos-cliente > .ayuda-horario {
+            grid-column: 1 / -1;
+            margin: 0;
+        }
+
+    .dato-cliente {
+        display: flex;
+        flex-direction: column;
+        gap: .25rem;
+        font-size: .8rem;
+        min-width: 0;
+    }
+
+        .dato-cliente input {
+            min-height: 36px;
+        }
+
+    .resumen-carrito {
+        flex: 1 1 180px;
+        min-height: 180px;
+        overflow-y: auto;
+    }
+
+    .selector-resumen {
+        overflow: hidden;
+    }
+
+    @@media(max-width:900px) {
+        .selector-resumen {
+            overflow: visible;
+        }
+
+        .resumen-carrito {
+            flex: 0 0 auto;
+            max-height: none;
+            overflow: visible;
+        }
+
+        .dato-cliente input {
+            min-height: 44px;
+        }
+    }
+
+    @@media(max-width:360px) {
+        .datos-cliente {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    fieldset.selector-productos {
+        padding: 0;
+        margin: 0;
+        border: 0;
+        min-width: 0;
+    }
 
     /* Datos y consumo ocupan columnas independientes con todo el alto del panel. */
-    .selector-productos { grid-template-columns: 180px minmax(300px, .9fr) minmax(550px, 1.1fr); }
+    .selector-productos {
+        grid-template-columns: 180px minmax(300px, .9fr) minmax(550px, 1.1fr);
+    }
+
     .selector-resumen {
         display: grid;
         grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr);
@@ -1784,6 +1949,7 @@
         padding: .85rem;
         overflow: hidden;
     }
+
     .datos-cliente {
         display: flex;
         flex-direction: column;
@@ -1793,11 +1959,34 @@
         overflow-y: auto;
         padding-right: .35rem;
     }
-    .datos-cliente h5 { margin: 0; font-size: 1rem; font-weight: 800; }
-    .datos-cliente > strong { text-align: left; font-size: .8rem; color: #555; }
-    .datos-cliente .selector-tipo { flex-shrink: 0; flex-wrap: wrap; margin: 0; }
-    .datos-cliente .selector-tipo button { min-height: 40px; min-width: 95px; }
-    .datos-cliente .dato-cliente { flex-shrink: 0; }
+
+        .datos-cliente h5 {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 800;
+        }
+
+        .datos-cliente > strong {
+            text-align: left;
+            font-size: .8rem;
+            color: #555;
+        }
+
+        .datos-cliente .selector-tipo {
+            flex-shrink: 0;
+            flex-wrap: wrap;
+            margin: 0;
+        }
+
+            .datos-cliente .selector-tipo button {
+                min-height: 40px;
+                min-width: 95px;
+            }
+
+        .datos-cliente .dato-cliente {
+            flex-shrink: 0;
+        }
+
     .resumen-carrito {
         position: static;
         flex: none;
@@ -1810,81 +1999,371 @@
         padding: .85rem;
         overflow-y: auto;
     }
-    .resumen-carrito > strong { flex-shrink: 0; position: sticky; top: -.85rem; z-index: 2; background: #fff; padding-top: .5rem; }
-    .carrito-item { flex-shrink: 0; }
-    .carrito-item-linea { align-items: flex-start; flex-wrap: wrap; }
-    .carrito-item-linea > span { flex: 1 1 130px; }
-    .carrito-acciones { margin-left: auto; }
+
+        .resumen-carrito > strong {
+            flex-shrink: 0;
+            position: sticky;
+            top: -.85rem;
+            z-index: 2;
+            background: #fff;
+            padding-top: .5rem;
+        }
+
+    .carrito-item {
+        flex-shrink: 0;
+    }
+
+    .carrito-item-linea {
+        align-items: flex-start;
+        flex-wrap: wrap;
+    }
+
+        .carrito-item-linea > span {
+            flex: 1 1 130px;
+        }
+
+    .carrito-acciones {
+        margin-left: auto;
+    }
+
     @@media (max-width: 1100px) {
-        .modal-pedido { height: auto; overflow: visible; }
-        .selector-productos { display: flex; flex-direction: column; overflow: visible; }
-        .selector-productos > * { flex: 0 0 auto; }
-        .subcategorias { order: 1; display: flex; flex-direction: row; flex-wrap: wrap; overflow: visible; border-right: 0; border-bottom: 1px solid #ddd; }
-        .subcategorias button { width: auto; flex: 1 1 120px; }
-        .productos-modal { order: 2; max-height: 380px; }
-        .selector-resumen { order: 3; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); grid-template-rows: minmax(360px, auto); overflow: visible; border-left: 0; }
-        .datos-cliente { overflow: visible; }
-        .resumen-carrito { max-height: 460px; min-height: 360px; height: auto; overflow-y: auto; }
+        .modal-pedido {
+            height: auto;
+            overflow: visible;
+        }
+
+        .selector-productos {
+            display: flex;
+            flex-direction: column;
+            overflow: visible;
+        }
+
+            .selector-productos > * {
+                flex: 0 0 auto;
+            }
+
+        .subcategorias {
+            order: 1;
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            overflow: visible;
+            border-right: 0;
+            border-bottom: 1px solid #ddd;
+        }
+
+            .subcategorias button {
+                width: auto;
+                flex: 1 1 120px;
+            }
+
+        .productos-modal {
+            order: 2;
+            max-height: 380px;
+        }
+
+        .selector-resumen {
+            order: 3;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+            grid-template-rows: minmax(360px, auto);
+            overflow: visible;
+            border-left: 0;
+        }
+
+        .datos-cliente {
+            overflow: visible;
+        }
+
+        .resumen-carrito {
+            max-height: 460px;
+            min-height: 360px;
+            height: auto;
+            overflow-y: auto;
+        }
     }
+
     @@media (max-width: 700px) {
-        .selector-resumen { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto; gap: 1rem; }
-        .resumen-carrito { height: auto; max-height: none; min-height: 180px; overflow: visible; }
-        .resumen-carrito > strong { position: static; }
-        .modal-pedido-footer { position: sticky; bottom: 0; z-index: 5; }
+        .selector-resumen {
+            grid-template-columns: minmax(0, 1fr);
+            grid-template-rows: auto auto;
+            gap: 1rem;
+        }
+
+        .resumen-carrito {
+            height: auto;
+            max-height: none;
+            min-height: 180px;
+            overflow: visible;
+        }
+
+            .resumen-carrito > strong {
+                position: static;
+            }
+
+        .modal-pedido-footer {
+            position: sticky;
+            bottom: 0;
+            z-index: 5;
+        }
     }
 
 
-    .pedidos-pagina, .panel-nuevo-pedido { min-width:0; }
-    .selector-productos > *, .selector-resumen > * { min-width:0; }
-    .modal-pedido-footer { flex-wrap:wrap; }
-    .producto-fila { grid-template-columns:minmax(0,1fr) auto; }
-    .producto-fila .control-cantidad { grid-column:1/-1; justify-self:end; }
+    .pedidos-pagina, .panel-nuevo-pedido {
+        min-width: 0;
+    }
+
+    .selector-productos > *, .selector-resumen > * {
+        min-width: 0;
+    }
+
+    .modal-pedido-footer {
+        flex-wrap: wrap;
+    }
+
+    .producto-fila {
+        grid-template-columns: minmax(0,1fr) auto;
+    }
+
+        .producto-fila .control-cantidad {
+            grid-column: 1/-1;
+            justify-self: end;
+        }
+
     @@media(min-width:1101px) {
-        .selector-productos { grid-template-columns:180px minmax(240px,.85fr) minmax(460px,1.15fr); }
-        .selector-resumen { padding:.65rem; gap:.65rem; grid-template-columns:minmax(180px,.85fr) minmax(0,1.15fr); }
-        .modal-pedido { height:min(720px,calc(100dvh - 7rem)); min-height:0; }
-        .modal-pedido-header, .modal-pedido-footer { padding:.6rem .8rem; }
-        .categorias-superiores button { min-width:105px; padding:.45rem .65rem; }
+        .selector-productos {
+            grid-template-columns: 180px minmax(240px,.85fr) minmax(460px,1.15fr);
+        }
+
+        .selector-resumen {
+            padding: .65rem;
+            gap: .65rem;
+            grid-template-columns: minmax(180px,.85fr) minmax(0,1.15fr);
+        }
+
+        .modal-pedido {
+            height: min(720px,calc(100dvh - 7rem));
+            min-height: 0;
+        }
+
+        .modal-pedido-header, .modal-pedido-footer {
+            padding: .6rem .8rem;
+        }
+
+        .categorias-superiores button {
+            min-width: 105px;
+            padding: .45rem .65rem;
+        }
     }
 
 
     /* Nombre, precio y cantidad comparten la misma fila. */
-    .productos-buscador { position:sticky; top:0; z-index:3; padding:.5rem; background:white; }
-    .productos-buscador input { min-width:0; min-height:36px; font-size:.9rem; }
-    .productos-titulo { position:static; padding:.55rem .7rem; }
-    .producto-fila { grid-template-columns:minmax(0,1fr) auto auto; padding:.5rem .65rem; gap:.45rem; align-items:center; }
-    .producto-fila > div:first-child { min-width:0; font-size:.9rem; line-height:1.25; }
-    .producto-fila .control-cantidad { grid-column:auto; justify-self:end; gap:.3rem; }
-    .producto-fila .control-cantidad button { width:28px; height:28px; flex:0 0 28px; font-size:.9rem; }
-    .producto-fila .control-cantidad span { min-width:18px; font-size:.85rem; }
-    .producto-precio { font-size:.85rem; }
-    @@media(max-width:780px) {
-        .producto-fila .control-cantidad button { width:36px; height:36px; flex-basis:36px; }
+    .productos-buscador {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        padding: .5rem;
+        background: white;
     }
 
-    .pedido-datos-faltantes { flex:0 0 100%; margin:0; padding:.4rem .6rem; background:#fff5d9; color:#6e4b00; border-radius:5px; font-size:.85rem; }
+        .productos-buscador input {
+            min-width: 0;
+            min-height: 36px;
+            font-size: .9rem;
+        }
+
+    .productos-titulo {
+        position: static;
+        padding: .55rem .7rem;
+    }
+
+    .producto-fila {
+        grid-template-columns: minmax(0,1fr) auto auto;
+        padding: .5rem .65rem;
+        gap: .45rem;
+        align-items: center;
+    }
+
+        .producto-fila > div:first-child {
+            min-width: 0;
+            font-size: .9rem;
+            line-height: 1.25;
+        }
+
+        .producto-fila .control-cantidad {
+            grid-column: auto;
+            justify-self: end;
+            gap: .3rem;
+        }
+
+            .producto-fila .control-cantidad button {
+                width: 28px;
+                height: 28px;
+                flex: 0 0 28px;
+                font-size: .9rem;
+            }
+
+            .producto-fila .control-cantidad span {
+                min-width: 18px;
+                font-size: .85rem;
+            }
+
+    .producto-precio {
+        font-size: .85rem;
+    }
+
+    @@media(max-width:780px) {
+        .producto-fila .control-cantidad button {
+            width: 36px;
+            height: 36px;
+            flex-basis: 36px;
+        }
+    }
+
+    .pedido-datos-faltantes {
+        flex: 0 0 100%;
+        margin: 0;
+        padding: .4rem .6rem;
+        background: #fff5d9;
+        color: #6e4b00;
+        border-radius: 5px;
+        font-size: .85rem;
+    }
     /* Seguimiento primero: números y órdenes visibles sin abrir la carga. */
     /* Las dos modalidades se ven al mismo tiempo sin resumen ni pestañas. */
-    .seguimiento-dos-columnas { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:1rem; }
-    .seguimiento-columna { min-width:0; padding:.85rem; background:#f7f7f7; border:1px solid #dedede; border-radius:8px; }
-    .seguimiento-columna-titulo { display:flex; justify-content:space-between; align-items:center; gap:.6rem; margin:0 0 .85rem; font-size:1.1rem; font-weight:800; padding-bottom:.65rem; border-bottom:2px solid #df222e; }
-    .seguimiento-columna-titulo span { display:inline-flex; align-items:center; justify-content:center; background:#232323; color:white; border-radius:999px; min-width:32px; padding:.2rem .55rem; font-size:.85rem; }
-    .seguimiento-columna .grilla-cuentas { grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr)); }
-    @@media(max-width:780px) { .seguimiento-dos-columnas { grid-template-columns:minmax(0,1fr); } }
-    .pedido-formulario-cabecera { display:flex; align-items:center; flex-wrap:wrap; gap:.8rem; margin:1.15rem 0 .7rem; }
-    .pedido-formulario-toggle { min-height:44px; font-weight:700; }
-    .pedido-formulario-cabecera-superior { margin:.15rem 0 .8rem; }
-    .atajo-nuevo-pedido { display:inline-flex; align-items:center; margin-left:.4rem; padding:.12rem .38rem; background:#ffffff28; border:1px solid #ffffff85; border-radius:5px; font-size:.73rem; font-weight:700; vertical-align:middle; }
+    .seguimiento-dos-columnas {
+        display: grid;
+        grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+        gap: 1rem;
+    }
 
-    .panel-seguimiento { margin-bottom:1rem; }
+    .seguimiento-columna {
+        min-width: 0;
+        padding: .85rem;
+        background: #f7f7f7;
+        border: 1px solid #dedede;
+        border-radius: 8px;
+    }
 
-    .pago-inmediato { display:flex; flex-wrap:wrap; align-items:center; gap:.7rem; padding:.6rem 1rem; border-top:1px solid #ddd; background:#fff9eb; color:#222; flex-shrink:0; }
-    .pago-inmediato-opcion { display:flex; align-items:center; gap:.5rem; margin:0; }
-    .pago-inmediato-opcion input { width:18px; height:18px; }
-    .pago-inmediato-metodo { display:flex; flex-direction:column; gap:.2rem; margin:0; font-size:.84rem; min-width:180px; }
-    .pago-inmediato small { font-size:.78rem; }
-    .pago-inmediato-total { display:flex; gap:.4rem; align-items:center; white-space:nowrap; font-size:.9rem; }
-    @@media(max-width:780px) { .pago-inmediato { flex-direction:column; align-items:stretch; } }
+    .seguimiento-columna-titulo {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .6rem;
+        margin: 0 0 .85rem;
+        font-size: 1.1rem;
+        font-weight: 800;
+        padding-bottom: .65rem;
+        border-bottom: 2px solid #df222e;
+    }
+
+        .seguimiento-columna-titulo span {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #232323;
+            color: white;
+            border-radius: 999px;
+            min-width: 32px;
+            padding: .2rem .55rem;
+            font-size: .85rem;
+        }
+
+    .seguimiento-columna .grilla-cuentas {
+        grid-template-columns: repeat(auto-fill,minmax(min(100%,260px),1fr));
+    }
+
+    @@media(max-width:780px) {
+        .seguimiento-dos-columnas {
+            grid-template-columns: minmax(0,1fr);
+        }
+    }
+
+    .pedido-formulario-cabecera {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: .8rem;
+        margin: 1.15rem 0 .7rem;
+    }
+
+    .pedido-formulario-toggle {
+        min-height: 44px;
+        font-weight: 700;
+    }
+
+    .pedido-formulario-cabecera-superior {
+        margin: .15rem 0 .8rem;
+    }
+
+    .atajo-nuevo-pedido {
+        display: inline-flex;
+        align-items: center;
+        margin-left: .4rem;
+        padding: .12rem .38rem;
+        background: #ffffff28;
+        border: 1px solid #ffffff85;
+        border-radius: 5px;
+        font-size: .73rem;
+        font-weight: 700;
+        vertical-align: middle;
+    }
+
+    .panel-seguimiento {
+        margin-bottom: 1rem;
+    }
+
+    .pago-inmediato {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .7rem;
+        padding: .6rem 1rem;
+        border-top: 1px solid #ddd;
+        background: #fff9eb;
+        color: #222;
+        flex-shrink: 0;
+    }
+
+    .pago-inmediato-opcion {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        margin: 0;
+    }
+
+        .pago-inmediato-opcion input {
+            width: 18px;
+            height: 18px;
+        }
+
+    .pago-inmediato-metodo {
+        display: flex;
+        flex-direction: column;
+        gap: .2rem;
+        margin: 0;
+        font-size: .84rem;
+        min-width: 180px;
+    }
+
+    .pago-inmediato small {
+        font-size: .78rem;
+    }
+
+    .pago-inmediato-total {
+        display: flex;
+        gap: .4rem;
+        align-items: center;
+        white-space: nowrap;
+        font-size: .9rem;
+    }
+
+    @@media(max-width:780px) {
+        .pago-inmediato {
+            flex-direction: column;
+            align-items: stretch;
+        }
+    }
     /* Formulario como ventana superpuesta, sin empujar los pedidos de la página. */
     .pedido-modal-fondo {
         position: fixed;
@@ -1896,6 +2375,7 @@
         align-items: center;
         padding: 1rem;
     }
+
     .pedido-modal-ventana {
         width: min(1300px, 100%);
         max-height: calc(100dvh - 2rem);
@@ -1907,6 +2387,7 @@
         overflow: hidden;
         box-shadow: 0 18px 65px rgba(0,0,0,.6);
     }
+
     .pedido-modal-barra {
         display: flex;
         justify-content: space-between;
@@ -1917,6 +2398,7 @@
         color: white;
         flex-shrink: 0;
     }
+
     .pedido-modal-cerrar {
         width: 42px;
         height: 42px;
@@ -1928,8 +2410,17 @@
         font-size: 1.7rem;
         line-height: 1;
     }
-    .pedido-modal-cerrar:hover { background: #ab2020; }
-    .pedido-modal-ventana .panel-nuevo-pedido { min-height: 0; flex: 1; margin: 0; }
+
+        .pedido-modal-cerrar:hover {
+            background: #ab2020;
+        }
+
+    .pedido-modal-ventana .panel-nuevo-pedido {
+        min-height: 0;
+        flex: 1;
+        margin: 0;
+    }
+
     .pedido-modal-ventana .modal-pedido {
         height: min(760px, calc(100dvh - 6.5rem));
         max-height: 100%;
@@ -1937,261 +2428,1077 @@
         border: 0;
         box-shadow: none;
     }
+
     @@media(max-width:780px) {
-        .pedido-modal-fondo { padding: .35rem; align-items: stretch; }
-        .pedido-modal-ventana { max-height: calc(100dvh - .7rem); }
-        .pedido-modal-ventana .panel-nuevo-pedido { overflow-y: auto; }
-        .pedido-modal-ventana .modal-pedido {
-            height: auto;
-            min-height: 0;
-            max-height: none;
-            overflow: visible;
+        .pedido-modal-fondo {
+            padding: .35rem;
+            align-items: stretch;
         }
-        .pedido-modal-ventana .modal-pedido-footer { position: sticky; bottom: 0; z-index: 4; }
+
+        .pedido-modal-ventana {
+            max-height: calc(100dvh - .7rem);
+        }
+
+            .pedido-modal-ventana .panel-nuevo-pedido {
+                overflow-y: auto;
+            }
+
+            .pedido-modal-ventana .modal-pedido {
+                height: auto;
+                min-height: 0;
+                max-height: none;
+                overflow: visible;
+            }
+
+            .pedido-modal-ventana .modal-pedido-footer {
+                position: sticky;
+                bottom: 0;
+                z-index: 4;
+            }
     }
 
     /* Diseño de caja compacta: sin scroll general en escritorio.
-       Solo la lista del menú y, si excede, el detalle del carrito desplazan contenido. */
+           Solo la lista del menú y, si excede, el detalle del carrito desplazan contenido. */
     @@media (min-width: 901px) {
-        .pedido-modal-fondo { padding:.4rem; }
-        .pedido-modal-ventana { width:min(1390px,100%); height:calc(100dvh - .8rem); max-height:calc(100dvh - .8rem); }
-        .pedido-modal-barra { padding:.25rem .75rem; min-height:37px; }
-        .pedido-modal-cerrar { height:30px; width:30px; font-size:1.35rem; }
-        .pedido-modal-ventana .panel-nuevo-pedido { flex:1 1 auto; min-height:0; }
-        .pedido-modal-ventana .modal-pedido { height:100%; max-height:100%; min-height:0; }
-        .pedido-modal-ventana .modal-pedido-header { padding:.3rem .75rem; min-height:48px; }
-        .pedido-modal-ventana .modal-pedido-header h4 { font-size:1.12rem; }
-        .pedido-modal-ventana .categorias-superiores button { min-width:90px; padding:.27rem .5rem; }
-        .pedido-modal-ventana .modal-pedido > .alert { margin:0; padding:.3rem .65rem!important; flex-shrink:0; font-size:.82rem; }
-        .pedido-modal-ventana .datos-cliente-superior {
-            display:flex; flex-direction:column; flex:0 0 auto; gap:.28rem; min-width:0;
-            padding:.4rem .8rem; background:#f5f6f8; border:0; border-bottom:1px solid #ddd;
-            overflow:visible;
+        .pedido-modal-fondo {
+            padding: .4rem;
         }
-        .pedido-modal-ventana .cliente-linea { display:flex; gap:.65rem; align-items:center; min-height:34px; }
-        .pedido-modal-ventana .cliente-linea > strong { white-space:nowrap; font-size:.87rem; }
-        .pedido-modal-ventana .buscador-cliente-contenedor { position:relative; flex:1 1 auto; min-width:120px; z-index:12; }
-        .pedido-modal-ventana .selector-tipo { margin:0; flex:0 0 auto; }
-        .pedido-modal-ventana .selector-tipo button { min-width:98px; min-height:30px; padding:.22rem .5rem; }
-        .pedido-modal-ventana .cliente-campos { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.45rem; }
-        .pedido-modal-ventana .dato-cliente { font-size:.73rem; gap:.12rem; }
-        .pedido-modal-ventana .dato-cliente input { min-height:30px; height:32px; }
-        .pedido-modal-ventana .selector-productos { display:grid; grid-template-columns:155px minmax(0,1fr) minmax(250px,.8fr); grid-template-rows:minmax(0,1fr); min-height:0; overflow:hidden; flex:1 1 auto; }
-        .pedido-modal-ventana .subcategorias { grid-column:1; grid-row:1; display:flex; flex-direction:column; overflow-y:hidden; min-width:0; border-right:1px solid #ddd; }
-        .pedido-modal-ventana .subcategorias button { flex:0 0 auto; width:100%; padding:.4rem; min-width:0; }
-        .pedido-modal-ventana .productos-modal { grid-column:2; grid-row:1; height:100%; max-height:none; min-height:0; overflow-y:auto; }
-        .pedido-modal-ventana .selector-resumen { grid-column:3; grid-row:1; display:flex; flex-direction:column; min-width:0; min-height:0; overflow:hidden; padding:.4rem; border-left:1px solid #ddd; }
-        .pedido-modal-ventana .resumen-carrito { flex:1 1 auto; min-height:0; max-height:none; height:auto; overflow-y:auto; margin:0; padding:.5rem; }
-        .pedido-modal-ventana .pago-inmediato { padding:.3rem .65rem; gap:.45rem; min-height:36px; flex-wrap:wrap; }
-        .pedido-modal-ventana .pago-inmediato-metodo { min-width:145px; max-width:260px; }
-        .pedido-modal-ventana .pago-inmediato small { font-size:.7rem; }
-        .pedido-modal-ventana .modal-pedido-footer { position:static; flex:0 0 auto; min-height:48px; padding:.35rem .65rem; gap:.35rem; }
-        .pedido-modal-ventana .pedido-datos-faltantes { padding:.2rem .45rem; font-size:.72rem; }
-        .pedido-modal-ventana .modal-pedido-footer button { padding:.36rem .65rem; }
-        .pedido-modal-ventana .producto-fila { padding:.32rem .5rem; }
-    }
-    .datos-cliente-superior { position:relative; border:0; min-width:0; }
-    .buscador-cliente-contenedor { position:relative; }
-    .clientes-coincidencias {
-        position:absolute; top:100%; left:0; right:0; z-index:30;
-        background:#fff; border:1px solid #cbd1d9; border-radius:8px;
-        box-shadow:0 8px 24px #0003; max-height:210px; overflow-y:auto;
-    }
-    .cliente-coincidencia { display:flex; justify-content:space-between; gap:.5rem; align-items:center;
-        width:100%; border:0; border-bottom:1px solid #eee; padding:.45rem .65rem; background:#fff; text-align:left; cursor:pointer; font-size:.82rem; }
-    .cliente-coincidencia:hover { background:#f1f6fc; }
-    .cliente-coincidencia span { color:#666; }
-    @@media (max-width:900px) {
-        .datos-cliente-superior { padding:.7rem; background:#f7f8fa; }
-        .cliente-linea { display:flex; flex-wrap:wrap; align-items:center; gap:.4rem; }
-        .buscador-cliente-contenedor { flex:1 1 100%; }
-        .cliente-campos { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem; margin-top:.5rem; }
-        .datos-cliente-superior .selector-tipo { margin:.1rem 0; }
-    }
-    @@media (max-width:520px) { .cliente-campos { grid-template-columns:1fr; } }
-    /* Ventana de medio monitor (WhatsApp al lado):
-       contenido compacto, menú siempre visible, carrito desplegable. */
-    .carrito-compacto-toggle { display:none; }
-    @@media (max-width: 900px) {
-        .pedido-modal-fondo { align-items:stretch; padding:.25rem; }
-        .pedido-modal-ventana { width:100%; height:calc(100dvh - .5rem); max-height:calc(100dvh - .5rem); border-radius:9px; }
-        .pedido-modal-barra { min-height:35px; padding:.2rem .6rem; font-size:.84rem; }
-        .pedido-modal-cerrar { width:30px; height:30px; font-size:1.35rem; }
-        .pedido-modal-ventana .panel-nuevo-pedido { flex:1 1 auto; min-height:0; overflow:hidden; }
-        .pedido-modal-ventana .modal-pedido {
-            display:flex; flex-direction:column; width:100%; height:100%; max-height:100%;
-            overflow:hidden; min-height:0; border:0; border-radius:0;
-        }
-        .pedido-modal-ventana .modal-pedido-header { flex:0 0 auto; min-height:0; padding:.28rem .45rem; }
-        .pedido-modal-ventana .modal-encabezado-contenido { display:flex; flex-direction:row; align-items:center; gap:.5rem; width:100%; }
-        .pedido-modal-ventana .modal-identificacion { display:none; }
-        .pedido-modal-ventana .categorias-superiores { display:flex; gap:.3rem; width:100%; flex-wrap:nowrap; margin:0; }
-        .pedido-modal-ventana .categorias-superiores button { flex:1 1 0; min-width:0; padding:.35rem .15rem; min-height:36px; font-size:.82rem; white-space:nowrap; }
-        .pedido-modal-ventana .datos-cliente-superior {
-            display:flex; flex:0 0 auto; flex-direction:column; gap:.3rem;
-            padding:.36rem .5rem; margin:0; background:#f5f6f8; overflow:visible; z-index:5;
-        }
-        .pedido-modal-ventana .cliente-linea { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.35rem; align-items:center; min-height:0; }
-        .pedido-modal-ventana .cliente-linea > strong { display:none; }
-        .pedido-modal-ventana .buscador-cliente-contenedor { grid-column:1; grid-row:1; min-width:0; }
-        .pedido-modal-ventana .buscador-cliente-contenedor input { height:32px; min-height:32px; width:100%; font-size:.8rem; }
-        .pedido-modal-ventana .selector-tipo { grid-column:2; grid-row:1; margin:0; display:flex; flex-wrap:nowrap; gap:.2rem; }
-        .pedido-modal-ventana .selector-tipo button { min-height:32px; min-width:0; padding:.2rem .4rem; font-size:.74rem; }
-        .pedido-modal-ventana .cliente-campos { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.25rem .4rem; margin:0; }
-        .pedido-modal-ventana .dato-cliente { font-size:.69rem; min-width:0; gap:.08rem; margin:0; line-height:1.1; }
-        .pedido-modal-ventana .dato-cliente input { width:100%; min-width:0; min-height:30px; height:30px; font-size:.82rem; padding:.25rem .4rem; }
-        .pedido-modal-ventana .selector-productos {
-            display:flex; flex:1 1 auto; flex-direction:column; min-height:0; overflow:hidden;
-            border:0; padding:0; margin:0;
-        }
-        .pedido-modal-ventana .selector-productos > * { min-height:0; }
-        .pedido-modal-ventana .subcategorias {
-            order:1; display:flex; flex:0 0 auto; flex-direction:row; flex-wrap:nowrap;
-            overflow-x:auto; overflow-y:hidden; gap:.25rem; padding:.25rem .4rem;
-            border-bottom:1px solid #ddd; border-right:0;
-        }
-        .pedido-modal-ventana .subcategorias button {
-            flex:0 0 auto; width:auto; min-width:0; padding:.35rem .65rem;
-            min-height:32px; white-space:nowrap; font-size:.78rem;
-        }
-        .pedido-modal-ventana .productos-modal {
-            order:2; display:block; flex:1 1 auto; min-height:110px; height:auto;
-            max-height:none; overflow-y:auto; overflow-x:hidden; margin:0; padding:0;
-        }
-        .pedido-modal-ventana .productos-buscador { position:sticky; top:0; z-index:2; padding:.3rem .45rem; background:white; }
-        .pedido-modal-ventana .productos-buscador input { min-height:33px; height:33px; font-size:.84rem; }
-        .pedido-modal-ventana .productos-titulo { padding:.3rem .5rem; }
-        .pedido-modal-ventana .producto-fila {
-            display:grid; grid-template-columns:minmax(0,1fr) auto auto;
-            align-items:center; gap:.35rem; padding:.38rem .45rem;
-        }
-        .pedido-modal-ventana .producto-fila > div:first-child { min-width:0; }
-        .pedido-modal-ventana .producto-fila .control-cantidad { grid-column:auto; justify-self:end; }
-        .pedido-modal-ventana .selector-resumen {
-            order:3; flex:0 0 auto; padding:0; overflow:visible; border:0;
-            margin:0; background:#fff;
-        }
-        .pedido-modal-ventana .carrito-compacto-toggle {
-            display:flex; align-items:center; justify-content:space-between; gap:.4rem;
-            width:100%; min-height:34px; padding:.32rem .65rem; font-size:.83rem;
-            font-weight:700; border:0; border-top:1px solid #d8dce1; border-bottom:1px solid #d8dce1;
-            background:#f1f4f7; color:#20262c;
-        }
-        .pedido-modal-ventana .selector-resumen.carrito-compacto-cerrado .resumen-carrito { display:none; }
-        .pedido-modal-ventana .resumen-carrito {
-            display:block; min-height:0; height:auto; max-height:min(24dvh,175px);
-            overflow-y:auto; padding:.4rem .65rem; margin:0; border:0; border-radius:0;
-        }
-        .pedido-modal-ventana .pago-inmediato {
-            flex:0 0 auto; display:flex; flex-flow:row wrap; align-items:center;
-            gap:.3rem .65rem; padding:.3rem .5rem; max-height:115px; overflow-y:auto;
-        }
-        .pedido-modal-ventana .pago-inmediato-opcion { font-size:.77rem; }
-        .pedido-modal-ventana .pago-inmediato-metodo { min-width:min(100%,165px); flex:1 1 145px; font-size:.74rem; }
-        .pedido-modal-ventana .pago-inmediato-metodo input,
-        .pedido-modal-ventana .pago-inmediato-metodo select { height:30px; min-height:30px; }
-        .pedido-modal-ventana .pago-inmediato small { font-size:.69rem; }
-        .pedido-modal-ventana .modal-pedido-footer {
-            position:static; flex:0 0 auto; display:flex; flex-wrap:wrap; gap:.3rem;
-            padding:.3rem .45rem; min-height:49px; background:white; z-index:3;
-        }
-        .pedido-modal-ventana .modal-pedido-footer > div { width:auto; margin-right:auto; font-size:.75rem; }
-        .pedido-modal-ventana .modal-pedido-footer > div strong { font-size:.97rem; }
-        .pedido-modal-ventana .modal-pedido-footer button { flex:0 1 auto; width:auto; min-height:35px; padding:.3rem .5rem; font-size:.8rem; }
-        .pedido-modal-ventana .modal-pedido-footer .btn-success { flex:1 1 190px; }
-        .pedido-modal-ventana .pedido-datos-faltantes { flex-basis:100%; margin:0; padding:.12rem .4rem; font-size:.72rem; }
-    }
-    @@media (max-width: 420px) {
-        .pedido-modal-ventana .cliente-linea { grid-template-columns:minmax(0,1fr); }
-        .pedido-modal-ventana .buscador-cliente-contenedor { grid-column:1; grid-row:1; }
-        .pedido-modal-ventana .selector-tipo { grid-column:1; grid-row:2; justify-content:stretch; }
-        .pedido-modal-ventana .selector-tipo button { flex:1 1 0; }
-        .pedido-modal-ventana .cliente-campos { grid-template-columns:repeat(2,minmax(0,1fr)); }
-        .pedido-modal-ventana .modal-pedido-footer .btn-success { flex-basis:100%; }
-    }
-    .delivery-vuelto-previsto { font-weight:800; color:#176a35; }
-    .delivery-cobro { margin:.6rem 0; border-radius:8px; padding:.65rem .75rem; display:grid; gap:.3rem; font-size:.88rem; }
-    .delivery-cobro-pagado { background:#eaf7ef; border:1px solid #c6e7d2; color:#14532d; }
-    .delivery-cobro-pendiente { background:#fff5dd; border:1px solid #efd89c; color:#694500; }
-    .delivery-cobro small { display:block; font-size:.77rem; }
-    .delivery-historial-cabecera { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; }
-    .delivery-historial-cabecera h4 { margin:0; }
-    .delivery-historial-resumen { display:flex; gap:1rem; flex-wrap:wrap; padding:.7rem 0; }
-    .delivery-historial-lista { display:grid; gap:.5rem; }
-    .delivery-historial-item { display:grid; grid-template-columns:100px 1fr auto auto; align-items:center; gap:.5rem; padding:.65rem; border:1px solid #e3e6eb; border-radius:8px; background:#fafafa; }
-    .delivery-historial-item small { grid-column:1/-1; color:#646b76; }
-    @@media(max-width:650px) { .delivery-historial-item { grid-template-columns:1fr 1fr; } }
 
-    .rendiciones-delivery { margin-top:1.2rem; padding:.85rem; border:1px solid #dde2e8; border-radius:10px; background:#f8fafc; }
-    .rendiciones-titulo { display:flex; justify-content:space-between; align-items:center; gap:.6rem; margin-bottom:.8rem; }
-    .rendiciones-titulo h3 { font-size:1.08rem; font-weight:800; margin:0; }
-    .rendiciones-titulo span { border-radius:99px; background:#24272c; color:white; padding:.2rem .65rem; }
-    .rendiciones-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,310px),1fr)); gap:.75rem; }
-    .rendicion-tarjeta { display:grid; gap:.5rem; padding:.8rem; border-radius:10px; background:white; border:1px solid #d7dee6; }
-    .rendicion-encabezado { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.4rem; }
-    .rendicion-encabezado span { color:#97600b; font-size:.74rem; font-weight:800; }
-    .rendicion-tarjeta > small { color:#616975; }
-    .rendicion-importes { display:grid; gap:.3rem; }
-    .rendicion-importes > div { display:flex; justify-content:space-between; gap:.5rem; flex-wrap:wrap; }
-    .rendicion-neto { border-top:1px solid #ddd; padding-top:.45rem; font-size:1.05rem; }
-    .rendicion-alerta { background:#fff4db; border-radius:8px; padding:.6rem; font-size:.83rem; margin:0; }
-    .rendicion-botones { display:flex; gap:.5rem; }
-    .rendicion-tarjeta .btn { min-height:36px; }
-    /* Categorías debajo del cliente; en ventanas estrechas Delivery usa solo
-       referencia + horario, y Take Away mantiene teléfono y horario en una fila. */
-    .pedido-modal-ventana .cliente-campos-secundarios {
-        display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.35rem; min-width:0;
-    }
-    .pedido-modal-ventana .cliente-campos-secundarios > * { min-width:0; }
-    .pedido-modal-ventana .categorias-superiores { flex:0 0 auto; }
-    @@media (max-width: 900px) {
-        .pedido-modal-ventana .modal-pedido-header { display:none; }
-        .pedido-modal-ventana > .panel-nuevo-pedido .modal-pedido > .categorias-superiores {
-            display:flex; flex-flow:row nowrap; width:100%; margin:0;
-            padding:.25rem .4rem; gap:.3rem; border-bottom:1px solid #ddd;
+        .pedido-modal-ventana {
+            width: min(1390px,100%);
+            height: calc(100dvh - .8rem);
+            max-height: calc(100dvh - .8rem);
         }
-        .pedido-modal-ventana > .panel-nuevo-pedido .modal-pedido > .categorias-superiores button {
-            flex:1 1 0; min-width:0; padding:.34rem .12rem; min-height:36px;
-            font-size:.8rem; white-space:nowrap;
+
+        .pedido-modal-barra {
+            padding: .25rem .75rem;
+            min-height: 37px;
         }
+
+        .pedido-modal-cerrar {
+            height: 30px;
+            width: 30px;
+            font-size: 1.35rem;
+        }
+
+        .pedido-modal-ventana .panel-nuevo-pedido {
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        .pedido-modal-ventana .modal-pedido {
+            height: 100%;
+            max-height: 100%;
+            min-height: 0;
+        }
+
+        .pedido-modal-ventana .modal-pedido-header {
+            padding: .3rem .75rem;
+            min-height: 48px;
+        }
+
+            .pedido-modal-ventana .modal-pedido-header h4 {
+                font-size: 1.12rem;
+            }
+
+        .pedido-modal-ventana .categorias-superiores button {
+            min-width: 90px;
+            padding: .27rem .5rem;
+        }
+
+        .pedido-modal-ventana .modal-pedido > .alert {
+            margin: 0;
+            padding: .3rem .65rem !important;
+            flex-shrink: 0;
+            font-size: .82rem;
+        }
+
+        .pedido-modal-ventana .datos-cliente-superior {
+            display: flex;
+            flex-direction: column;
+            flex: 0 0 auto;
+            gap: .28rem;
+            min-width: 0;
+            padding: .4rem .8rem;
+            background: #f5f6f8;
+            border: 0;
+            border-bottom: 1px solid #ddd;
+            overflow: visible;
+        }
+
+        .pedido-modal-ventana .cliente-linea {
+            display: flex;
+            gap: .65rem;
+            align-items: center;
+            min-height: 34px;
+        }
+
+            .pedido-modal-ventana .cliente-linea > strong {
+                white-space: nowrap;
+                font-size: .87rem;
+            }
+
+        .pedido-modal-ventana .buscador-cliente-contenedor {
+            position: relative;
+            flex: 1 1 auto;
+            min-width: 120px;
+            z-index: 12;
+        }
+
+        .pedido-modal-ventana .selector-tipo {
+            margin: 0;
+            flex: 0 0 auto;
+        }
+
+            .pedido-modal-ventana .selector-tipo button {
+                min-width: 98px;
+                min-height: 30px;
+                padding: .22rem .5rem;
+            }
+
         .pedido-modal-ventana .cliente-campos {
-            display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.35rem;
+            display: grid;
+            grid-template-columns: repeat(4,minmax(0,1fr));
+            gap: .45rem;
         }
-        .pedido-modal-ventana .cliente-campos-secundarios {
-            grid-template-columns:repeat(2,minmax(0,1fr)); gap:.25rem; align-items:end;
+
+        .pedido-modal-ventana .dato-cliente {
+            font-size: .73rem;
+            gap: .12rem;
+        }
+
+            .pedido-modal-ventana .dato-cliente input {
+                min-height: 30px;
+                height: 32px;
+            }
+
+        .pedido-modal-ventana .selector-productos {
+            display: grid;
+            grid-template-columns: 155px minmax(0,1fr) minmax(250px,.8fr);
+            grid-template-rows: minmax(0,1fr);
+            min-height: 0;
+            overflow: hidden;
+            flex: 1 1 auto;
+        }
+
+        .pedido-modal-ventana .subcategorias {
+            grid-column: 1;
+            grid-row: 1;
+            display: flex;
+            flex-direction: column;
+            overflow-y: hidden;
+            min-width: 0;
+            border-right: 1px solid #ddd;
+        }
+
+            .pedido-modal-ventana .subcategorias button {
+                flex: 0 0 auto;
+                width: 100%;
+                padding: .4rem;
+                min-width: 0;
+            }
+
+        .pedido-modal-ventana .productos-modal {
+            grid-column: 2;
+            grid-row: 1;
+            height: 100%;
+            max-height: none;
+            min-height: 0;
+            overflow-y: auto;
+        }
+
+        .pedido-modal-ventana .selector-resumen {
+            grid-column: 3;
+            grid-row: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            min-height: 0;
+            overflow: hidden;
+            padding: .4rem;
+            border-left: 1px solid #ddd;
+        }
+
+        .pedido-modal-ventana .resumen-carrito {
+            flex: 1 1 auto;
+            min-height: 0;
+            max-height: none;
+            height: auto;
+            overflow-y: auto;
+            margin: 0;
+            padding: .5rem;
+        }
+
+        .pedido-modal-ventana .pago-inmediato {
+            padding: .3rem .65rem;
+            gap: .45rem;
+            min-height: 36px;
+            flex-wrap: wrap;
+        }
+
+        .pedido-modal-ventana .pago-inmediato-metodo {
+            min-width: 145px;
+            max-width: 260px;
+        }
+
+        .pedido-modal-ventana .pago-inmediato small {
+            font-size: .7rem;
+        }
+
+        .pedido-modal-ventana .modal-pedido-footer {
+            position: static;
+            flex: 0 0 auto;
+            min-height: 48px;
+            padding: .35rem .65rem;
+            gap: .35rem;
+        }
+
+        .pedido-modal-ventana .pedido-datos-faltantes {
+            padding: .2rem .45rem;
+            font-size: .72rem;
+        }
+
+        .pedido-modal-ventana .modal-pedido-footer button {
+            padding: .36rem .65rem;
+        }
+
+        .pedido-modal-ventana .producto-fila {
+            padding: .32rem .5rem;
         }
     }
+
+    .datos-cliente-superior {
+        position: relative;
+        border: 0;
+        min-width: 0;
+    }
+
+    .buscador-cliente-contenedor {
+        position: relative;
+    }
+
+    .clientes-coincidencias {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        z-index: 30;
+        background: #fff;
+        border: 1px solid #cbd1d9;
+        border-radius: 8px;
+        box-shadow: 0 8px 24px #0003;
+        max-height: 210px;
+        overflow-y: auto;
+    }
+
+    .cliente-coincidencia {
+        display: flex;
+        justify-content: space-between;
+        gap: .5rem;
+        align-items: center;
+        width: 100%;
+        border: 0;
+        border-bottom: 1px solid #eee;
+        padding: .45rem .65rem;
+        background: #fff;
+        text-align: left;
+        cursor: pointer;
+        font-size: .82rem;
+    }
+
+        .cliente-coincidencia:hover {
+            background: #f1f6fc;
+        }
+
+        .cliente-coincidencia span {
+            color: #666;
+        }
+
+    @@media (max-width:900px) {
+        .datos-cliente-superior {
+            padding: .7rem;
+            background: #f7f8fa;
+        }
+
+        .cliente-linea {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: .4rem;
+        }
+
+        .buscador-cliente-contenedor {
+            flex: 1 1 100%;
+        }
+
+        .cliente-campos {
+            display: grid;
+            grid-template-columns: repeat(2,minmax(0,1fr));
+            gap: .5rem;
+            margin-top: .5rem;
+        }
+
+        .datos-cliente-superior .selector-tipo {
+            margin: .1rem 0;
+        }
+    }
+
+    @@media (max-width:520px) {
+        .cliente-campos {
+            grid-template-columns: 1fr;
+        }
+    }
+    /* Ventana de medio monitor (WhatsApp al lado):
+           contenido compacto, menú siempre visible, carrito desplegable. */
+    .carrito-compacto-toggle {
+        display: none;
+    }
+
+    @@media (max-width: 900px) {
+        .pedido-modal-fondo {
+            align-items: stretch;
+            padding: .25rem;
+        }
+
+        .pedido-modal-ventana {
+            width: 100%;
+            height: calc(100dvh - .5rem);
+            max-height: calc(100dvh - .5rem);
+            border-radius: 9px;
+        }
+
+        .pedido-modal-barra {
+            min-height: 35px;
+            padding: .2rem .6rem;
+            font-size: .84rem;
+        }
+
+        .pedido-modal-cerrar {
+            width: 30px;
+            height: 30px;
+            font-size: 1.35rem;
+        }
+
+        .pedido-modal-ventana .panel-nuevo-pedido {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .pedido-modal-ventana .modal-pedido {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            max-height: 100%;
+            overflow: hidden;
+            min-height: 0;
+            border: 0;
+            border-radius: 0;
+        }
+
+        .pedido-modal-ventana .modal-pedido-header {
+            flex: 0 0 auto;
+            min-height: 0;
+            padding: .28rem .45rem;
+        }
+
+        .pedido-modal-ventana .modal-encabezado-contenido {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: .5rem;
+            width: 100%;
+        }
+
+        .pedido-modal-ventana .modal-identificacion {
+            display: none;
+        }
+
+        .pedido-modal-ventana .categorias-superiores {
+            display: flex;
+            gap: .3rem;
+            width: 100%;
+            flex-wrap: nowrap;
+            margin: 0;
+        }
+
+            .pedido-modal-ventana .categorias-superiores button {
+                flex: 1 1 0;
+                min-width: 0;
+                padding: .35rem .15rem;
+                min-height: 36px;
+                font-size: .82rem;
+                white-space: nowrap;
+            }
+
+        .pedido-modal-ventana .datos-cliente-superior {
+            display: flex;
+            flex: 0 0 auto;
+            flex-direction: column;
+            gap: .3rem;
+            padding: .36rem .5rem;
+            margin: 0;
+            background: #f5f6f8;
+            overflow: visible;
+            z-index: 5;
+        }
+
+        .pedido-modal-ventana .cliente-linea {
+            display: grid;
+            grid-template-columns: minmax(0,1fr) auto;
+            gap: .35rem;
+            align-items: center;
+            min-height: 0;
+        }
+
+            .pedido-modal-ventana .cliente-linea > strong {
+                display: none;
+            }
+
+        .pedido-modal-ventana .buscador-cliente-contenedor {
+            grid-column: 1;
+            grid-row: 1;
+            min-width: 0;
+        }
+
+            .pedido-modal-ventana .buscador-cliente-contenedor input {
+                height: 32px;
+                min-height: 32px;
+                width: 100%;
+                font-size: .8rem;
+            }
+
+        .pedido-modal-ventana .selector-tipo {
+            grid-column: 2;
+            grid-row: 1;
+            margin: 0;
+            display: flex;
+            flex-wrap: nowrap;
+            gap: .2rem;
+        }
+
+            .pedido-modal-ventana .selector-tipo button {
+                min-height: 32px;
+                min-width: 0;
+                padding: .2rem .4rem;
+                font-size: .74rem;
+            }
+
+        .pedido-modal-ventana .cliente-campos {
+            display: grid;
+            grid-template-columns: repeat(2,minmax(0,1fr));
+            gap: .25rem .4rem;
+            margin: 0;
+        }
+
+        .pedido-modal-ventana .dato-cliente {
+            font-size: .69rem;
+            min-width: 0;
+            gap: .08rem;
+            margin: 0;
+            line-height: 1.1;
+        }
+
+            .pedido-modal-ventana .dato-cliente input {
+                width: 100%;
+                min-width: 0;
+                min-height: 30px;
+                height: 30px;
+                font-size: .82rem;
+                padding: .25rem .4rem;
+            }
+
+        .pedido-modal-ventana .selector-productos {
+            display: flex;
+            flex: 1 1 auto;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+            border: 0;
+            padding: 0;
+            margin: 0;
+        }
+
+            .pedido-modal-ventana .selector-productos > * {
+                min-height: 0;
+            }
+
+        .pedido-modal-ventana .subcategorias {
+            order: 1;
+            display: flex;
+            flex: 0 0 auto;
+            flex-direction: row;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            overflow-y: hidden;
+            gap: .25rem;
+            padding: .25rem .4rem;
+            border-bottom: 1px solid #ddd;
+            border-right: 0;
+        }
+
+            .pedido-modal-ventana .subcategorias button {
+                flex: 0 0 auto;
+                width: auto;
+                min-width: 0;
+                padding: .35rem .65rem;
+                min-height: 32px;
+                white-space: nowrap;
+                font-size: .78rem;
+            }
+
+        .pedido-modal-ventana .productos-modal {
+            order: 2;
+            display: block;
+            flex: 1 1 auto;
+            min-height: 110px;
+            height: auto;
+            max-height: none;
+            overflow-y: auto;
+            overflow-x: hidden;
+            margin: 0;
+            padding: 0;
+        }
+
+        .pedido-modal-ventana .productos-buscador {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            padding: .3rem .45rem;
+            background: white;
+        }
+
+            .pedido-modal-ventana .productos-buscador input {
+                min-height: 33px;
+                height: 33px;
+                font-size: .84rem;
+            }
+
+        .pedido-modal-ventana .productos-titulo {
+            padding: .3rem .5rem;
+        }
+
+        .pedido-modal-ventana .producto-fila {
+            display: grid;
+            grid-template-columns: minmax(0,1fr) auto auto;
+            align-items: center;
+            gap: .35rem;
+            padding: .38rem .45rem;
+        }
+
+            .pedido-modal-ventana .producto-fila > div:first-child {
+                min-width: 0;
+            }
+
+            .pedido-modal-ventana .producto-fila .control-cantidad {
+                grid-column: auto;
+                justify-self: end;
+            }
+
+        .pedido-modal-ventana .selector-resumen {
+            order: 3;
+            flex: 0 0 auto;
+            padding: 0;
+            overflow: visible;
+            border: 0;
+            margin: 0;
+            background: #fff;
+        }
+
+        .pedido-modal-ventana .carrito-compacto-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .4rem;
+            width: 100%;
+            min-height: 34px;
+            padding: .32rem .65rem;
+            font-size: .83rem;
+            font-weight: 700;
+            border: 0;
+            border-top: 1px solid #d8dce1;
+            border-bottom: 1px solid #d8dce1;
+            background: #f1f4f7;
+            color: #20262c;
+        }
+
+        .pedido-modal-ventana .selector-resumen.carrito-compacto-cerrado .resumen-carrito {
+            display: none;
+        }
+
+        .pedido-modal-ventana .resumen-carrito {
+            display: block;
+            min-height: 0;
+            height: auto;
+            max-height: min(24dvh,175px);
+            overflow-y: auto;
+            padding: .4rem .65rem;
+            margin: 0;
+            border: 0;
+            border-radius: 0;
+        }
+
+        .pedido-modal-ventana .pago-inmediato {
+            flex: 0 0 auto;
+            display: flex;
+            flex-flow: row wrap;
+            align-items: center;
+            gap: .3rem .65rem;
+            padding: .3rem .5rem;
+            max-height: 115px;
+            overflow-y: auto;
+        }
+
+        .pedido-modal-ventana .pago-inmediato-opcion {
+            font-size: .77rem;
+        }
+
+        .pedido-modal-ventana .pago-inmediato-metodo {
+            min-width: min(100%,165px);
+            flex: 1 1 145px;
+            font-size: .74rem;
+        }
+
+            .pedido-modal-ventana .pago-inmediato-metodo input,
+            .pedido-modal-ventana .pago-inmediato-metodo select {
+                height: 30px;
+                min-height: 30px;
+            }
+
+        .pedido-modal-ventana .pago-inmediato small {
+            font-size: .69rem;
+        }
+
+        .pedido-modal-ventana .modal-pedido-footer {
+            position: static;
+            flex: 0 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: .3rem;
+            padding: .3rem .45rem;
+            min-height: 49px;
+            background: white;
+            z-index: 3;
+        }
+
+            .pedido-modal-ventana .modal-pedido-footer > div {
+                width: auto;
+                margin-right: auto;
+                font-size: .75rem;
+            }
+
+                .pedido-modal-ventana .modal-pedido-footer > div strong {
+                    font-size: .97rem;
+                }
+
+            .pedido-modal-ventana .modal-pedido-footer button {
+                flex: 0 1 auto;
+                width: auto;
+                min-height: 35px;
+                padding: .3rem .5rem;
+                font-size: .8rem;
+            }
+
+            .pedido-modal-ventana .modal-pedido-footer .btn-success {
+                flex: 1 1 190px;
+            }
+
+        .pedido-modal-ventana .pedido-datos-faltantes {
+            flex-basis: 100%;
+            margin: 0;
+            padding: .12rem .4rem;
+            font-size: .72rem;
+        }
+    }
+
+    @@media (max-width: 420px) {
+        .pedido-modal-ventana .cliente-linea {
+            grid-template-columns: minmax(0,1fr);
+        }
+
+        .pedido-modal-ventana .buscador-cliente-contenedor {
+            grid-column: 1;
+            grid-row: 1;
+        }
+
+        .pedido-modal-ventana .selector-tipo {
+            grid-column: 1;
+            grid-row: 2;
+            justify-content: stretch;
+        }
+
+            .pedido-modal-ventana .selector-tipo button {
+                flex: 1 1 0;
+            }
+
+        .pedido-modal-ventana .cliente-campos {
+            grid-template-columns: repeat(2,minmax(0,1fr));
+        }
+
+        .pedido-modal-ventana .modal-pedido-footer .btn-success {
+            flex-basis: 100%;
+        }
+    }
+
+    .delivery-vuelto-previsto {
+        font-weight: 800;
+        color: #176a35;
+    }
+
+    .delivery-cobro {
+        margin: .6rem 0;
+        border-radius: 8px;
+        padding: .65rem .75rem;
+        display: grid;
+        gap: .3rem;
+        font-size: .88rem;
+    }
+
+    .delivery-cobro-pagado {
+        background: #eaf7ef;
+        border: 1px solid #c6e7d2;
+        color: #14532d;
+    }
+
+    .delivery-cobro-pendiente {
+        background: #fff5dd;
+        border: 1px solid #efd89c;
+        color: #694500;
+    }
+
+    .delivery-cobro small {
+        display: block;
+        font-size: .77rem;
+    }
+
+    .delivery-historial-cabecera {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+        .delivery-historial-cabecera h4 {
+            margin: 0;
+        }
+
+    .delivery-historial-resumen {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        padding: .7rem 0;
+    }
+
+    .delivery-historial-lista {
+        display: grid;
+        gap: .5rem;
+    }
+
+    .delivery-historial-item {
+        display: grid;
+        grid-template-columns: 100px 1fr auto auto;
+        align-items: center;
+        gap: .5rem;
+        padding: .65rem;
+        border: 1px solid #e3e6eb;
+        border-radius: 8px;
+        background: #fafafa;
+    }
+
+        .delivery-historial-item small {
+            grid-column: 1/-1;
+            color: #646b76;
+        }
+
+    @@media(max-width:650px) {
+        .delivery-historial-item {
+            grid-template-columns: 1fr 1fr;
+        }
+    }
+
+    .rendiciones-delivery {
+        margin-top: 1.2rem;
+        padding: .85rem;
+        border: 1px solid #dde2e8;
+        border-radius: 10px;
+        background: #f8fafc;
+    }
+
+    .rendiciones-titulo {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: .6rem;
+        margin-bottom: .8rem;
+    }
+
+        .rendiciones-titulo h3 {
+            font-size: 1.08rem;
+            font-weight: 800;
+            margin: 0;
+        }
+
+        .rendiciones-titulo span {
+            border-radius: 99px;
+            background: #24272c;
+            color: white;
+            padding: .2rem .65rem;
+        }
+
+    .rendiciones-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit,minmax(min(100%,310px),1fr));
+        gap: .75rem;
+    }
+
+    .rendicion-tarjeta {
+        display: grid;
+        gap: .5rem;
+        padding: .8rem;
+        border-radius: 10px;
+        background: white;
+        border: 1px solid #d7dee6;
+    }
+
+    .rendicion-encabezado {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: .4rem;
+    }
+
+        .rendicion-encabezado span {
+            color: #97600b;
+            font-size: .74rem;
+            font-weight: 800;
+        }
+
+    .rendicion-tarjeta > small {
+        color: #616975;
+    }
+
+    .rendicion-importes {
+        display: grid;
+        gap: .3rem;
+    }
+
+        .rendicion-importes > div {
+            display: flex;
+            justify-content: space-between;
+            gap: .5rem;
+            flex-wrap: wrap;
+        }
+
+    .rendicion-neto {
+        border-top: 1px solid #ddd;
+        padding-top: .45rem;
+        font-size: 1.05rem;
+    }
+
+    .rendicion-alerta {
+        background: #fff4db;
+        border-radius: 8px;
+        padding: .6rem;
+        font-size: .83rem;
+        margin: 0;
+    }
+
+    .rendicion-botones {
+        display: flex;
+        gap: .5rem;
+    }
+
+    .rendicion-tarjeta .btn {
+        min-height: 36px;
+    }
+    /* Categorías debajo del cliente; en ventanas estrechas Delivery usa solo
+           referencia + horario, y Take Away mantiene teléfono y horario en una fila. */
+    .pedido-modal-ventana .cliente-campos-secundarios {
+        display: grid;
+        grid-template-columns: repeat(2,minmax(0,1fr));
+        gap: .35rem;
+        min-width: 0;
+    }
+
+        .pedido-modal-ventana .cliente-campos-secundarios > * {
+            min-width: 0;
+        }
+
+    .pedido-modal-ventana .categorias-superiores {
+        flex: 0 0 auto;
+    }
+
+    @@media (max-width: 900px) {
+        .pedido-modal-ventana .modal-pedido-header {
+            display: none;
+        }
+
+        .pedido-modal-ventana > .panel-nuevo-pedido .modal-pedido > .categorias-superiores {
+            display: flex;
+            flex-flow: row nowrap;
+            width: 100%;
+            margin: 0;
+            padding: .25rem .4rem;
+            gap: .3rem;
+            border-bottom: 1px solid #ddd;
+        }
+
+            .pedido-modal-ventana > .panel-nuevo-pedido .modal-pedido > .categorias-superiores button {
+                flex: 1 1 0;
+                min-width: 0;
+                padding: .34rem .12rem;
+                min-height: 36px;
+                font-size: .8rem;
+                white-space: nowrap;
+            }
+
+        .pedido-modal-ventana .cliente-campos {
+            display: grid;
+            grid-template-columns: repeat(2,minmax(0,1fr));
+            gap: .35rem;
+        }
+
+        .pedido-modal-ventana .cliente-campos-secundarios {
+            grid-template-columns: repeat(2,minmax(0,1fr));
+            gap: .25rem;
+            align-items: end;
+        }
+    }
+
     @@media (max-width: 420px) {
         .pedido-modal-ventana .cliente-campos {
-            grid-template-columns:repeat(2,minmax(0,1fr));
+            grid-template-columns: repeat(2,minmax(0,1fr));
         }
+
         .pedido-modal-ventana .cliente-campos-secundarios {
-            grid-template-columns:repeat(2,minmax(0,1fr)); gap:.2rem;
+            grid-template-columns: repeat(2,minmax(0,1fr));
+            gap: .2rem;
         }
     }
+
     .cuenta-resumen-cobro {
-        display:grid; gap:.3rem; padding:.6rem .7rem; margin:.55rem 0;
-        border:1px solid #dedede; border-radius:8px; background:#fff; font-size:.85rem;
+        display: grid;
+        gap: .3rem;
+        padding: .6rem .7rem;
+        margin: .55rem 0;
+        border: 1px solid #dedede;
+        border-radius: 8px;
+        background: #fff;
+        font-size: .85rem;
     }
-    .cuenta-cobro-fila { display:flex; justify-content:space-between; align-items:baseline; gap:.4rem; flex-wrap:wrap; }
-    .cuenta-cobro-fila > strong { white-space:nowrap; }
-    .cuenta-cobro-total { border-bottom:1px solid #e5e5e5; padding-bottom:.3rem; font-size:.94rem; }
-    .cuenta-cobro-estado { padding:.28rem .4rem; border-radius:5px; font-weight:700; font-size:.78rem; }
-    .cuenta-cobro-pagado { background:#e6f6eb; color:#196334; }
-    .cuenta-cobro-pendiente { background:#fff3db; color:#815100; }
-    .cuenta-cobro-vuelto { color:#176334; font-weight:800; }
+
+    .cuenta-cobro-fila {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: .4rem;
+        flex-wrap: wrap;
+    }
+
+        .cuenta-cobro-fila > strong {
+            white-space: nowrap;
+        }
+
+    .cuenta-cobro-total {
+        border-bottom: 1px solid #e5e5e5;
+        padding-bottom: .3rem;
+        font-size: .94rem;
+    }
+
+    .cuenta-cobro-estado {
+        padding: .28rem .4rem;
+        border-radius: 5px;
+        font-weight: 700;
+        font-size: .78rem;
+    }
+
+    .cuenta-cobro-pagado {
+        background: #e6f6eb;
+        color: #196334;
+    }
+
+    .cuenta-cobro-pendiente {
+        background: #fff3db;
+        color: #815100;
+    }
+
+    .cuenta-cobro-vuelto {
+        color: #176334;
+        font-weight: 800;
+    }
     /* Seguimiento por pestañas en media pantalla, sin alterar los pedidos. */
-    .pestanas-tipo-pedidos { display:flex; gap:.4rem; width:100%; margin:.1rem 0 .65rem; }
-    .pestana-tipo-pedido { flex:1 1 0; min-width:0; font-size:clamp(.75rem, 1.4vw, .95rem); display:flex; align-items:center; justify-content:center; gap:.5rem; min-height:40px; padding:.4rem .65rem; border:1px solid #cfd4db; border-radius:8px; background:#fff; color:#222; font-weight:800; }
-    .pestana-tipo-pedido.pestana-tipo-activa { background:#222; color:#fff; border-color:#222; }
-    .pestana-tipo-pedido span { flex-shrink:0; display:inline-flex; justify-content:center; align-items:center; min-width:24px; padding:.12rem .4rem; border-radius:20px; background:#e6e6e6; color:#222; font-size:.78rem; }
-    .pestana-tipo-pedido.pestana-tipo-activa span { background:#fff; }
-    .seguimiento-dos-columnas { display:block; }
+    .pestanas-tipo-pedidos {
+        display: flex;
+        gap: .4rem;
+        width: 100%;
+        margin: .1rem 0 .65rem;
+    }
+
+    .pestana-tipo-pedido {
+        flex: 1 1 0;
+        min-width: 0;
+        font-size: clamp(.75rem, 1.4vw, .95rem);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: .5rem;
+        min-height: 40px;
+        padding: .4rem .65rem;
+        border: 1px solid #cfd4db;
+        border-radius: 8px;
+        background: #fff;
+        color: #222;
+        font-weight: 800;
+    }
+
+        .pestana-tipo-pedido.pestana-tipo-activa {
+            background: #222;
+            color: #fff;
+            border-color: #222;
+        }
+
+        .pestana-tipo-pedido span {
+            flex-shrink: 0;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            min-width: 24px;
+            padding: .12rem .4rem;
+            border-radius: 20px;
+            background: #e6e6e6;
+            color: #222;
+            font-size: .78rem;
+        }
+
+        .pestana-tipo-pedido.pestana-tipo-activa span {
+            background: #fff;
+        }
+
+    .seguimiento-dos-columnas {
+        display: block;
+    }
+
     @@media(max-width:900px) {
-        .pestanas-tipo-pedidos { gap:.3rem; margin:.1rem 0 .5rem; }
-        .seguimiento-columna { padding:.6rem; }
-        .seguimiento-columna .grilla-cuentas { grid-template-columns:minmax(0,1fr); }
-        .seguimiento-columna .cuenta-card { width:100%; max-width:none; }
+        .pestanas-tipo-pedidos {
+            gap: .3rem;
+            margin: .1rem 0 .5rem;
+        }
+
+        .seguimiento-columna {
+            padding: .6rem;
+        }
+
+            .seguimiento-columna .grilla-cuentas {
+                grid-template-columns: minmax(0,1fr);
+            }
+
+            .seguimiento-columna .cuenta-card {
+                width: 100%;
+                max-width: none;
+            }
     }
 </style>
 
@@ -2278,6 +3585,7 @@
     private static int OrdenCategoria(string categoria)
     {
         var nombre = categoria.ToLowerInvariant();
+        if (nombre.Contains("promo")) return 5;
         if (nombre.Contains("comida")) return 1;
         if (nombre.Contains("bebida")) return 2;
         if (nombre.Contains("postre")) return 3;
@@ -2339,11 +3647,11 @@
 
         try
         {
-        await CargarRolActual();
-        await CargarUsuarioActual();
-        await CargarProductos();
-        ReiniciarFormularioPedido();
-        await CargarSeguimiento();
+            await CargarRolActual();
+            await CargarUsuarioActual();
+            await CargarProductos();
+            ReiniciarFormularioPedido();
+            await CargarSeguimiento();
         }
         catch (System.Net.Http.HttpRequestException) { sinConexion = true; }
         finally { Polling.Iniciar(CargarSeguimiento, TimeSpan.FromSeconds(4)); }
@@ -2386,7 +3694,7 @@
         if (!esSoloDelivery)
         {
             var respuestaTakeAway = await http.Get<List<PedidoParaLlevarDTO>>($"api/Pedido/ParaLlevar/{EnumTipoServicio.TakeAway}");
-        if (respuestaTakeAway.Error) throw new System.Net.Http.HttpRequestException("No se pudo actualizar la información.");
+            if (respuestaTakeAway.Error) throw new System.Net.Http.HttpRequestException("No se pudo actualizar la información.");
             if (!respuestaTakeAway.Error && respuestaTakeAway.Respuesta != null)
             {
                 takeAways = respuestaTakeAway.Respuesta;
@@ -2689,24 +3997,24 @@
         enviandoPedido = true;
         try
         {
-        var dto = new ConfirmarPedidoSinMesaDTO
-        {
-            IdUsuario = idUsuarioActual.Value,
-            TipoServicio = tipoNuevoPedido,
-            NombreCliente = tipoNuevoPedido == EnumTipoServicio.Delivery && !idClienteExistente.HasValue
-                ? ("Referencia: " + direccionCliente.Trim())[..Math.Min(("Referencia: " + direccionCliente.Trim()).Length, 100)]
-                : nombreCliente.Trim(),
-            IdClienteExistente = idClienteExistente,
-            Telefono = tipoNuevoPedido == EnumTipoServicio.Delivery || string.IsNullOrWhiteSpace(telefonoCliente)
-                ? null : telefonoCliente.Trim(),
-            Direccion = tipoNuevoPedido == EnumTipoServicio.Delivery ? direccionCliente.Trim() : null,
-            HoraDeseada = ConvertirHoraDeseada(horaDeseadaTexto),
-            CobrarAhora = cobrarAhora,
-            EfectivoPrevistoDelivery = tipoNuevoPedido == EnumTipoServicio.Delivery && !cobrarAhora && efectivoAlRecibirDelivery &&
-                TryLeerImporte(efectivoPrevistoTexto, out var previsto) ? previsto : null,
-            LineasPago = cobrarAhora
-                ? new List<LineaPagoDTO>
-                  {
+            var dto = new ConfirmarPedidoSinMesaDTO
+            {
+                IdUsuario = idUsuarioActual.Value,
+                TipoServicio = tipoNuevoPedido,
+                NombreCliente = tipoNuevoPedido == EnumTipoServicio.Delivery && !idClienteExistente.HasValue
+                    ? ("Referencia: " + direccionCliente.Trim())[..Math.Min(("Referencia: " + direccionCliente.Trim()).Length, 100)]
+                    : nombreCliente.Trim(),
+                IdClienteExistente = idClienteExistente,
+                Telefono = tipoNuevoPedido == EnumTipoServicio.Delivery || string.IsNullOrWhiteSpace(telefonoCliente)
+                    ? null : telefonoCliente.Trim(),
+                Direccion = tipoNuevoPedido == EnumTipoServicio.Delivery ? direccionCliente.Trim() : null,
+                HoraDeseada = ConvertirHoraDeseada(horaDeseadaTexto),
+                CobrarAhora = cobrarAhora,
+                EfectivoPrevistoDelivery = tipoNuevoPedido == EnumTipoServicio.Delivery && !cobrarAhora && efectivoAlRecibirDelivery &&
+                    TryLeerImporte(efectivoPrevistoTexto, out var previsto) ? previsto : null,
+                LineasPago = cobrarAhora
+                    ? new List<LineaPagoDTO>
+                      {
                       new LineaPagoDTO
                       {
                           TipoPago = tipoPagoInmediato,
@@ -2714,26 +4022,26 @@
                                   TryLeerImporte(efectivoEntregadoTexto, out var importeRecibido)
                               ? importeRecibido : TotalCarrito
                       }
-                  }
-                : new List<LineaPagoDTO>(),
-            Items = carrito
-        };
+                      }
+                    : new List<LineaPagoDTO>(),
+                Items = carrito
+            };
 
-        var respuesta = await http.Post<ConfirmarPedidoSinMesaDTO, ComandaConfirmadaDTO>("api/Comanda/ConfirmarSinMesa", dto);
-        enviandoPedido = false;
+            var respuesta = await http.Post<ConfirmarPedidoSinMesaDTO, ComandaConfirmadaDTO>("api/Comanda/ConfirmarSinMesa", dto);
+            enviandoPedido = false;
 
-        if (respuesta.Error)
-        {
-            MensajeForm = respuesta.ObtenerError();
-            return;
-        }
+            if (respuesta.Error)
+            {
+                MensajeForm = respuesta.ObtenerError();
+                return;
+            }
 
-        var numeroGenerado = respuesta.Respuesta!.NumeroComanda;
-        var fueCobrado = cobrarAhora;
-        ReiniciarFormularioPedido();
-        MensajeForm = fueCobrado ? $"Pedido {numeroGenerado} enviado y cobrado." : $"Pedido {numeroGenerado} enviado.";
-        mostrarFormularioNuevoPedido = false;
-        await CargarSeguimiento();
+            var numeroGenerado = respuesta.Respuesta!.NumeroComanda;
+            var fueCobrado = cobrarAhora;
+            ReiniciarFormularioPedido();
+            MensajeForm = fueCobrado ? $"Pedido {numeroGenerado} enviado y cobrado." : $"Pedido {numeroGenerado} enviado.";
+            mostrarFormularioNuevoPedido = false;
+            await CargarSeguimiento();
         }
         catch (System.Net.Http.HttpRequestException) { MensajeForm = "No se pudo confirmar el envío. Revisá el seguimiento antes de volver a enviar."; }
         finally { enviandoPedido = false; }
@@ -2809,240 +4117,240 @@
     }
 
     private int? cambiandoTipoId;
-private string nuevaDireccionCambio = "";
-private string nuevoNombreCambio = "";
+    private string nuevaDireccionCambio = "";
+    private string nuevoNombreCambio = "";
 
-// Solo antes de que el repartidor lo tome (después ya no tiene sentido cambiarlo).
-private bool PuedeCambiarTipo(PedidoParaLlevarDTO cuenta) =>
-    !esSoloDelivery &&
-    cuenta.EstadoComanda != EnumEstadoComanda.Cancelada &&
-    !cuenta.IdDelivery.HasValue &&
-    !cuenta.Pedidos.Any(p => p.Estado == EnumEstadoPedido.EnCamino || p.Estado == EnumEstadoPedido.Entregado);
+    // Solo antes de que el repartidor lo tome (después ya no tiene sentido cambiarlo).
+    private bool PuedeCambiarTipo(PedidoParaLlevarDTO cuenta) =>
+        !esSoloDelivery &&
+        cuenta.EstadoComanda != EnumEstadoComanda.Cancelada &&
+        !cuenta.IdDelivery.HasValue &&
+        !cuenta.Pedidos.Any(p => p.Estado == EnumEstadoPedido.EnCamino || p.Estado == EnumEstadoPedido.Entregado);
 
-private bool CambioTipoIncompleto(PedidoParaLlevarDTO cuenta) =>
-    cuenta.TipoServicio == EnumTipoServicio.TakeAway
-        ? string.IsNullOrWhiteSpace(nuevaDireccionCambio)
-        : string.IsNullOrWhiteSpace(nuevoNombreCambio);
+    private bool CambioTipoIncompleto(PedidoParaLlevarDTO cuenta) =>
+        cuenta.TipoServicio == EnumTipoServicio.TakeAway
+            ? string.IsNullOrWhiteSpace(nuevaDireccionCambio)
+            : string.IsNullOrWhiteSpace(nuevoNombreCambio);
 
-private void AbrirCambioTipo(PedidoParaLlevarDTO cuenta)
-{
-    cambiandoTipoId = cuenta.IdComanda;
-    nuevaDireccionCambio = cuenta.Direccion ?? "";
-    nuevoNombreCambio = cuenta.NombreCliente.StartsWith("Referencia:") ? "" : cuenta.NombreCliente;
-}
-
-private void CerrarCambioTipo()
-{
-    cambiandoTipoId = null;
-    nuevaDireccionCambio = "";
-    nuevoNombreCambio = "";
-}
-
-private async Task ConfirmarCambioTipo(PedidoParaLlevarDTO cuenta)
-{
-    var nuevoTipo = cuenta.TipoServicio == EnumTipoServicio.TakeAway
-        ? EnumTipoServicio.Delivery
-        : EnumTipoServicio.TakeAway;
-
-    var dto = new CambiarTipoServicioDTO
+    private void AbrirCambioTipo(PedidoParaLlevarDTO cuenta)
     {
-        NuevoTipo = nuevoTipo,
-        Direccion = nuevoTipo == EnumTipoServicio.Delivery ? nuevaDireccionCambio : null,
-        NombreCliente = nuevoTipo == EnumTipoServicio.TakeAway ? nuevoNombreCambio : null
-    };
-
-    var respuesta = await http.Put($"api/Comanda/{cuenta.IdComanda}/CambiarTipo", dto);
-    if (respuesta.Error)
-    {
-        MensajeForm = respuesta.ObtenerError();
-        return;
+        cambiandoTipoId = cuenta.IdComanda;
+        nuevaDireccionCambio = cuenta.Direccion ?? "";
+        nuevoNombreCambio = cuenta.NombreCliente.StartsWith("Referencia:") ? "" : cuenta.NombreCliente;
     }
 
-    MensajeForm = null;
-    CerrarCambioTipo();
-    await CargarSeguimiento();
-}
-
-//Cancelar pedido con motivo
-private int? cancelandoPedidoId;
-private string motivoCancelacionPedido = "";
-
-private bool PuedeEditarPedido(PedidoParaLlevarDTO cuenta) => PuedeCambiarTipo(cuenta) && cuenta.Pedidos.Any();
-private bool PuedeCancelarPedido(PedidoParaLlevarDTO cuenta) => PuedeCambiarTipo(cuenta) && cuenta.Pedidos.Any();
-
-private void AbrirCancelarPedido(PedidoParaLlevarDTO cuenta)
-{
-    cancelandoPedidoId = cuenta.IdComanda;
-    motivoCancelacionPedido = "";
-}
-
-private void CerrarCancelarPedido()
-{
-    cancelandoPedidoId = null;
-    motivoCancelacionPedido = "";
-}
-
-private async Task ConfirmarCancelarPedido(PedidoParaLlevarDTO cuenta)
-{
-    var respuesta = await http.Put<CancelarPedidoDTO, decimal>(
-        $"api/Comanda/{cuenta.IdComanda}/CancelarPedido",
-        new CancelarPedidoDTO { Motivo = motivoCancelacionPedido });
-
-    if (respuesta.Error)
+    private void CerrarCambioTipo()
     {
-        MensajeForm = respuesta.ObtenerError();
-        return;
+        cambiandoTipoId = null;
+        nuevaDireccionCambio = "";
+        nuevoNombreCambio = "";
     }
 
-    var aDevolver = respuesta.Respuesta;
-    MensajeForm = aDevolver > 0
-        ? $"Listo: pedido {cuenta.NumeroComanda} cancelado. Hay ${aDevolver:N2} para devolver al cliente, se registra en Caja."
-        : $"Listo: pedido {cuenta.NumeroComanda} cancelado.";
-    CerrarCancelarPedido();
-    await CargarSeguimiento();
-}
-
-//Editar productos de un pedido de Take Away / Delivery 
-private PedidoParaLlevarDTO? cuentaEditando;
-private bool EditandoPedido => cuentaEditando != null;
-private EnumTipoDescuento tipoDescuentoEdicion = EnumTipoDescuento.Ninguno;
-private decimal valorDescuentoEdicion;
-private string efectivoPrevistoEdicionTexto = "";
-
-// Los productos que ya estaban conservan su precio original; los nuevos se cobran al precio vigente.
-private decimal PrecioEnEdicion(int idProducto) =>
-    cuentaEditando?.Items.FirstOrDefault(i => i.IdProducto == idProducto)?.PrecioUnitario
-    ?? productos.FirstOrDefault(p => p.Id == idProducto)?.Precio
-    ?? 0m;
-
-private decimal SubtotalEdicion => carrito.Sum(i => PrecioEnEdicion(i.IdProducto) * i.Cantidad);
-private bool EdicionConDescuento => cuentaEditando != null && cuentaEditando.Descuento > 0;
-
-private decimal DescuentoEdicion => !EdicionConDescuento ? 0
-    : CalculoDescuento.Calcular(SubtotalEdicion, tipoDescuentoEdicion, valorDescuentoEdicion, out _);
-
-private string? ErrorDescuentoEdicion
-{
-    get
+    private async Task ConfirmarCambioTipo(PedidoParaLlevarDTO cuenta)
     {
-        if (!EdicionConDescuento) return null;
-        CalculoDescuento.Calcular(SubtotalEdicion, tipoDescuentoEdicion, valorDescuentoEdicion, out var error);
-        return error;
-    }
-}
+        var nuevoTipo = cuenta.TipoServicio == EnumTipoServicio.TakeAway
+            ? EnumTipoServicio.Delivery
+            : EnumTipoServicio.TakeAway;
 
-private decimal TotalEdicion => SubtotalEdicion - DescuentoEdicion;
-private decimal TotalAntesEdicion => cuentaEditando == null ? 0 : cuentaEditando.TotalPedido - cuentaEditando.Descuento;
-
-// Si ya había un cobro es positivo = falta cobrar, pero si es negativo = hay que devolver.
-private decimal DiferenciaEdicion =>
-    cuentaEditando == null || cuentaEditando.YaPagado <= 0 ? 0 : TotalEdicion - cuentaEditando.YaPagado;
-
-private bool EdicionPideEfectivoPrevisto =>
-    cuentaEditando != null &&
-    cuentaEditando.TipoServicio == EnumTipoServicio.Delivery &&
-    cuentaEditando.YaPagado <= 0 &&
-    cuentaEditando.EfectivoPrevistoDelivery.HasValue;
-
-private bool EfectivoPrevistoEdicionValido =>
-    !EdicionPideEfectivoPrevisto ||
-    (TryLeerImporte(efectivoPrevistoEdicionTexto, out var efectivo) && efectivo >= TotalEdicion);
-
-private bool EdicionListaParaGuardar =>
-    carrito.Any() && ErrorDescuentoEdicion == null && EfectivoPrevistoEdicionValido;
-
-private decimal TotalMostrado => EditandoPedido ? TotalEdicion : TotalCarrito;
-
-private void AbrirEdicionComanda(PedidoParaLlevarDTO cuenta)
-{
-    cuentaEditando = cuenta;
-    carrito = cuenta.Items
-        .GroupBy(i => (i.IdProducto, Obs: (i.Observacion ?? "").Trim()))
-        .Select(g => new ItemPedidoDTO
+        var dto = new CambiarTipoServicioDTO
         {
-            IdProducto = g.Key.IdProducto,
-            Cantidad = g.Sum(i => i.Cantidad),
-            Observacion = string.IsNullOrWhiteSpace(g.Key.Obs) ? null : g.Key.Obs
-        })
-        .ToList();
+            NuevoTipo = nuevoTipo,
+            Direccion = nuevoTipo == EnumTipoServicio.Delivery ? nuevaDireccionCambio : null,
+            NombreCliente = nuevoTipo == EnumTipoServicio.TakeAway ? nuevoNombreCambio : null
+        };
 
-    if (cuenta.Descuento > 0)
-    {
-        tipoDescuentoEdicion = cuenta.DescuentoPorcentaje.HasValue ? EnumTipoDescuento.Porcentaje : EnumTipoDescuento.MontoFijo;
-        valorDescuentoEdicion = cuenta.DescuentoPorcentaje ?? cuenta.Descuento;
-    }
-    else
-    {
-        tipoDescuentoEdicion = EnumTipoDescuento.Ninguno;
-        valorDescuentoEdicion = 0;
-    }
+        var respuesta = await http.Put($"api/Comanda/{cuenta.IdComanda}/CambiarTipo", dto);
+        if (respuesta.Error)
+        {
+            MensajeForm = respuesta.ObtenerError();
+            return;
+        }
 
-    efectivoPrevistoEdicionTexto = cuenta.EfectivoPrevistoDelivery.HasValue
-        ? cuenta.EfectivoPrevistoDelivery.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)
-        : "";
-
-    busquedaProducto = "";
-    MensajeForm = null;
-    mostrarFormularioNuevoPedido = true;
-}
-
-private void SalirDeEdicionComanda()
-{
-    cuentaEditando = null;
-    carrito = new List<ItemPedidoDTO>();
-    tipoDescuentoEdicion = EnumTipoDescuento.Ninguno;
-    valorDescuentoEdicion = 0;
-    efectivoPrevistoEdicionTexto = "";
-    mostrarFormularioNuevoPedido = false;
-}
-
-private void CerrarFormularioPedido()
-{
-    if (enviandoPedido) return;
-    if (EditandoPedido) SalirDeEdicionComanda();
-    else mostrarFormularioNuevoPedido = false;
-}
-
-private async Task GuardarEdicionComanda()
-{
-    if (cuentaEditando == null || enviandoPedido || !EdicionListaParaGuardar) return;
-
-    var cuenta = cuentaEditando;
-    enviandoPedido = true;
-
-    var dto = new EditarComandaItemsDTO
-    {
-        Items = carrito
-            .Select(i => new ItemPedidoDTO { IdProducto = i.IdProducto, Cantidad = i.Cantidad, Observacion = i.Observacion })
-            .ToList(),
-        TipoDescuento = EdicionConDescuento ? tipoDescuentoEdicion : EnumTipoDescuento.Ninguno,
-        ValorDescuento = EdicionConDescuento ? valorDescuentoEdicion : 0,
-        EfectivoPrevistoDelivery = EdicionPideEfectivoPrevisto && TryLeerImporte(efectivoPrevistoEdicionTexto, out var efectivo)
-            ? efectivo
-            : (decimal?)null
-    };
-
-    var respuesta = await http.Put<EditarComandaItemsDTO, ResultadoEdicionComandaDTO>(
-        $"api/Pedido/Comanda/{cuenta.IdComanda}/EditarItems", dto);
-    enviandoPedido = false;
-
-    if (respuesta.Error || respuesta.Respuesta == null)
-    {
-        MensajeForm = respuesta.ObtenerError();
-        return;
+        MensajeForm = null;
+        CerrarCambioTipo();
+        await CargarSeguimiento();
     }
 
-    var resultado = respuesta.Respuesta;
-    var aviso = resultado.DevolucionPendiente > 0
-        ? $" Hay ${resultado.DevolucionPendiente:N2} para devolver al cliente: se registra en Caja."
-        : resultado.SaldoACobrar > 0
-            ? $" Falta cobrar ${resultado.SaldoACobrar:N2} en Caja."
+    //Cancelar pedido con motivo
+    private int? cancelandoPedidoId;
+    private string motivoCancelacionPedido = "";
+
+    private bool PuedeEditarPedido(PedidoParaLlevarDTO cuenta) => PuedeCambiarTipo(cuenta) && cuenta.Pedidos.Any();
+    private bool PuedeCancelarPedido(PedidoParaLlevarDTO cuenta) => PuedeCambiarTipo(cuenta) && cuenta.Pedidos.Any();
+
+    private void AbrirCancelarPedido(PedidoParaLlevarDTO cuenta)
+    {
+        cancelandoPedidoId = cuenta.IdComanda;
+        motivoCancelacionPedido = "";
+    }
+
+    private void CerrarCancelarPedido()
+    {
+        cancelandoPedidoId = null;
+        motivoCancelacionPedido = "";
+    }
+
+    private async Task ConfirmarCancelarPedido(PedidoParaLlevarDTO cuenta)
+    {
+        var respuesta = await http.Put<CancelarPedidoDTO, decimal>(
+            $"api/Comanda/{cuenta.IdComanda}/CancelarPedido",
+            new CancelarPedidoDTO { Motivo = motivoCancelacionPedido });
+
+        if (respuesta.Error)
+        {
+            MensajeForm = respuesta.ObtenerError();
+            return;
+        }
+
+        var aDevolver = respuesta.Respuesta;
+        MensajeForm = aDevolver > 0
+            ? $"Listo: pedido {cuenta.NumeroComanda} cancelado. Hay ${aDevolver:N2} para devolver al cliente, se registra en Caja."
+            : $"Listo: pedido {cuenta.NumeroComanda} cancelado.";
+        CerrarCancelarPedido();
+        await CargarSeguimiento();
+    }
+
+    //Editar productos de un pedido de Take Away / Delivery
+    private PedidoParaLlevarDTO? cuentaEditando;
+    private bool EditandoPedido => cuentaEditando != null;
+    private EnumTipoDescuento tipoDescuentoEdicion = EnumTipoDescuento.Ninguno;
+    private decimal valorDescuentoEdicion;
+    private string efectivoPrevistoEdicionTexto = "";
+
+    // Los productos que ya estaban conservan su precio original; los nuevos se cobran al precio vigente.
+    private decimal PrecioEnEdicion(int idProducto) =>
+        cuentaEditando?.Items.FirstOrDefault(i => i.IdProducto == idProducto)?.PrecioUnitario
+        ?? productos.FirstOrDefault(p => p.Id == idProducto)?.Precio
+        ?? 0m;
+
+    private decimal SubtotalEdicion => carrito.Sum(i => PrecioEnEdicion(i.IdProducto) * i.Cantidad);
+    private bool EdicionConDescuento => cuentaEditando != null && cuentaEditando.Descuento > 0;
+
+    private decimal DescuentoEdicion => !EdicionConDescuento ? 0
+        : CalculoDescuento.Calcular(SubtotalEdicion, tipoDescuentoEdicion, valorDescuentoEdicion, out _);
+
+    private string? ErrorDescuentoEdicion
+    {
+        get
+        {
+            if (!EdicionConDescuento) return null;
+            CalculoDescuento.Calcular(SubtotalEdicion, tipoDescuentoEdicion, valorDescuentoEdicion, out var error);
+            return error;
+        }
+    }
+
+    private decimal TotalEdicion => SubtotalEdicion - DescuentoEdicion;
+    private decimal TotalAntesEdicion => cuentaEditando == null ? 0 : cuentaEditando.TotalPedido - cuentaEditando.Descuento;
+
+    // Si ya había un cobro es positivo = falta cobrar, pero si es negativo = hay que devolver.
+    private decimal DiferenciaEdicion =>
+        cuentaEditando == null || cuentaEditando.YaPagado <= 0 ? 0 : TotalEdicion - cuentaEditando.YaPagado;
+
+    private bool EdicionPideEfectivoPrevisto =>
+        cuentaEditando != null &&
+        cuentaEditando.TipoServicio == EnumTipoServicio.Delivery &&
+        cuentaEditando.YaPagado <= 0 &&
+        cuentaEditando.EfectivoPrevistoDelivery.HasValue;
+
+    private bool EfectivoPrevistoEdicionValido =>
+        !EdicionPideEfectivoPrevisto ||
+        (TryLeerImporte(efectivoPrevistoEdicionTexto, out var efectivo) && efectivo >= TotalEdicion);
+
+    private bool EdicionListaParaGuardar =>
+        carrito.Any() && ErrorDescuentoEdicion == null && EfectivoPrevistoEdicionValido;
+
+    private decimal TotalMostrado => EditandoPedido ? TotalEdicion : TotalCarrito;
+
+    private void AbrirEdicionComanda(PedidoParaLlevarDTO cuenta)
+    {
+        cuentaEditando = cuenta;
+        carrito = cuenta.Items
+            .GroupBy(i => (i.IdProducto, Obs: (i.Observacion ?? "").Trim()))
+            .Select(g => new ItemPedidoDTO
+            {
+                IdProducto = g.Key.IdProducto,
+                Cantidad = g.Sum(i => i.Cantidad),
+                Observacion = string.IsNullOrWhiteSpace(g.Key.Obs) ? null : g.Key.Obs
+            })
+            .ToList();
+
+        if (cuenta.Descuento > 0)
+        {
+            tipoDescuentoEdicion = cuenta.DescuentoPorcentaje.HasValue ? EnumTipoDescuento.Porcentaje : EnumTipoDescuento.MontoFijo;
+            valorDescuentoEdicion = cuenta.DescuentoPorcentaje ?? cuenta.Descuento;
+        }
+        else
+        {
+            tipoDescuentoEdicion = EnumTipoDescuento.Ninguno;
+            valorDescuentoEdicion = 0;
+        }
+
+        efectivoPrevistoEdicionTexto = cuenta.EfectivoPrevistoDelivery.HasValue
+            ? cuenta.EfectivoPrevistoDelivery.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)
             : "";
 
-    SalirDeEdicionComanda();
-    MensajeForm = $"Listo: pedido {cuenta.NumeroComanda} actualizado.{aviso}";
-    await CargarSeguimiento();
-}
+        busquedaProducto = "";
+        MensajeForm = null;
+        mostrarFormularioNuevoPedido = true;
+    }
+
+    private void SalirDeEdicionComanda()
+    {
+        cuentaEditando = null;
+        carrito = new List<ItemPedidoDTO>();
+        tipoDescuentoEdicion = EnumTipoDescuento.Ninguno;
+        valorDescuentoEdicion = 0;
+        efectivoPrevistoEdicionTexto = "";
+        mostrarFormularioNuevoPedido = false;
+    }
+
+    private void CerrarFormularioPedido()
+    {
+        if (enviandoPedido) return;
+        if (EditandoPedido) SalirDeEdicionComanda();
+        else mostrarFormularioNuevoPedido = false;
+    }
+
+    private async Task GuardarEdicionComanda()
+    {
+        if (cuentaEditando == null || enviandoPedido || !EdicionListaParaGuardar) return;
+
+        var cuenta = cuentaEditando;
+        enviandoPedido = true;
+
+        var dto = new EditarComandaItemsDTO
+        {
+            Items = carrito
+                .Select(i => new ItemPedidoDTO { IdProducto = i.IdProducto, Cantidad = i.Cantidad, Observacion = i.Observacion })
+                .ToList(),
+            TipoDescuento = EdicionConDescuento ? tipoDescuentoEdicion : EnumTipoDescuento.Ninguno,
+            ValorDescuento = EdicionConDescuento ? valorDescuentoEdicion : 0,
+            EfectivoPrevistoDelivery = EdicionPideEfectivoPrevisto && TryLeerImporte(efectivoPrevistoEdicionTexto, out var efectivo)
+                ? efectivo
+                : (decimal?)null
+        };
+
+        var respuesta = await http.Put<EditarComandaItemsDTO, ResultadoEdicionComandaDTO>(
+            $"api/Pedido/Comanda/{cuenta.IdComanda}/EditarItems", dto);
+        enviandoPedido = false;
+
+        if (respuesta.Error || respuesta.Respuesta == null)
+        {
+            MensajeForm = respuesta.ObtenerError();
+            return;
+        }
+
+        var resultado = respuesta.Respuesta;
+        var aviso = resultado.DevolucionPendiente > 0
+            ? $" Hay ${resultado.DevolucionPendiente:N2} para devolver al cliente: se registra en Caja."
+            : resultado.SaldoACobrar > 0
+                ? $" Falta cobrar ${resultado.SaldoACobrar:N2} en Caja."
+                : "";
+
+        SalirDeEdicionComanda();
+        MensajeForm = $"Listo: pedido {cuenta.NumeroComanda} actualizado.{aviso}";
+        await CargarSeguimiento();
+    }
 
     private async Task ConfirmarRendicion(PedidoParaLlevarDTO cuenta)
     {
