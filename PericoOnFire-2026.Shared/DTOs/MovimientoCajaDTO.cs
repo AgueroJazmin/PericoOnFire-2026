@@ -17,6 +17,6 @@ namespace PericoOnFire_2026.Shared.DTOs
 
         //Apertura e ingreso suman al cajón; egreso y retiro restan.
         public bool EsEntrada => TipoMovimiento == EnumTipoMovCaja.Apertura || TipoMovimiento == EnumTipoMovCaja.Ingreso;
-        public bool EsSalida => TipoMovimiento == EnumTipoMovCaja.Egreso || TipoMovimiento == EnumTipoMovCaja.Retiro;
+        public bool EsSalida => TipoMovimiento == EnumTipoMovCaja.Egreso || TipoMovimiento == EnumTipoMovCaja.Retiro || TipoMovimiento == EnumTipoMovCaja.DevolucionSinEfectivo;
     }
 }

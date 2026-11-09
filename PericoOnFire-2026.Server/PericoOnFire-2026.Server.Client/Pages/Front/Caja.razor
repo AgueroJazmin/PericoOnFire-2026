@@ -119,6 +119,35 @@
     {
         <div class="caja-layout">
             <section class="lista-cuentas">
+                @if (devoluciones.Any())
+                {
+                    <h4>Devoluciones pendientes</h4>
+
+                    @foreach (var devolucion in devoluciones)
+                    {
+                        <div class="cuenta-card">
+                            <div class="cuenta-card-titulo">
+                                @devolucion.TipoServicio
+                                <span class="cuenta-card-numero">· @devolucion.NumeroComanda</span>
+                            </div>
+                            <div class="cuenta-card-info">@(devolucion.NombreCliente ?? "—") · @devolucion.Motivo</div>
+                            <div class="cuenta-card-total">Devolver $@devolucion.Monto.ToString("0.00")</div>
+                            <select class="form-select form-select-sm mt-1" @bind="mediosDevolucion[devolucion.IdComanda]">
+                                <option value="@EnumTipoPago.Efectivo">Efectivo</option>
+                                <option value="@EnumTipoPago.Transferencia">Transferencia</option>
+                                <option value="@EnumTipoPago.Debito">Débito</option>
+                                <option value="@EnumTipoPago.Credito">Crédito</option>
+                                <option value="@EnumTipoPago.MercadoPago">Mercado Pago</option>
+                                <option value="@EnumTipoPago.QR">QR</option>
+                            </select>
+                            <button class="btn btn-sm btn-primary w-100 mt-1" disabled="@procesandoDevolucion"
+                                    @onclick="() => RegistrarDevolucion(devolucion)">
+                                Registrar devolución
+                            </button>
+                        </div>
+                    }
+                }
+
                 <h4>Cuentas pendientes de cobro</h4>
 
                 @if (!cuentas.Any())
@@ -137,7 +166,7 @@
                         <div class="cuenta-card-info">
                             @(cuenta.NombreMozo ?? "—") · hace @((int)(DateTime.UtcNow - cuenta.FechaApertura).TotalMinutes) min
                         </div>
-                        <div class="cuenta-card-total">$@cuenta.Total.ToString("0.00")</div>
+                        <div class="cuenta-card-total">$@cuenta.SaldoACobrar.ToString("0.00")</div>
                     </button>
                 }
             </section>
@@ -194,7 +223,15 @@
                             Total a cobrar: <strong>$@TotalACobrar.ToString("0.00")</strong>
                         </div>
 
-                        <div class="descuento-cuenta" style="margin:.5rem 0;max-width:320px">
+                        @if (CuentaConCobroPrevio)
+                        {
+                            <div class="descuento-cuenta" style="margin:.5rem 0;max-width:320px">
+                                <small>Ya pagado: $@cuentaSeleccionada.YaPagado.ToString("0.00")@(cuentaSeleccionada.Descuento > 0 ? $" · descuento aplicado: ${cuentaSeleccionada.Descuento:0.00}" : ""). Se cobra solo el saldo.</small>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="descuento-cuenta" style="margin:.5rem 0;max-width:320px">
                             <label>
                                 Descuento
                                 <select class="form-select form-select-sm" @bind="tipoDescuento" @bind:after="AlCambiarDescuento">
@@ -217,6 +254,7 @@
                                 <small class="text-danger d-block">@ErrorDescuento</small>
                             }
                         </div>
+                        }
 
                         @if (!CajaAbierta)
                         {
@@ -742,24 +780,70 @@
 
     private bool CajaAbierta => estado?.Abierta == true;
 
-    // ---- Descuento (porcentaje o monto fijo) aplicado al cobrar ----
+    //Descuento (porcentaje o monto fijo) aplicado al cobrar (pongo los dos por las dudas jiji)
     private EnumTipoDescuento tipoDescuento = EnumTipoDescuento.Ninguno;
     private decimal valorDescuento;
 
+    // Si el pedido ya tenía un cobro (se editó después de pagarlo), se cobra solo el saldo y el
+    // descuento es el que quedó guardado al editarlo, así que no se puede cambiar desde acá.
+    private bool CuentaConCobroPrevio => cuentaSeleccionada != null && cuentaSeleccionada.YaPagado > 0;
+
     private decimal DescuentoCalculado => cuentaSeleccionada == null ? 0
+        : CuentaConCobroPrevio ? cuentaSeleccionada.Descuento
         : CalculoDescuento.Calcular(cuentaSeleccionada.Total, tipoDescuento, valorDescuento, out _);
 
     private string? ErrorDescuento
     {
         get
         {
-            if (cuentaSeleccionada == null) return null;
+            if (cuentaSeleccionada == null || CuentaConCobroPrevio) return null;
             CalculoDescuento.Calcular(cuentaSeleccionada.Total, tipoDescuento, valorDescuento, out var error);
             return error;
         }
     }
 
-    private decimal TotalACobrar => cuentaSeleccionada == null ? 0 : cuentaSeleccionada.Total - DescuentoCalculado;
+    private decimal TotalACobrar => cuentaSeleccionada == null ? 0
+        : cuentaSeleccionada.Total - DescuentoCalculado - cuentaSeleccionada.YaPagado;
+
+    //Devoluciones pendientes, es lo de pedidos pagados que se modificaron o cancelaron
+    private List<DevolucionPendienteDTO> devoluciones = new();
+    private Dictionary<int, EnumTipoPago> mediosDevolucion = new();
+    private bool procesandoDevolucion;
+
+    private async Task CargarDevoluciones()
+    {
+        var respuesta = await http.Get<List<DevolucionPendienteDTO>>("api/Pago/DevolucionesPendientes");
+        if (!respuesta.Error && respuesta.Respuesta != null)
+        {
+            devoluciones = respuesta.Respuesta;
+            foreach (var devolucion in devoluciones)
+                mediosDevolucion.TryAdd(devolucion.IdComanda, EnumTipoPago.Efectivo);
+
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task RegistrarDevolucion(DevolucionPendienteDTO devolucion)
+    {
+        if (procesandoDevolucion) return;
+        procesandoDevolucion = true;
+        Mensaje = null;
+
+        var dto = new RegistrarDevolucionDTO
+        {
+            IdComanda = devolucion.IdComanda,
+            TipoPago = mediosDevolucion.GetValueOrDefault(devolucion.IdComanda, EnumTipoPago.Efectivo)
+        };
+
+        var respuesta = await http.Post("api/Pago/Devolucion", dto);
+        procesandoDevolucion = false;
+
+        Mensaje = respuesta.Error
+            ? respuesta.ObtenerError()
+            : $"Devolución de ${devolucion.Monto:0.00} registrada ({dto.TipoPago}).";
+
+        await Refrescar();
+    }
 
     private void AlCambiarDescuento()
     {
@@ -793,6 +877,7 @@
     {
         await CargarEstado();
         await CargarCuentas();
+        await CargarDevoluciones();
     }
 
     private async Task CargarUsuarioActual()
@@ -827,7 +912,7 @@
         {
             cuentas = respuesta.Respuesta;
 
-            // Si la cuenta que tenía abierta ya no está pendiente (por ej. se cobró
+            // Si la cuenta que tenía abierta ya no está pendiente (por ejemplo se cobró
             // desde otra caja), la saco del panel para no dejar un formulario colgado.
             if (cuentaSeleccionada != null && !cuentas.Any(c => c.Id == cuentaSeleccionada.Id))
             {
@@ -848,7 +933,7 @@
 
     private static string Dinero(decimal monto) => $"${monto:0.00}";
 
-    // ---- Apertura de caja ----
+    //Apertura de caja
 
     private async Task AbrirCaja()
     {
@@ -871,7 +956,7 @@
         await Refrescar();
     }
 
-    // ---- Cobro ----
+    // Esto es lo de Cobro 
 
     private void SeleccionarCuenta(ComandaPendienteCobroDTO cuenta)
     {
@@ -882,7 +967,7 @@
         lineasEditadas.Clear();
         lineasPago = new List<LineaPagoDTO>
         {
-            new LineaPagoDTO { TipoPago = EnumTipoPago.Efectivo, Monto = cuenta.Total }
+            new LineaPagoDTO { TipoPago = EnumTipoPago.Efectivo, Monto = cuenta.SaldoACobrar }
         };
 
         tipoDescuento = EnumTipoDescuento.Ninguno;

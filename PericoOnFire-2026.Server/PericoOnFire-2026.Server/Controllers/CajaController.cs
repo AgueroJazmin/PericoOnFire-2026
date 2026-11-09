@@ -11,8 +11,8 @@ using PericoOnFire_2026.Shared.Utilidades;
 
 namespace PericoOnFire_2026.Server.Controllers
 {
-    //Todo lo de caja que no es cobrar una cuenta (eso sigue en PagoController): estado de la caja,
-    //apertura y cierre de turno con su arqueo, movimientos de dinero, ventas y estadísticas.
+    //Todo lo de caja que no es cobrar una cuenta eso sigue en PagoController, aca es el estado de la caja,
+    //como su apertura y cierre de turno con su arqueo, movimientos de dinero, ventas y estadísticas.
     //Los errores de negocio devuelven Conflict con un mensaje, porque el cliente solo muestra el
     //texto del server en ese caso.
     [ApiController]
@@ -282,7 +282,7 @@ namespace PericoOnFire_2026.Server.Controllers
             });
         }
 
-        //Ventas cobradas entre dos fechas (días locales de Argentina, ambos incluidos).
+        //Ventas cobradas entre dos fechas
         //Sin fechas devuelve las de hoy. Con todo=true devuelve todas las ventas hasta hoy.
         [HttpGet("Ventas")]
         public async Task<ActionResult<List<VentaCajaDTO>>> GetVentas([FromQuery] DateTime? desde, [FromQuery] DateTime? hasta, [FromQuery] bool todo = false)
@@ -372,8 +372,6 @@ namespace PericoOnFire_2026.Server.Controllers
 
             return Ok(resumen);
         }
-
-        // ---- internos ----
 
         private async Task<Usuario?> ObtenerUsuarioActualAsync()
         {
@@ -488,7 +486,8 @@ namespace PericoOnFire_2026.Server.Controllers
                     FechaApertura = p.Comanda.FechaApertura,
                     NumeroMesa = p.Comanda.Mesa != null ? (int?)p.Comanda.Mesa.NumeroMesa : null,
                     Descuento = p.Comanda.Descuento,
-                    DescuentoPorcentaje = p.Comanda.DescuentoPorcentaje
+                    DescuentoPorcentaje = p.Comanda.DescuentoPorcentaje,
+                    MontoDevuelto = p.Comanda.MontoDevuelto
                 })
                 .ToListAsync();
 
@@ -507,6 +506,7 @@ namespace PericoOnFire_2026.Server.Controllers
                     FechaPago = g.Max(f => f.FechaPago),
                     Vuelto = g.Sum(f => f.Vuelto),
                     Descuento = g.First().Descuento,
+                    Devuelto = g.First().MontoDevuelto,
                     DescuentoPorcentaje = g.First().DescuentoPorcentaje,
                     Total = g.Sum(f => f.MontoPagado - f.Vuelto),
                     NombreCajero = g.First().NombreCajero,

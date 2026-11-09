@@ -577,6 +577,63 @@ namespace PericoOnFire_2026.Server.Controllers
             });
         }
 
+        // Cancela un pedido de Take Away o Delivery que ya tiene productos, en cualquier estado salvo cuando
+        // ya salió a reparto o fue entregado. El motivo queda guardado en la comanda y en cada pedido. Si el
+        // cliente ya había pagado, la plata a devolver queda pendiente para que Caja la registre como egreso.
+        [Authorize(Roles = "Administracion,Barra")]
+        [HttpPut("{id:int}/CancelarPedido")]
+        public async Task<ActionResult<decimal>> CancelarPedido(int id, CancelarPedidoDTO dto)
+        {
+            var motivo = dto.Motivo?.Trim();
+            if (string.IsNullOrWhiteSpace(motivo))
+                return BadRequest("El motivo de la cancelación es obligatorio.");
+            if (motivo.Length > 300)
+                return BadRequest("El motivo no puede superar los 300 caracteres.");
+
+            return await OperacionAtomica.EjecutarAsync<ActionResult<decimal>>(context, async () =>
+            {
+                var comanda = await context.Comandas
+                    .Include(c => c.Pagos)
+                    .Include(c => c.Pedidos)
+                    .FirstOrDefaultAsync(c => c.Id == id);
+
+                if (comanda == null) return NotFound();
+                if (comanda.TipoServicio != EnumTipoServicio.TakeAway && comanda.TipoServicio != EnumTipoServicio.Delivery)
+                    return Conflict("Solo se pueden cancelar de esta forma los pedidos de Take Away o Delivery.");
+                if (comanda.Estado == EnumEstadoComanda.Cancelada)
+                    return Conflict("Este pedido ya está cancelado.");
+
+                var activos = comanda.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado).ToList();
+                if (!activos.Any())
+                    return Conflict("Este pedido no tiene productos. Usá \"Eliminar comanda vacía\".");
+                if (activos.Any(p => p.IdDelivery.HasValue ||
+                                     p.Estado == EnumEstadoPedido.EnCamino ||
+                                     p.Estado == EnumEstadoPedido.Entregado))
+                    return Conflict("El pedido ya salió a reparto o fue entregado, ya no se puede cancelar.");
+
+                var ahora = DateTime.UtcNow;
+                foreach (var pedido in activos)
+                {
+                    pedido.Estado = EnumEstadoPedido.Cancelado;
+                    pedido.MotivoCancelacion = motivo;
+                    pedido.FechaCancelado = ahora;
+                }
+
+                comanda.Estado = EnumEstadoComanda.Cancelada;
+                comanda.MotivoCancelacion = motivo;
+                comanda.FechaCancelacion = ahora;
+                comanda.FechaCierre = ahora;
+
+                var recibido = comanda.Pagos
+                    .Where(p => p.EstadoRegistro == EnumEstadoRegistro.activo)
+                    .Sum(p => p.MontoPagado - p.Vuelto) - comanda.MontoDevuelto;
+                comanda.DevolucionPendiente = recibido > 0.005m ? recibido : 0;
+
+                await context.SaveChangesAsync();
+                return Ok(comanda.DevolucionPendiente);
+            });
+        }
+
         // Reparación puntual de datos de prueba: la mesa 94 fue retirada, pero
         // conservó la comanda 89 y su pedido 117 abiertos. No afecta la mesa 93.
         // Archiva en lugar de borrar físicamente para preservar integridad referencial.

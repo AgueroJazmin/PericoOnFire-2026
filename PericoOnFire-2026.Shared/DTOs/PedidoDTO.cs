@@ -23,6 +23,10 @@ namespace PericoOnFire_2026.Shared.DTOs
         public DateTime? FechaCancelado { get; set; }
         public DateTime? HoraDeseada { get; set; }
         public int NumeroDiario { get; set; }
+
+        // true si este pedido se agregó después de la carga original de la comanda.
+        // Esto es para mostrarlo como Nuevo en la vista de la comanda.
+        public bool EsAdicional { get; set; }
         public string NumeroComanda => $"COM-{NumeroDiario:D3}";
 
         //Le agrego estas dos propiedades para que el front pueda mostrar el nombre del cliente

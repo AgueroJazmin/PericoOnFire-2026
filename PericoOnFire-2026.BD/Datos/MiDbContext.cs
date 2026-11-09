@@ -72,6 +72,14 @@ namespace PericoOnFire_2026.BD.Datos
                 .Property(c => c.DescuentoPorcentaje)
                 .HasPrecision(5, 2);
 
+            modelBuilder.Entity<Comanda>()
+                .Property(c => c.MontoDevuelto)
+                .HasPrecision(18, 2);
+
+            modelBuilder.Entity<Comanda>()
+                .Property(c => c.DevolucionPendiente)
+                .HasPrecision(18, 2);
+
             modelBuilder.Entity<Pago>()
                 .Property(p => p.MontoTotal)
                 .HasPrecision(18, 2);

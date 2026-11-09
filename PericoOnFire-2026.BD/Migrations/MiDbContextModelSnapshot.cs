@@ -310,6 +310,10 @@ namespace PericoOnFire_2026.BD.Migrations
                         .HasPrecision(5, 2)
                         .HasColumnType("numeric(5,2)");
 
+                    b.Property<decimal>("DevolucionPendiente")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
                     b.Property<int>("Estado")
                         .HasColumnType("integer");
 
@@ -317,6 +321,9 @@ namespace PericoOnFire_2026.BD.Migrations
                         .HasColumnType("integer");
 
                     b.Property<DateTime>("FechaApertura")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FechaCancelacion")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime?>("FechaCierre")
@@ -333,6 +340,13 @@ namespace PericoOnFire_2026.BD.Migrations
 
                     b.Property<int?>("IdUsuario")
                         .HasColumnType("integer");
+
+                    b.Property<decimal>("MontoDevuelto")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("MotivoCancelacion")
+                        .HasColumnType("text");
 
                     b.Property<string>("Observaciones")
                         .HasMaxLength(300)
@@ -476,6 +490,9 @@ namespace PericoOnFire_2026.BD.Migrations
                     b.Property<DateTime>("FechaMovimiento")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int?>("IdComanda")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("IdTurnoCaja")
                         .HasColumnType("integer");
 
@@ -563,6 +580,9 @@ namespace PericoOnFire_2026.BD.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("EsAdicional")
+                        .HasColumnType("boolean");
 
                     b.Property<int>("Estado")
                         .HasColumnType("integer");

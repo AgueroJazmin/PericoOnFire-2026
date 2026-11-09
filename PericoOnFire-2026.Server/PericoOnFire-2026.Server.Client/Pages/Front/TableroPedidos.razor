@@ -100,6 +100,18 @@
 </Confirmacion>
 
 <style>
+    .badge-nuevo {
+        display: inline-block;
+        margin-left: .35rem;
+        padding: .1rem .5rem;
+        border-radius: 6px;
+        background: #e53935;
+        color: #fff;
+        font-size: .8rem;
+        font-weight: 800;
+        letter-spacing: .3px;
+    }
+
     .columnas {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
@@ -434,6 +446,10 @@
                 @(!string.IsNullOrWhiteSpace(pedido.NombreCliente) ? $"Take Away · {pedido.NombreCliente}" : "Take Away")
             }
             <span class="pedido-comanda">· @pedido.NumeroComanda</span>
+            @if (pedido.EsAdicional)
+            {
+                <span class="badge-nuevo">NUEVO</span>
+            }
         </div>
         @if (pedido.TipoServicio == EnumTipoServicio.Delivery && !string.IsNullOrWhiteSpace(pedido.NombreCliente))
         {

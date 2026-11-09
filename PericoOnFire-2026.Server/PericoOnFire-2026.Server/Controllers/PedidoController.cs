@@ -209,6 +209,11 @@ namespace PericoOnFire_2026.Server.Controllers
                         ? null : EfectivoPrevistoDelivery.Leer(c.Observaciones),
                     TotalPedido = pedidosActivos.SelectMany(p => p.DetallesPedido)
                         .Sum(d => d.Cantidad * d.PrecioUnitario),
+                    Descuento = c.Descuento,
+                    DescuentoPorcentaje = c.DescuentoPorcentaje,
+                    YaPagado = c.Pagos.Where(pg => pg.EstadoRegistro == EnumEstadoRegistro.activo)
+                        .Sum(pg => pg.MontoPagado - pg.Vuelto) - c.MontoDevuelto,
+                    DevolucionPendiente = c.DevolucionPendiente,
                     EstaPagado = c.Estado == EnumEstadoComanda.Pagada,
                     MediosPago = c.Estado == EnumEstadoComanda.Pagada
                         ? string.Join(", ", c.Pagos.Select(p => p.TipoPago.ToString()).Distinct()) : "",
@@ -217,13 +222,15 @@ namespace PericoOnFire_2026.Server.Controllers
                     VueltoRegistrado = c.Estado == EnumEstadoComanda.Pagada && c.Pagos.Any(p => p.TipoPago == EnumTipoPago.Efectivo)
                         ? c.Pagos.Where(p => p.TipoPago == EnumTipoPago.Efectivo).Sum(p => p.Vuelto) : null,
                     Items = pedidosActivos
-                        .SelectMany(p => p.DetallesPedido)
-                        .Select(d => new ItemCuentaDTO
+                        .SelectMany(p => p.DetallesPedido.Select(d => new ItemCuentaDTO
                         {
+                            IdProducto = d.IdProducto,
                             NombreProducto = d.Producto.Nombre,
                             Cantidad = d.Cantidad,
-                            PrecioUnitario = d.PrecioUnitario
-                        }).ToList(),
+                            PrecioUnitario = d.PrecioUnitario,
+                            Observacion = d.Observacion,
+                            EsNuevo = p.EsAdicional
+                        })).ToList(),
                     Pedidos = pedidosActivos
                         .Select(p => new PedidoSectorEstadoDTO
                         {
@@ -531,8 +538,13 @@ namespace PericoOnFire_2026.Server.Controllers
                     var destino = pedidos.FirstOrDefault(p => p.SectorDestino == grupo.Key);
                     if (destino == null)
                     {
-                        destino = new Pedido { IdComanda = idComanda, SectorDestino = grupo.Key,
-                            EstadoRegistro = EnumEstadoRegistro.activo, FechaPedido = DateTime.UtcNow };
+                        destino = new Pedido
+                        {
+                            IdComanda = idComanda,
+                            SectorDestino = grupo.Key,
+                            EstadoRegistro = EnumEstadoRegistro.activo,
+                            FechaPedido = DateTime.UtcNow
+                        };
                         context.Pedidos.Add(destino);
                     }
                     destino.Estado = EnumEstadoPedido.Pendiente;
@@ -544,14 +556,235 @@ namespace PericoOnFire_2026.Server.Controllers
                     {
                         var producto = productos.First(p => p.Id == item.IdProducto);
                         var precio = originales.FirstOrDefault(d => d.IdProducto == item.IdProducto)?.PrecioUnitario ?? producto.Precio;
-                        context.DetallesPedido.Add(new DetallePedido { Pedido = destino,
-                            IdProducto = item.IdProducto, Cantidad = item.Cantidad,
-                            PrecioUnitario = precio, Observacion = item.Observacion,
-                            EstadoRegistro = EnumEstadoRegistro.activo });
+                        context.DetallesPedido.Add(new DetallePedido
+                        {
+                            Pedido = destino,
+                            IdProducto = item.IdProducto,
+                            Cantidad = item.Cantidad,
+                            PrecioUnitario = precio,
+                            Observacion = item.Observacion,
+                            EstadoRegistro = EnumEstadoRegistro.activo
+                        });
                     }
                 }
                 await context.SaveChangesAsync();
                 return Ok();
+            });
+        }
+
+        // Edita los productos de un pedido de Take Away o Delivery en cualquier estado, salvo cuando ya salió
+        // a reparto o fue entregado. Lo que se quita sale de los pedidos originales, lo que se agrega (o el
+        // aumento de cantidad de un producto) se carga como pedidos nuevos marcados como adicionales para que
+        // Cocina y Barra lo vean aparte como Nuevo. Si el pedido ya tenía un cobro, la diferencia queda
+        // para cobrar en Caja que queda como "vuelve a PendienteCobro" o para devolver "DevolucionPendiente.
+        [HttpPut("Comanda/{idComanda:int}/EditarItems")]
+        [Authorize(Roles = "Administracion,Barra")]
+        public async Task<ActionResult<ResultadoEdicionComandaDTO>> EditarItems(int idComanda, EditarComandaItemsDTO dto)
+        {
+            if (dto.Items == null || dto.Items.Count == 0)
+                return BadRequest("El pedido debe conservar al menos un producto.");
+            if (dto.Items.Any(i => i.Cantidad < 1 || i.Cantidad > 999 || (i.Observacion?.Length ?? 0) > 300))
+                return BadRequest("Revisá las cantidades y observaciones.");
+
+            return await OperacionAtomica.EjecutarAsync<ActionResult<ResultadoEdicionComandaDTO>>(context, async () =>
+            {
+                var comanda = await context.Comandas
+                    .Include(c => c.Pagos)
+                    .Include(c => c.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado))
+                        .ThenInclude(p => p.DetallesPedido)
+                    .FirstOrDefaultAsync(c => c.Id == idComanda);
+
+                if (comanda == null) return NotFound();
+                if (comanda.TipoServicio != EnumTipoServicio.TakeAway && comanda.TipoServicio != EnumTipoServicio.Delivery)
+                    return Conflict("Solo se pueden editar pedidos de Take Away o Delivery.");
+                if (comanda.Estado == EnumEstadoComanda.Cancelada)
+                    return Conflict("No se puede editar un pedido cancelado.");
+
+                var pedidos = comanda.Pedidos.Where(p => p.Estado != EnumEstadoPedido.Cancelado).ToList();
+                if (pedidos.Any(p => p.IdDelivery.HasValue ||
+                                     p.Estado == EnumEstadoPedido.EnCamino ||
+                                     p.Estado == EnumEstadoPedido.Entregado))
+                    return Conflict("El pedido ya salió a reparto o fue entregado, ya no se puede editar.");
+
+                static (int, string) Clave(int idProducto, string? observacion) =>
+                    (idProducto, (observacion ?? "").Trim());
+
+                var detalles = pedidos.SelectMany(p => p.DetallesPedido).ToList();
+                var deseado = dto.Items
+                    .GroupBy(i => Clave(i.IdProducto, i.Observacion))
+                    .ToDictionary(g => g.Key, g => g.Sum(i => i.Cantidad));
+                if (deseado.Values.Any(c => c > 999))
+                    return BadRequest("Revisá las cantidades de los productos.");
+
+                var idsDeseados = deseado.Keys.Select(k => k.Item1).Distinct().ToList();
+                var idsOriginales = detalles.Select(d => d.IdProducto).ToHashSet();
+                var productos = await context.Productos
+                    .Where(p => idsDeseados.Contains(p.Id) || idsOriginales.Contains(p.Id))
+                    .ToListAsync();
+                if (idsDeseados.Any(id => productos.All(p => p.Id != id)) ||
+                    productos.Any(p => idsDeseados.Contains(p.Id) && !p.Activo && !idsOriginales.Contains(p.Id)))
+                    return Conflict("Hay productos que ya no están disponibles.");
+
+                // Diferencia entre lo que hay y lo que tiene que quedar.
+                var detallesEliminados = new List<DetallePedido>();
+                var agregados = new List<(Producto Producto, int Cantidad, string? Observacion, decimal Precio)>();
+                var huboReduccion = false;
+
+                var claves = detalles.Select(d => Clave(d.IdProducto, d.Observacion))
+                    .Union(deseado.Keys).Distinct().ToList();
+                foreach (var clave in claves)
+                {
+                    var existentes = detalles.Where(d => Clave(d.IdProducto, d.Observacion) == clave).ToList();
+                    var actual = existentes.Sum(d => d.Cantidad);
+                    var objetivo = deseado.GetValueOrDefault(clave);
+
+                    if (objetivo < actual)
+                    {
+                        // Se quita primero lo que se agregó más tarde.
+                        var aQuitar = actual - objetivo;
+                        foreach (var detalle in existentes.OrderByDescending(d => d.Id))
+                        {
+                            if (aQuitar == 0) break;
+                            var tomar = Math.Min(detalle.Cantidad, aQuitar);
+                            if (tomar == detalle.Cantidad) detallesEliminados.Add(detalle);
+                            else detalle.Cantidad -= tomar;
+                            aQuitar -= tomar;
+                        }
+                        huboReduccion = true;
+                    }
+                    else if (objetivo > actual)
+                    {
+                        var producto = productos.First(p => p.Id == clave.Item1);
+                        // Los productos que ya estaban conservan su precio original.
+                        var precio = detalles.FirstOrDefault(d => d.IdProducto == clave.Item1)?.PrecioUnitario ?? producto.Precio;
+                        var observacion = dto.Items.First(i => Clave(i.IdProducto, i.Observacion) == clave).Observacion;
+                        agregados.Add((producto, objetivo - actual,
+                            string.IsNullOrWhiteSpace(observacion) ? null : observacion.Trim(), precio));
+                    }
+                }
+
+                var subtotal = detalles.Except(detallesEliminados).Sum(d => d.Cantidad * d.PrecioUnitario)
+                               + agregados.Sum(a => a.Cantidad * a.Precio);
+                if (subtotal <= 0)
+                    return Conflict("El pedido debe conservar al menos un producto.");
+
+                // Descuento y plata solo si el pedido ya tenía un cobro.
+                var pagos = comanda.Pagos.Where(p => p.EstadoRegistro == EnumEstadoRegistro.activo).ToList();
+                var tuvoCobro = pagos.Any();
+                var descuentoOriginal = comanda.Descuento;
+                var descuento = comanda.Descuento;
+                decimal? porcentaje = comanda.DescuentoPorcentaje;
+                if (tuvoCobro)
+                {
+                    descuento = CalculoDescuento.Calcular(subtotal, dto.TipoDescuento, dto.ValorDescuento, out var errorDescuento);
+                    if (errorDescuento != null) return BadRequest(errorDescuento);
+                    porcentaje = dto.TipoDescuento == EnumTipoDescuento.Porcentaje ? dto.ValorDescuento : null;
+                }
+                var total = subtotal - descuento;
+
+                // Delivery sin cobrar con efectivo previsto: tiene que cubrir el nuevo total.
+                var cambioEfectivo = false;
+                if (comanda.TipoServicio == EnumTipoServicio.Delivery && !tuvoCobro)
+                {
+                    var previsto = EfectivoPrevistoDelivery.Leer(comanda.Observaciones);
+                    if (previsto.HasValue)
+                    {
+                        if (dto.EfectivoPrevistoDelivery.HasValue)
+                        {
+                            if (dto.EfectivoPrevistoDelivery.Value < total || dto.EfectivoPrevistoDelivery.Value > 100000000m)
+                                return BadRequest("El efectivo previsto debe cubrir el total del Delivery.");
+                            if (dto.EfectivoPrevistoDelivery.Value != previsto.Value)
+                            {
+                                var observaciones = EfectivoPrevistoDelivery.Guardar(
+                                    EfectivoPrevistoDelivery.Quitar(comanda.Observaciones), dto.EfectivoPrevistoDelivery);
+                                if ((observaciones?.Length ?? 0) > 300)
+                                    return BadRequest("Las observaciones y la instrucción de efectivo exceden el límite permitido.");
+                                comanda.Observaciones = observaciones;
+                                cambioEfectivo = true;
+                            }
+                        }
+                        else if (previsto.Value < total)
+                        {
+                            return Conflict("El nuevo total supera el efectivo previsto. Indicá cuánto efectivo entregará el cliente.");
+                        }
+                    }
+                }
+
+                var cambioDescuento = tuvoCobro && descuento != descuentoOriginal;
+                if (detallesEliminados.Count == 0 && agregados.Count == 0 && !huboReduccion && !cambioDescuento && !cambioEfectivo)
+                    return Conflict("No hiciste ningún cambio en el pedido.");
+
+                var ahora = DateTime.UtcNow;
+
+                // Lo que se quita sale del pedido original; si un pedido queda vacío, se cancela.
+                context.DetallesPedido.RemoveRange(detallesEliminados);
+                foreach (var pedido in pedidos)
+                {
+                    if (pedido.DetallesPedido.Any() && pedido.DetallesPedido.All(d => detallesEliminados.Contains(d)))
+                    {
+                        pedido.Estado = EnumEstadoPedido.Cancelado;
+                        pedido.MotivoCancelacion = "Se quitaron todos los productos al editar el pedido.";
+                        pedido.FechaCancelado = ahora;
+                    }
+                }
+
+                // Lo que se agrega va como pedido nuevo por sector, marcado como adicional.
+                foreach (var grupo in agregados.GroupBy(a => a.Producto.SectorDestino))
+                {
+                    var nuevoPedido = new Pedido
+                    {
+                        IdComanda = comanda.Id,
+                        SectorDestino = grupo.Key,
+                        Estado = EnumEstadoPedido.Pendiente,
+                        FechaPedido = ahora,
+                        EsAdicional = true,
+                        EstadoRegistro = EnumEstadoRegistro.activo
+                    };
+                    context.Pedidos.Add(nuevoPedido);
+                    foreach (var a in grupo)
+                    {
+                        context.DetallesPedido.Add(new DetallePedido
+                        {
+                            Pedido = nuevoPedido,
+                            IdProducto = a.Producto.Id,
+                            Cantidad = a.Cantidad,
+                            PrecioUnitario = a.Precio,
+                            Observacion = a.Observacion,
+                            EstadoRegistro = EnumEstadoRegistro.activo
+                        });
+                    }
+                }
+
+                decimal saldoACobrar = 0, devolucionPendiente = 0;
+                if (tuvoCobro)
+                {
+                    var recibido = pagos.Sum(p => p.MontoPagado - p.Vuelto) - comanda.MontoDevuelto;
+                    var saldo = total - recibido;
+                    comanda.Total = total;
+                    comanda.Descuento = descuento;
+                    comanda.DescuentoPorcentaje = porcentaje;
+                    if (saldo > 0.005m)
+                    {
+                        comanda.Estado = EnumEstadoComanda.PendienteCobro;
+                        comanda.DevolucionPendiente = 0;
+                        saldoACobrar = saldo;
+                    }
+                    else
+                    {
+                        comanda.Estado = EnumEstadoComanda.Pagada;
+                        comanda.DevolucionPendiente = saldo < -0.005m ? -saldo : 0;
+                        devolucionPendiente = comanda.DevolucionPendiente;
+                    }
+                }
+
+                await context.SaveChangesAsync();
+
+                return Ok(new ResultadoEdicionComandaDTO
+                {
+                    NuevoTotal = total,
+                    SaldoACobrar = saldoACobrar,
+                    DevolucionPendiente = devolucionPendiente
+                });
             });
         }
 
@@ -620,6 +853,7 @@ namespace PericoOnFire_2026.Server.Controllers
                 NombreCliente = p.Comanda?.Cliente?.Nombre,
                 Direccion = p.Comanda?.Cliente?.Direccion,
                 HoraDeseada = p.Comanda?.HoraDeseada,
+                EsAdicional = p.EsAdicional,
                 DetallesPedido = p.DetallesPedido.Select(d => new DetallePedidoDTO
                 {
                     Id = d.Id,
