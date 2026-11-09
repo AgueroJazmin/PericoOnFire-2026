@@ -25,5 +25,8 @@ namespace PericoOnFire_2026.BD.Datos.Entity
         public Subcategoria Subcategoria { get; set; } = null!;
 
         public List<DetallePedido> DetallesPedido { get; set; } = new();
+
+        // Si este producto es una promo, acá están los productos que trae adentro.
+        public List<PromocionItem> ComponentesPromo { get; set; } = new();
     }
 }

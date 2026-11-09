@@ -233,6 +233,20 @@
         margin-top: .3rem;
     }
 
+    .promo-componentes {
+        margin: .25rem 0 .1rem;
+        padding: .3rem .5rem .3rem 1.4rem;
+        border-left: 4px solid #1976d2;
+        border-radius: 4px;
+        background: #e3f2fd;
+        color: #0d47a1;
+        font-size: 1rem;
+    }
+
+        .promo-componentes li {
+            margin: 0;
+        }
+
     .observacion-producto {
         margin-top: .2rem;
         padding: .4rem .5rem;
@@ -327,6 +341,10 @@
     private Confirmacion? confirmacionCancelacion;
     private PedidoDTO? pedidoACancelar;
     private string motivoCancelacion = "";
+
+    // Unidades reales a preparar de un renglón: si es una promo, cantidad de promos x lo que trae cada una.
+    private static int UnidadesTotales(DetallePedidoDTO d) =>
+        d.Componentes.Any() ? d.Cantidad * d.Componentes.Sum(c => c.Cantidad) : d.Cantidad;
 
     protected override async Task OnInitializedAsync()
     {
@@ -470,6 +488,17 @@
                 <li class="detalle-producto">
                     <span class="cantidad-producto">@detalle.Cantidad</span>
                     <strong>x @detalle.NombreProducto</strong>
+                    @if (detalle.Componentes.Any())
+                    {
+                        <ul class="promo-componentes">
+                            @foreach (var comp in detalle.Componentes)
+                            {
+                                <li>
+                                    <strong>@(detalle.Cantidad * comp.Cantidad)</strong> x @comp.NombreProducto
+                                </li>
+                            }
+                        </ul>
+                    }
                     @if (!string.IsNullOrWhiteSpace(detalle.Observacion))
                     {
                         <div class="observacion-producto">⚠ @detalle.Observacion</div>
@@ -477,7 +506,7 @@
                 </li>
             }
         </ul>
-        <div class="total-unidades">Total: @pedido.DetallesPedido.Sum(d => d.Cantidad) unidades</div>
+        <div class="total-unidades">Total: @pedido.DetallesPedido.Sum(d => UnidadesTotales(d)) unidades</div>
         @if (MostrarItemsOtroSector && pedido.DetallesOtroSector.Any())
         {
             <ul class="items-otro-sector">

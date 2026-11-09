@@ -331,6 +331,24 @@
                             </button>
 
                         </div>
+
+                        <div class="mt-2">
+                            <label class="form-check-label">
+                                <input type="checkbox" class="form-check-input"
+                                       checked="@nuevoEsPromo" @onchange="AlternarNuevaPromo" />
+                                Es una promo (trae varios productos)
+                            </label>
+                        </div>
+
+                        @if (nuevoEsPromo)
+                        {
+                            <small class="text-muted">
+                                Poné el precio final de la promo arriba y acá abajo qué trae <b>cada una</b>
+                                (ej.: Simple Cheddar × 2). Cocina va a ver el total de unidades a preparar,
+                                y el mozo recibe un aviso cuando carga esos productos sueltos.
+                            </small>
+                            @EditorComponentes(producto.Componentes, null)
+                        }
                     </EditForm>
 
                     <input class="form-control mt-3"
@@ -346,6 +364,7 @@
                                     <th>Categoría</th>
                                     <th>Subcategoría</th>
                                     <th>Precio</th>
+                                    <th>Contenido (si es promo)</th>
                                     <th>Sector</th>
                                     <th>Activo</th>
                                     <th style="width: 130px;">Acciones</th>
@@ -368,7 +387,21 @@
                                         </td>
 
                                         <td>@p.NombreCategoria</td>
-                                        <td>@p.NombreSubcategoria</td>
+                                        <td>
+                                            @if (editandoProductoId == p.Id)
+                                            {
+                                                <select class="form-select form-select-sm" @bind="editandoProducto.IdSubcategoria">
+                                                    @foreach (var sub in subcategorias)
+                                                    {
+                                                        <option value="@sub.Id">@sub.NombreSubcategoria</option>
+                                                    }
+                                                </select>
+                                            }
+                                            else
+                                            {
+                                                @p.NombreSubcategoria
+                                            }
+                                        </td>
 
                                         <td>
                                             @if (editandoProductoId == p.Id)
@@ -380,6 +413,20 @@
                                             else
                                             {
                                                 @($"$ {p.Precio:N0}")
+                                            }
+                                        </td>
+
+                                        <td>
+                                            @if (editandoProductoId == p.Id)
+                                            {
+                                                @EditorComponentes(editandoProducto.Componentes, p.Id)
+                                            }
+                                            else
+                                            {
+                                                @foreach (var comp in p.Componentes)
+                                                {
+                                                    <div>@comp.Cantidad × @comp.NombreProducto</div>
+                                                }
                                             }
                                         </td>
 
@@ -781,7 +828,7 @@
                                                     @ondragstart="() => ElegirMesaParaMover(mesaEnCelda)"
                                                     @ondragend="() => mesaParaMover = null"
                                                     class="celda-mesa tamanio-@mesaEnCelda.Tamanio.ToString().ToLower() forma-@mesaEnCelda.Forma.ToString().ToLower()
-                                                        @(mesaSeleccionadaConfig?.Id == mesaEnCelda.Id || mesaParaMover?.Id == mesaEnCelda.Id ? "celda-mesa-activa" : "")"
+                                                @(mesaSeleccionadaConfig?.Id == mesaEnCelda.Id || mesaParaMover?.Id == mesaEnCelda.Id ? "celda-mesa-activa" : "")"
                                                     aria-label="@($"Mesa {mesaEnCelda.NumeroMesa}, fila {filaActual + 1}, columna {columnaActual + 1}")"
                                                     @onclick="() => PulsarMesa(mesaEnCelda)">
                                                 @mesaEnCelda.NumeroMesa
@@ -861,33 +908,121 @@
 
     @if (tabActiva == "panel")
     {
-        @if (!string.IsNullOrWhiteSpace(Mensaje)) { <p class="alert alert-info mx-3">@Mensaje</p> }
+        @if (!string.IsNullOrWhiteSpace(Mensaje))
+        {
+            <p class="alert alert-info mx-3">@Mensaje</p>
+        }
         <ConfiguracionPanelBar CambiosPendientes="PanelCambiosPendientes" />
     }
 </div>
 
 <style>
-    .perico-apariencia { padding:1.2rem; background:#fff; border-radius:12px; max-width:750px; margin:1rem auto; }
-    .perico-apariencia h3 { font-weight:800; margin-bottom:.5rem; }
-    .perico-apariencia-tarjeta { display:flex; flex-direction:column; gap:.8rem; padding:1rem; background:#f7f8fa; border:1px solid #ddd; border-radius:10px; }
-    .perico-apariencia-tarjeta > label { font-weight:600; }
-    .perico-apariencia-tarjeta input[type="range"] { width:100%; cursor:pointer; accent-color:#dc1818; }
-    .perico-apariencia-extremos { display:flex; justify-content:space-between; gap:1rem; color:#666; font-size:.85rem; }
-    .perico-apariencia-ejemplo { background:white; border:1px solid #ddd; border-radius:8px; padding:1rem; }
-    .perico-apariencia-ejemplo p { margin:.5rem 0; }
-    .perico-apariencia-tarjeta .btn { align-self:flex-start; }
+    .perico-apariencia {
+        padding: 1.2rem;
+        background: #fff;
+        border-radius: 12px;
+        max-width: 750px;
+        margin: 1rem auto;
+    }
 
-    .sala-tab-grupo { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; max-width: 100%; }
+        .perico-apariencia h3 {
+            font-weight: 800;
+            margin-bottom: .5rem;
+        }
 
-    .distribucion-acciones { display: flex; gap: .5rem; flex-wrap: wrap; }
-    .distribucion-ayuda { padding: .8rem; background: #fff8ec; border-left: 4px solid #f0a000; }
-    .posicion-mesa { width: 78px; height: 78px; flex: 0 0 78px; display: flex; align-items: center; justify-content: center; }
-    .posicion-mesa:has([draggable="true"]) { cursor: grab; }
-    .posicion-mesa:focus-within { outline: 2px solid #f0a000; outline-offset: 2px; }
-    .editor-salon > * { min-width: 0; }
-    .panel-mesa-config:disabled { opacity: .5; }
+    .perico-apariencia-tarjeta {
+        display: flex;
+        flex-direction: column;
+        gap: .8rem;
+        padding: 1rem;
+        background: #f7f8fa;
+        border: 1px solid #ddd;
+        border-radius: 10px;
+    }
+
+        .perico-apariencia-tarjeta > label {
+            font-weight: 600;
+        }
+
+        .perico-apariencia-tarjeta input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+            accent-color: #dc1818;
+        }
+
+    .perico-apariencia-extremos {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        color: #666;
+        font-size: .85rem;
+    }
+
+    .perico-apariencia-ejemplo {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+
+        .perico-apariencia-ejemplo p {
+            margin: .5rem 0;
+        }
+
+    .perico-apariencia-tarjeta .btn {
+        align-self: flex-start;
+    }
+
+    .sala-tab-grupo {
+        display: flex;
+        align-items: center;
+        gap: .35rem;
+        flex-wrap: wrap;
+        max-width: 100%;
+    }
+
+    .distribucion-acciones {
+        display: flex;
+        gap: .5rem;
+        flex-wrap: wrap;
+    }
+
+    .distribucion-ayuda {
+        padding: .8rem;
+        background: #fff8ec;
+        border-left: 4px solid #f0a000;
+    }
+
+    .posicion-mesa {
+        width: 78px;
+        height: 78px;
+        flex: 0 0 78px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+        .posicion-mesa:has([draggable="true"]) {
+            cursor: grab;
+        }
+
+        .posicion-mesa:focus-within {
+            outline: 2px solid #f0a000;
+            outline-offset: 2px;
+        }
+
+    .editor-salon > * {
+        min-width: 0;
+    }
+
+    .panel-mesa-config:disabled {
+        opacity: .5;
+    }
+
     @@media (max-width: 900px) {
-        .editor-salon { grid-template-columns: minmax(0, 1fr); }
+        .editor-salon {
+            grid-template-columns: minmax(0, 1fr);
+        }
     }
 
     .config-layout {
@@ -1284,9 +1419,9 @@
             padding: 0;
         }
 
-        .config-sidebar h4 {
-            display: none;
-        }
+            .config-sidebar h4 {
+                display: none;
+            }
 
         .side-item {
             width: auto;
@@ -1335,10 +1470,10 @@
             -webkit-overflow-scrolling: touch;
         }
 
-        .tabla-scroll .tabla-config {
-            margin-bottom: 0;
-            white-space: nowrap;
-        }
+            .tabla-scroll .tabla-config {
+                margin-bottom: 0;
+                white-space: nowrap;
+            }
 
         .tabla-productos {
             min-width: 850px;
@@ -1373,37 +1508,110 @@
             gap: .6rem;
         }
 
-        .section-header .btn,
-        .top-action .btn,
-        .form-line .btn,
-        .productos-form .btn {
-            width: 100%;
+            .section-header .btn,
+            .top-action .btn,
+            .form-line .btn,
+            .productos-form .btn {
+                width: 100%;
+            }
+    }
+
+
+    .config-body {
+        grid-template-columns: 230px minmax(0,1fr);
+    }
+
+    .config-content, .mesas-config {
+        min-width: 0;
+        padding: 1.2rem;
+    }
+
+    .usuarios-layout {
+        grid-template-columns: minmax(0,3fr) minmax(0,2fr);
+    }
+
+        .usuarios-layout > *, .form-line > *, .productos-form > * {
+            min-width: 0;
+        }
+
+    .editor-salon {
+        grid-template-columns: minmax(0,1fr) 260px;
+    }
+
+    .tabla-scroll {
+        max-width: 100%;
+        overflow-x: auto;
+    }
+
+    .config-tabs {
+        height: auto;
+        flex-wrap: wrap;
+    }
+
+    .tab-btn {
+        min-height: 42px;
+    }
+
+    .section-header {
+        gap: .75rem;
+        flex-wrap: wrap;
+    }
+
+    @@media(min-width:901px) and (max-width:1400px) {
+        .productos-form {
+            grid-template-columns: minmax(0,2fr) 110px minmax(150px,1fr);
+        }
+
+        .subcategorias-form {
+            grid-template-columns: minmax(0,1fr) minmax(0,1fr);
         }
     }
 
-
-    .config-body { grid-template-columns:230px minmax(0,1fr); }
-    .config-content, .mesas-config { min-width:0; padding:1.2rem; }
-    .usuarios-layout { grid-template-columns:minmax(0,3fr) minmax(0,2fr); }
-    .usuarios-layout > *, .form-line > *, .productos-form > * { min-width:0; }
-    .editor-salon { grid-template-columns:minmax(0,1fr) 260px; }
-    .tabla-scroll { max-width:100%; overflow-x:auto; }
-    .config-tabs { height:auto; flex-wrap:wrap; }
-    .tab-btn { min-height:42px; }
-    .section-header { gap:.75rem; flex-wrap:wrap; }
-    @@media(min-width:901px) and (max-width:1400px) {
-        .productos-form { grid-template-columns:minmax(0,2fr) 110px minmax(150px,1fr); }
-        .subcategorias-form { grid-template-columns:minmax(0,1fr) minmax(0,1fr); }
+    @@media(max-width:1000px) {
+        .usuarios-layout {
+            grid-template-columns: minmax(0,1fr);
+        }
     }
-    @@media(max-width:1000px) { .usuarios-layout { grid-template-columns:minmax(0,1fr); } }
+
     @@media(max-width:900px) {
-        .config-body, .editor-salon { grid-template-columns:minmax(0,1fr); }
-        .config-content, .mesas-config { padding:1rem; }
+        .config-body, .editor-salon {
+            grid-template-columns: minmax(0,1fr);
+        }
+
+        .config-content, .mesas-config {
+            padding: 1rem;
+        }
     }
 
 </style>
 
 <PericoOnFire_2026.Server.Client.Shared.Confirmacion @ref="confirmacionGeneral" Titulo="Confirmar" textOk="Sí, continuar" textCancelar="Volver" />
+
+<style>
+    .promo-editor {
+        display: flex;
+        flex-direction: column;
+        gap: .35rem;
+        margin-top: .4rem;
+        min-width: 260px;
+    }
+
+    .promo-fila {
+        display: flex;
+        gap: .35rem;
+        align-items: center;
+    }
+
+        .promo-fila select {
+            flex: 1 1 auto;
+            min-width: 140px;
+        }
+
+    .promo-cant {
+        width: 70px;
+        flex: 0 0 70px;
+    }
+</style>
 
 @code {
 
@@ -1500,6 +1708,9 @@
 
     private int? editandoProductoId;
     private ProductoCrearDTO editandoProducto = new();
+
+    // Promos: marca de "es una promo" del formulario de producto nuevo.
+    private bool nuevoEsPromo;
 
     private string filtroCategoria = "";
     private string filtroSubcategoria = "";
@@ -1697,13 +1908,62 @@
         }
     }
 
+    // ---------- Promos ----------
+    private void AlternarNuevaPromo(ChangeEventArgs e)
+    {
+        nuevoEsPromo = e.Value is bool marcado && marcado;
+        if (nuevoEsPromo && producto.Componentes.Count == 0)
+            producto.Componentes.Add(new ComponentePromoDTO { Cantidad = 1 });
+    }
+
+    // Productos que puede traer una promo: comunes (no otras promos), activos y distintos de ella misma.
+    private IEnumerable<ProductoListadoDTO> ProductosParaPromo(int? idPropio) =>
+        productos.Where(x => x.Activo && !x.Componentes.Any() && x.Id != idPropio)
+                 .OrderBy(x => x.Nombre);
+
+    private RenderFragment EditorComponentes(List<ComponentePromoDTO> lista, int? idPropio) => @<div class="promo-editor">
+        @foreach (var comp in lista.ToList())
+        {
+            <div class="promo-fila">
+                <select class="form-select form-select-sm" @bind="comp.IdProducto">
+                    <option value="0">Producto…</option>
+                    @foreach (var prod in ProductosParaPromo(idPropio))
+                    {
+                        <option value="@prod.Id">@prod.Nombre</option>
+                    }
+                </select>
+                <input type="number" min="1" max="99" class="form-control form-control-sm promo-cant" @bind="comp.Cantidad" />
+                <button type="button" class="btn btn-sm btn-outline-danger" title="Quitar" @onclick="() => lista.Remove(comp)">✕</button>
+            </div>
+        }
+        <button type="button" class="btn btn-sm btn-outline-secondary"
+                @onclick="() => lista.Add(new ComponentePromoDTO { Cantidad = 1 })">
+            + Agregar producto a la promo
+        </button>
+    </div>;
+
     private async Task GuardarProducto()
     {
+        if (!nuevoEsPromo)
+        {
+            producto.Componentes = new();
+        }
+        else
+        {
+            producto.Componentes = producto.Componentes.Where(c => c.IdProducto > 0).ToList();
+            if (producto.Componentes.Count == 0)
+            {
+                Mensaje = "Elegí al menos un producto de los que trae la promo.";
+                return;
+            }
+        }
+
         var resp = await http.Post<ProductoCrearDTO, int>("api/Producto", producto);
 
         if (!resp.Error)
         {
             Mensaje = "Producto cargado correctamente.";
+            nuevoEsPromo = false;
             producto = new();
             await CargarProductos();
         }
@@ -1814,12 +2074,16 @@
             Precio = p.Precio,
             IdSubcategoria = p.IdSubcategoria,
             SectorDestino = p.SectorDestino,
-            Activo = p.Activo
+            Activo = p.Activo,
+            Componentes = p.Componentes
+                .Select(c => new ComponentePromoDTO { IdProducto = c.IdProducto, NombreProducto = c.NombreProducto, Cantidad = c.Cantidad })
+                .ToList()
         };
     }
 
     private async Task GuardarEdicionProducto(ProductoListadoDTO p)
     {
+        editandoProducto.Componentes = editandoProducto.Componentes.Where(c => c.IdProducto > 0).ToList();
         var resp = await http.Put<ProductoCrearDTO>($"api/Producto/{p.Id}", editandoProducto);
 
         if (!resp.Error)
@@ -1841,8 +2105,11 @@
 
         if (!resp.Error)
         {
-            Mensaje = "Producto eliminado.";
             await CargarProductos();
+            // Si ya se usó en pedidos, el servidor no lo borra: lo deja desactivado.
+            Mensaje = productos.Any(x => x.Id == id)
+                ? "Ese producto ya se usó en pedidos, por eso no se puede borrar: quedó desactivado."
+                : "Producto eliminado.";
         }
         else
         {
@@ -1992,8 +2259,13 @@
     {
         borradorMesas = mesas.Select(m => new MesaDTO
         {
-            Id = m.Id, NumeroMesa = m.NumeroMesa, IdSala = m.IdSala,
-            Fila = m.Fila, Columna = m.Columna, Forma = m.Forma, Tamanio = m.Tamanio
+            Id = m.Id,
+            NumeroMesa = m.NumeroMesa,
+            IdSala = m.IdSala,
+            Fila = m.Fila,
+            Columna = m.Columna,
+            Forma = m.Forma,
+            Tamanio = m.Tamanio
         }).ToList();
         mesaSeleccionadaConfig = null;
         mesaParaMover = null;
@@ -2066,8 +2338,11 @@
                     var original = mesas.First(o => o.Id == m.Id);
                     return new PosicionMesaDTO
                     {
-                        Id = m.Id, Fila = m.Fila, Columna = m.Columna,
-                        FilaOriginal = original.Fila, ColumnaOriginal = original.Columna
+                        Id = m.Id,
+                        Fila = m.Fila,
+                        Columna = m.Columna,
+                        FilaOriginal = original.Fila,
+                        ColumnaOriginal = original.Columna
                     };
                 }).ToList()
             };

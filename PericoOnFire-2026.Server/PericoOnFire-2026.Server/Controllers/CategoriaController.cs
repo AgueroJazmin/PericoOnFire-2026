@@ -23,19 +23,20 @@ namespace PericoOnFire_2026.Server.Controllers
             this.repositorio = repositorio;
             this.context = context;
         }
-        
+
         [AllowAnonymous]
         [HttpGet]
         public async Task<ActionResult<List<CategoriaListadoDTO>>> Get()
         {
             var lista = await context.Categorias
+                .Where(c => c.EstadoRegistro != EnumEstadoRegistro.borrado)
                 .Select(c => new CategoriaListadoDTO
                 {
                     Id = c.Id,
                     NombreCategoria = c.NombreCategoria
                 })
                 .ToListAsync();
-            
+
             return Ok(lista);
         }
 
@@ -51,7 +52,7 @@ namespace PericoOnFire_2026.Server.Controllers
             return categoria;
         }
         [Authorize(Roles = "Administracion")]
-        
+
         [HttpPost]
         public async Task<ActionResult<int>> Post(CategoriaCrearDTO dto)
         {
@@ -67,7 +68,7 @@ namespace PericoOnFire_2026.Server.Controllers
         }
 
         [Authorize(Roles = "Administracion")]
-       
+
         [HttpPut("{id:int}")]
         public async Task<ActionResult> Put(int id, CategoriaCrearDTO dto)
         {
@@ -84,10 +85,19 @@ namespace PericoOnFire_2026.Server.Controllers
         }
 
         [Authorize(Roles = "Administracion")]
-        
+
         [HttpDelete("{id:int}")]
         public async Task<ActionResult> Delete(int id)
         {
+            var tieneSubcategorias = await context.Subcategorias
+                .AnyAsync(s => s.IdCategoria == id && s.EstadoRegistro != EnumEstadoRegistro.borrado);
+            if (tieneSubcategorias)
+                return Conflict(new
+                {
+                    error = "No se puede eliminar la categoría porque todavía tiene subcategorías. " +
+                            "Eliminá esas subcategorías primero."
+                });
+
             try
             {
                 var ok = await repositorio.Delete(id);
@@ -97,9 +107,17 @@ namespace PericoOnFire_2026.Server.Controllers
 
                 return NoContent();
             }
-            catch (InvalidOperationException ex)
+            catch (InvalidOperationException)
             {
-                return Conflict(new { error = ex.Message });
+                // Quedan subcategorías dadas de baja que figuran en historial: se da de baja la categoría.
+                context.ChangeTracker.Clear();
+                var baja = await context.Categorias.FirstOrDefaultAsync(c => c.Id == id);
+                if (baja == null)
+                    return NotFound();
+
+                baja.EstadoRegistro = EnumEstadoRegistro.borrado;
+                await context.SaveChangesAsync();
+                return NoContent();
             }
         }
     }

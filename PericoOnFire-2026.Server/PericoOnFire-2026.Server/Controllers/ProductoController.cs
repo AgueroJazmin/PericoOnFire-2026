@@ -28,19 +28,20 @@ namespace PericoOnFire_2026.Server.Controllers
             var lista = await context.Productos
                         .Include(p => p.Subcategoria)
                         .ThenInclude(s => s.Categoria)
+                        .Where(p => p.EstadoRegistro != EnumEstadoRegistro.borrado)
                         .Select(p => new ProductoListadoDTO
-                    {
-                        Id = p.Id,
-                        Nombre = p.Nombre,
-                        Precio = p.Precio,
-                        IdSubcategoria = p.IdSubcategoria,
-                        NombreSubcategoria = p.Subcategoria.NombreSubcategoria,
-                        NombreCategoria = p.Subcategoria.Categoria.NombreCategoria,
-                        SectorDestino = p.SectorDestino,
-                        Activo = p.Activo
-                    }
+                        {
+                            Id = p.Id,
+                            Nombre = p.Nombre,
+                            Precio = p.Precio,
+                            IdSubcategoria = p.IdSubcategoria,
+                            NombreSubcategoria = p.Subcategoria.NombreSubcategoria,
+                            NombreCategoria = p.Subcategoria.Categoria.NombreCategoria,
+                            SectorDestino = p.SectorDestino,
+                            Activo = p.Activo
+                        }
                         )
-                        
+
                         .ToListAsync();
 
             return Ok(lista);
@@ -77,7 +78,7 @@ namespace PericoOnFire_2026.Server.Controllers
         {
             return await repositorio.SelectBySubcategoria(idSubcategoria);
         }
-        
+
         [Authorize(Roles = "Administracion")]
         [HttpPost]
         public async Task<ActionResult<int>> Post(ProductoCrearDTO dto)
@@ -96,7 +97,7 @@ namespace PericoOnFire_2026.Server.Controllers
 
             return Ok(id);
         }
-        
+
         [Authorize(Roles = "Administracion")]
         [HttpPut("{id:int}")]
         public async Task<ActionResult> Put(int id, ProductoCrearDTO dto)
@@ -119,7 +120,7 @@ namespace PericoOnFire_2026.Server.Controllers
 
             return Ok("Producto actualizado correctamente.");
         }
-        
+
         [Authorize(Roles = "Administracion")]
         [HttpDelete("{id:int}")]
         public async Task<ActionResult> Delete(int id)
@@ -129,12 +130,31 @@ namespace PericoOnFire_2026.Server.Controllers
             if (producto == null)
                 return NotFound($"No existe el producto con id {id}.");
 
-            var resultado = await repositorio.Delete(id);
+            try
+            {
+                var resultado = await repositorio.Delete(id);
 
-            if (!resultado)
-                return BadRequest("No se pudo eliminar el producto.");
+                if (!resultado)
+                    return BadRequest("No se pudo eliminar el producto.");
 
-            return Ok("Producto eliminado correctamente.");
+                return Ok("Producto eliminado correctamente.");
+            }
+            catch (InvalidOperationException)
+            {
+                // El producto ya figura en pedidos viejos: borrarlo de la base rompería ese historial.
+                // Se da de baja: desaparece de la configuración, del menú y de los pedidos nuevos,
+                // pero los pedidos viejos siguen mostrando su nombre.
+                context.ChangeTracker.Clear();
+                var baja = await context.Productos.FirstOrDefaultAsync(p => p.Id == id);
+                if (baja == null)
+                    return NotFound($"No existe el producto con id {id}.");
+
+                baja.Activo = false;
+                baja.EstadoRegistro = EnumEstadoRegistro.borrado;
+                await context.SaveChangesAsync();
+
+                return Ok("Producto eliminado correctamente.");
+            }
         }
     }
 }

@@ -27,15 +27,16 @@ namespace PericoOnFire_2026.Server.Controllers
         {
             var lista = await context.Subcategorias
                 .Include(s => s.Categoria)
+                .Where(s => s.EstadoRegistro != EnumEstadoRegistro.borrado)
                 .Select(s => new SubcategoriaListadoDTO
                 {
-            Id = s.Id,
-            IdCategoria = s.IdCategoria,
-            NombreSubcategoria = s.NombreSubcategoria,
-            NombreCategoria = s.Categoria.NombreCategoria
+                    Id = s.Id,
+                    IdCategoria = s.IdCategoria,
+                    NombreSubcategoria = s.NombreSubcategoria,
+                    NombreCategoria = s.Categoria.NombreCategoria
                 })
                 .ToListAsync();
-            
+
             return Ok(lista);
         }
 
@@ -55,7 +56,8 @@ namespace PericoOnFire_2026.Server.Controllers
         [HttpGet("Categoria/{idCategoria:int}")]
         public async Task<ActionResult<List<Subcategoria>>> GetByCategoria(int idCategoria)
         {
-            return await repositorio.SelectByCategoria(idCategoria);
+            var lista = await repositorio.SelectByCategoria(idCategoria);
+            return Ok(lista.Where(x => x.EstadoRegistro != EnumEstadoRegistro.borrado).ToList());
         }
 
         [Authorize(Roles = "Administracion")]
@@ -81,7 +83,7 @@ namespace PericoOnFire_2026.Server.Controllers
 
             return Ok(id);
         }
-        
+
         [Authorize(Roles = "Administracion")]
         [HttpPut("{id:int}")]
         public async Task<ActionResult> Put(int id, SubcategoriaCrearDTO dto)
@@ -103,12 +105,36 @@ namespace PericoOnFire_2026.Server.Controllers
         [HttpDelete("{id:int}")]
         public async Task<ActionResult> Delete(int id)
         {
-            var ok = await repositorio.Delete(id);
+            var tieneProductos = await context.Productos
+                .AnyAsync(p => p.IdSubcategoria == id && p.EstadoRegistro != EnumEstadoRegistro.borrado);
+            if (tieneProductos)
+                return Conflict(new
+                {
+                    error = "No se puede eliminar la subcategoría porque todavía tiene productos. " +
+                            "Eliminá esos productos o pasalos a otra subcategoría primero."
+                });
 
-            if (!ok)
-                return NotFound();
+            try
+            {
+                var ok = await repositorio.Delete(id);
 
-            return NoContent();
+                if (!ok)
+                    return NotFound();
+
+                return NoContent();
+            }
+            catch (InvalidOperationException)
+            {
+                // Quedan productos dados de baja que figuran en pedidos viejos: se da de baja la subcategoría.
+                context.ChangeTracker.Clear();
+                var baja = await context.Subcategorias.FirstOrDefaultAsync(x => x.Id == id);
+                if (baja == null)
+                    return NotFound();
+
+                baja.EstadoRegistro = EnumEstadoRegistro.borrado;
+                await context.SaveChangesAsync();
+                return NoContent();
+            }
         }
     }
 }

@@ -10,7 +10,10 @@
 @rendermode InteractiveWebAssembly
 @attribute [Authorize(Roles = "Mozo,Administracion")]
 
-@if (sinConexion) { <p class="alert alert-warning m-2" role="status">No se pudo actualizar la información. Reintentando…</p> }
+@if (sinConexion)
+{
+    <p class="alert alert-warning m-2" role="status">No se pudo actualizar la información. Reintentando…</p>
+}
 
 <main class="perico-main">
     @if (cargandoInicial)
@@ -19,74 +22,74 @@
     }
     else
     {
-    <div class="comandas-disposicion">
-    <div class="comandas-mapa">
-    @if (cargandoInicial)
-    {
-        <p class="text-muted" role="status">Cargando mesas…</p>
-    }
-    else if (!salas.Any())
-    {
-        <p class="text-muted sin-salas-aviso">
-            Todavía no hay salas configuradas. Pedile a un Administrador que las cargue en
-            Configuración &gt; Mesas.
-        </p>
-    }
-    else
-    {
-        <nav class="pestanas-salas-movil" aria-label="Seleccionar sector del bar">
-            @foreach (var opcion in salas.OrderBy(s => s.Orden))
-            {
-                <button type="button"
-                        class="pestana-sala-movil @(SalaMovilActivaId == opcion.Id ? "pestana-sala-activa" : "")"
-                        aria-pressed="@(SalaMovilActivaId == opcion.Id)"
-                        @onclick="() => salaMovilId = opcion.Id">
-                    @opcion.Nombre
-                </button>
-            }
-        </nav>
-        <div class="salas-operativas">
-        @foreach (var sala in salas.OrderBy(s => s.Orden))
-        {
-            var mesasDeSala = mesas.Where(m => m.IdSala == sala.Id).ToList();
-            var filas = mesasDeSala.Any() ? mesasDeSala.Max(m => m.Fila) + 1 : 0;
-            var columnas = mesasDeSala.Any() ? mesasDeSala.Max(m => m.Columna) + 1 : 0;
-
-            <section class="sala-operativa @(SalaMovilActivaId == sala.Id ? "sala-operativa-activa" : "")">
-                <h3 class="sala-operativa-titulo">@sala.Nombre</h3>
-
-                @if (!mesasDeSala.Any())
+        <div class="comandas-disposicion">
+            <div class="comandas-mapa">
+                @if (cargandoInicial)
                 {
-                    <p class="text-muted">Esta sala todavía no tiene mesas cargadas.</p>
+                    <p class="text-muted" role="status">Cargando mesas…</p>
+                }
+                else if (!salas.Any())
+                {
+                    <p class="text-muted sin-salas-aviso">
+                        Todavía no hay salas configuradas. Pedile a un Administrador que las cargue en
+                        Configuración &gt; Mesas.
+                    </p>
                 }
                 else
                 {
-                    <div class="grilla-salon-operativa">
-                        @for (var fila = 0; fila < filas; fila++)
+                    <nav class="pestanas-salas-movil" aria-label="Seleccionar sector del bar">
+                        @foreach (var opcion in salas.OrderBy(s => s.Orden))
                         {
-                            var filaActual = fila;
-                            <div class="fila-grilla-operativa">
-                                @for (var columna = 0; columna < columnas; columna++)
+                            <button type="button"
+                                    class="pestana-sala-movil @(SalaMovilActivaId == opcion.Id ? "pestana-sala-activa" : "")"
+                                    aria-pressed="@(SalaMovilActivaId == opcion.Id)"
+                                    @onclick="() => salaMovilId = opcion.Id">
+                                @opcion.Nombre
+                            </button>
+                        }
+                    </nav>
+                    <div class="salas-operativas">
+                        @foreach (var sala in salas.OrderBy(s => s.Orden))
+                        {
+                            var mesasDeSala = mesas.Where(m => m.IdSala == sala.Id).ToList();
+                            var filas = mesasDeSala.Any() ? mesasDeSala.Max(m => m.Fila) + 1 : 0;
+                            var columnas = mesasDeSala.Any() ? mesasDeSala.Max(m => m.Columna) + 1 : 0;
+
+                            <section class="sala-operativa @(SalaMovilActivaId == sala.Id ? "sala-operativa-activa" : "")">
+                                <h3 class="sala-operativa-titulo">@sala.Nombre</h3>
+
+                                @if (!mesasDeSala.Any())
                                 {
-                                    var mesaEnCelda = mesasDeSala.FirstOrDefault(m => m.Fila == filaActual && m.Columna == columna);
-                                    <div class="celda-operativa">
-                                        @if (mesaEnCelda != null)
+                                    <p class="text-muted">Esta sala todavía no tiene mesas cargadas.</p>
+                                }
+                                else
+                                {
+                                    <div class="grilla-salon-operativa">
+                                        @for (var fila = 0; fila < filas; fila++)
                                         {
-                                            @RenderMesa(mesaEnCelda)
+                                            var filaActual = fila;
+                                            <div class="fila-grilla-operativa">
+                                                @for (var columna = 0; columna < columnas; columna++)
+                                                {
+                                                    var mesaEnCelda = mesasDeSala.FirstOrDefault(m => m.Fila == filaActual && m.Columna == columna);
+                                                    <div class="celda-operativa">
+                                                        @if (mesaEnCelda != null)
+                                                        {
+                                                            @RenderMesa(mesaEnCelda)
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
                                         }
                                     </div>
                                 }
-                            </div>
+                            </section>
                         }
                     </div>
                 }
-            </section>
-        }
+            </div>
+            <div class="comandas-lateral"><PanelBar Mesas="@mesas" AlSeleccionarMesa="SeleccionarMesa" /></div>
         </div>
-    }
-    </div>
-    <div class="comandas-lateral"><PanelBar Mesas="@mesas" AlSeleccionarMesa="SeleccionarMesa" /></div>
-    </div>
     }
 </main>
 
@@ -138,108 +141,108 @@
                 else
                 {
                     <div class="panel-mesa-sectores">
-                    @foreach (var grupo in pedidosActuales.GroupBy(p => p.SectorDestino))
-                    {
-                        var pedidosPendientes = grupo
-                            .Where(p => p.Estado == EnumEstadoPedido.Pendiente)
-                            .ToList();
+                        @foreach (var grupo in pedidosActuales.GroupBy(p => p.SectorDestino))
+                        {
+                            var pedidosPendientes = grupo
+                                .Where(p => p.Estado == EnumEstadoPedido.Pendiente)
+                                .ToList();
 
-                        var otrosPedidos = grupo
-                            .Where(p => p.Estado != EnumEstadoPedido.Pendiente)
-                            .ToList();
+                            var otrosPedidos = grupo
+                                .Where(p => p.Estado != EnumEstadoPedido.Pendiente)
+                                .ToList();
 
-                        <div class="grupo-sector">
+                            <div class="grupo-sector">
 
-                            <strong>@grupo.Key</strong>
+                                <strong>@grupo.Key</strong>
 
-                            @* Todos los pedidos pendientes del sector se muestran juntos *@
-                            @if (pedidosPendientes.Any())
-                            {
-                                <div class="pedido-card pedido-card-pendiente">
+                                @* Todos los pedidos pendientes del sector se muestran juntos *@
+                                @if (pedidosPendientes.Any())
+                                {
+                                    <div class="pedido-card pedido-card-pendiente">
 
-                                    <div class="panel-pedido-encabezado">
+                                        <div class="panel-pedido-encabezado">
                                             <span class="est-badge est-pendiente">Pendiente</span>
-                                        <div class="panel-pedido-acciones">
-                                            @if (comandaActual.Estado == EnumEstadoComanda.Abierta)
+                                            <div class="panel-pedido-acciones">
+                                                @if (comandaActual.Estado == EnumEstadoComanda.Abierta)
+                                                {
+                                                    <button class="btn btn-sm btn-outline-primary panel-btn-editar" @onclick="() => AbrirEdicionPendientes(pedidosPendientes)">Editar</button>
+                                                }
+                                                <button class="btn btn-sm btn-outline-success panel-btn-entregar" disabled
+                                                        title="Cocina o Barra debe marcar el pedido como listo antes de entregarlo.">
+                                                    Entregar
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <ul>
+                                            @foreach (var productoAgrupado in pedidosPendientes
+                                                .SelectMany(p => p.DetallesPedido)
+                                                .GroupBy(d => d.NombreProducto))
                                             {
-                                                <button class="btn btn-sm btn-outline-primary panel-btn-editar" @onclick="() => AbrirEdicionPendientes(pedidosPendientes)">Editar</button>
+                                                <li>
+                                                    @productoAgrupado.Sum(d => d.Cantidad) x @productoAgrupado.Key
+                                                    <span class="item-precio">($@productoAgrupado.Sum(d => d.Cantidad * d.PrecioUnitario).ToString("N2"))</span>
+                                                </li>
                                             }
-                                            <button class="btn btn-sm btn-outline-success panel-btn-entregar" disabled
-                                                    title="Cocina o Barra debe marcar el pedido como listo antes de entregarlo.">
-                                                Entregar
-                                            </button>
-                                        </div>
+                                        </ul>
+
                                     </div>
+                                }
 
-                                    <ul>
-                                        @foreach (var productoAgrupado in pedidosPendientes
-                                            .SelectMany(p => p.DetallesPedido)
-                                            .GroupBy(d => d.NombreProducto))
-                                        {
-                                            <li>
-                                                @productoAgrupado.Sum(d => d.Cantidad) x @productoAgrupado.Key
-                                                <span class="item-precio">($@productoAgrupado.Sum(d => d.Cantidad * d.PrecioUnitario).ToString("N2"))</span>
-                                            </li>
-                                        }
-                                    </ul>
+                                @* Entregados, cancelados, en preparación y listos siguen separados *@
+                                @foreach (var pedido in otrosPedidos)
+                                {
+                                    <div class="pedido-card @(pedido.Estado == EnumEstadoPedido.Cancelado
+                                                                                                      ? "pedido-card-cancelado"
+                                                                                                      : "")">
 
-                                </div>
-                            }
-
-                            @* Entregados, cancelados, en preparación y listos siguen separados *@
-                            @foreach (var pedido in otrosPedidos)
-                            {
-                                <div class="pedido-card @(pedido.Estado == EnumEstadoPedido.Cancelado
-                                                                                                  ? "pedido-card-cancelado"
-                                                                                                  : "")">
-
-                                    <div class="panel-pedido-encabezado">
+                                        <div class="panel-pedido-encabezado">
                                             <span class="est-badge est-@pedido.Estado.ToString().ToLower()">@pedido.Estado</span>
-                                        @if (pedido.Estado == EnumEstadoPedido.ListoParaRetirar)
-                                        {
-                                            <button class="btn btn-sm btn-success panel-btn-entregar"
-                                                    @onclick="() => MarcarEntregado(pedido)">
-                                                Entregar
-                                            </button>
-                                        }
-                                        else if (pedido.Estado == EnumEstadoPedido.EnPreparacion)
-                                        {
-                                            <button class="btn btn-sm btn-outline-success panel-btn-entregar" disabled
-                                                    title="Esperá a que Cocina marque este pedido como listo.">
-                                                Entregar
-                                            </button>
-                                        }
-                                    </div>
-
-                                    <ul>
-                                        @foreach (var detalle in pedido.DetallesPedido)
-                                        {
-                                            <li>
-                                                @detalle.Cantidad x @detalle.NombreProducto
-                                                <span class="item-precio">($@((detalle.Cantidad * detalle.PrecioUnitario).ToString("N2")))</span>
-                                            </li>
-                                        }
-                                    </ul>
-
-                                    @if (pedido.Estado == EnumEstadoPedido.Cancelado)
-                                    {
-                                        <div class="motivo-cancelacion">
-                                            ⚠ Cancelado por @grupo.Key.ToString().ToLower():
-                                            @pedido.MotivoCancelacion
+                                            @if (pedido.Estado == EnumEstadoPedido.ListoParaRetirar)
+                                            {
+                                                <button class="btn btn-sm btn-success panel-btn-entregar"
+                                                        @onclick="() => MarcarEntregado(pedido)">
+                                                    Entregar
+                                                </button>
+                                            }
+                                            else if (pedido.Estado == EnumEstadoPedido.EnPreparacion)
+                                            {
+                                                <button class="btn btn-sm btn-outline-success panel-btn-entregar" disabled
+                                                        title="Esperá a que Cocina marque este pedido como listo.">
+                                                    Entregar
+                                                </button>
+                                            }
                                         </div>
 
-                                        <button class="btn btn-sm btn-outline-danger w-100 mt-1"
-                                                @onclick="() => EliminarPedidoCancelado(pedido)">
-                                            Quitar de la comanda
-                                        </button>
-                                    }
-                                    
+                                        <ul>
+                                            @foreach (var detalle in pedido.DetallesPedido)
+                                            {
+                                                <li>
+                                                    @detalle.Cantidad x @detalle.NombreProducto
+                                                    <span class="item-precio">($@((detalle.Cantidad * detalle.PrecioUnitario).ToString("N2")))</span>
+                                                </li>
+                                            }
+                                        </ul>
 
-                                </div>
-                            }
+                                        @if (pedido.Estado == EnumEstadoPedido.Cancelado)
+                                        {
+                                            <div class="motivo-cancelacion">
+                                                ⚠ Cancelado por @grupo.Key.ToString().ToLower():
+                                                @pedido.MotivoCancelacion
+                                            </div>
 
-                        </div>
-                    }
+                                            <button class="btn btn-sm btn-outline-danger w-100 mt-1"
+                                                    @onclick="() => EliminarPedidoCancelado(pedido)">
+                                                Quitar de la comanda
+                                            </button>
+                                        }
+
+
+                                    </div>
+                                }
+
+                            </div>
+                        }
                     </div>
                 }
 
@@ -262,31 +265,31 @@
                 else
                 {
                     <div class="panel-mesa-botones">
-                    <button class="btn btn-primary" @onclick="AbrirModalPedidoAdicional">
-                        Agregar productos
-                    </button>
+                        <button class="btn btn-primary" @onclick="AbrirModalPedidoAdicional">
+                            Agregar productos
+                        </button>
 
-                    @if (!pedidosActuales.Any())
-                    {
-                        <button class="btn btn-outline-danger" @onclick="PedirCancelarMesa">
-                            Cancelar mesa (abierta por error)
-                        </button>
-                    }
-                    else if (HayPedidosSinEntregar)
-                    {
-                        <button class="btn btn-dark" disabled title="Todavía hay pedidos sin entregar">
-                            Cerrar mesa (consumo final)
-                        </button>
-                        <small class="texto-vacio d-block mt-1">
-                            Para cerrar la mesa, Cocina y Barra deben marcar sus pedidos como listos y luego tenés que pulsar «Entregar» en cada uno.
-                        </small>
-                    }
-                    else
-                    {
-                        <button class="btn btn-dark" @onclick="PedirCerrarMesa">
-                            Cerrar mesa (consumo final)
-                        </button>
-                    }
+                        @if (!pedidosActuales.Any())
+                        {
+                            <button class="btn btn-outline-danger" @onclick="PedirCancelarMesa">
+                                Cancelar mesa (abierta por error)
+                            </button>
+                        }
+                        else if (HayPedidosSinEntregar)
+                        {
+                            <button class="btn btn-dark" disabled title="Todavía hay pedidos sin entregar">
+                                Cerrar mesa (consumo final)
+                            </button>
+                            <small class="texto-vacio d-block mt-1">
+                                Para cerrar la mesa, Cocina y Barra deben marcar sus pedidos como listos y luego tenés que pulsar «Entregar» en cada uno.
+                            </small>
+                        }
+                        else
+                        {
+                            <button class="btn btn-dark" @onclick="PedirCerrarMesa">
+                                Cerrar mesa (consumo final)
+                            </button>
+                        }
                     </div>
                 }
             </div>
@@ -412,6 +415,7 @@
                                 </div>
                             }
                         }
+                        <AvisoPromo Carrito="carrito" Productos="productos" />
                     </div>
                 </aside>
 
@@ -529,8 +533,8 @@
     }
 
     /* La celda es bien más grande que la mesa a propósito: las sillas (los
-           cuadraditos de las puntas) sobresalen del cuerpo de la mesa, y si la celda
-           queda muy justa, la celda de al lado o el borde del salón se las come. */
+               cuadraditos de las puntas) sobresalen del cuerpo de la mesa, y si la celda
+               queda muy justa, la celda de al lado o el borde del salón se las come. */
     .celda-operativa {
         width: 148px;
         height: 116px;
@@ -920,9 +924,9 @@
         background: #fafafa;
     }
 
-    .bloque-comensales > strong {
-        font-size: .8rem;
-    }
+        .bloque-comensales > strong {
+            font-size: .8rem;
+        }
 
     .control-cantidad {
         display: inline-flex;
@@ -966,11 +970,11 @@
         gap: .25rem;
     }
 
-    .comensales button {
-        width: 24px;
-        height: 24px;
-        font-size: .8rem;
-    }
+        .comensales button {
+            width: 24px;
+            height: 24px;
+            font-size: .8rem;
+        }
 
     /* RESUMEN DEL PEDIDO */
 
@@ -1204,15 +1208,15 @@
         background: white;
     }
 
-    .modal-pedido-footer .btn {
-        min-height: 42px;
-        padding: .55rem 1rem;
-        font-weight: 700;
-    }
+        .modal-pedido-footer .btn {
+            min-height: 42px;
+            padding: .55rem 1rem;
+            font-weight: 700;
+        }
 
-    .modal-pedido-footer .btn-success {
-        min-width: 175px;
-    }
+        .modal-pedido-footer .btn-success {
+            min-width: 175px;
+        }
 
         .modal-pedido-footer > div {
             display: flex;
@@ -1319,10 +1323,10 @@
             border-bottom: 1px solid #ddd;
         }
 
-        .subcategorias button {
-            font-size: .9rem;
-            text-align: center;
-        }
+            .subcategorias button {
+                font-size: .9rem;
+                text-align: center;
+            }
 
         .productos-modal {
             order: 2;
@@ -1378,222 +1382,927 @@
             padding: .65rem;
         }
     }
-    .mesa-estado-texto { display: block; flex-shrink: 0; font-size: .65rem; line-height: 1.2; font-weight: 600; white-space: nowrap; }
-    .valor-numero-mesa { display: block; flex-shrink: 0; line-height: 1.1; }
-    fieldset.selector-productos { padding:0; margin:0; border:0; min-width:0; }
 
-    .mesas-carga { min-height:420px; display:flex; gap:12px; align-items:center; justify-content:center; color:#666; }
-    .comandas-disposicion { display:flex; align-items:flex-start; flex-wrap:wrap; gap:1.2rem; }
-    .comandas-mapa { flex:0 0 auto; min-width:0; max-width:100%; }
-    .comandas-lateral { flex:1 1 520px; min-width:0; max-width:none; }
+    .mesa-estado-texto {
+        display: block;
+        flex-shrink: 0;
+        font-size: .65rem;
+        line-height: 1.2;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .valor-numero-mesa {
+        display: block;
+        flex-shrink: 0;
+        line-height: 1.1;
+    }
+
+    fieldset.selector-productos {
+        padding: 0;
+        margin: 0;
+        border: 0;
+        min-width: 0;
+    }
+
+    .mesas-carga {
+        min-height: 420px;
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        justify-content: center;
+        color: #666;
+    }
+
+    .comandas-disposicion {
+        display: flex;
+        align-items: flex-start;
+        flex-wrap: wrap;
+        gap: 1.2rem;
+    }
+
+    .comandas-mapa {
+        flex: 0 0 auto;
+        min-width: 0;
+        max-width: 100%;
+    }
+
+    .comandas-lateral {
+        flex: 1 1 520px;
+        min-width: 0;
+        max-width: none;
+    }
+
     @@media(max-width:780px) {
-        .comandas-disposicion { flex-direction:column; gap:1rem; }
-        .comandas-mapa { width:100%; }
-        .comandas-lateral { flex:none; width:100%; min-width:0; max-width:none; }
+        .comandas-disposicion {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .comandas-mapa {
+            width: 100%;
+        }
+
+        .comandas-lateral {
+            flex: none;
+            width: 100%;
+            min-width: 0;
+            max-width: none;
+        }
     }
 
     /* Ajuste al ancho real del navegador, incluido zoom al 100 %. */
-    .perico-main { padding: .85rem; min-width: 0; }
-    .comandas-disposicion { gap: .85rem; }
-    .comandas-lateral { flex: 1 1 340px; }
-    .salas-operativas { gap: .65rem; }
-    .sala-operativa { padding: .65rem; max-width: 100%; }
-    .sala-operativa-titulo { font-size: 1.2rem; margin-bottom: .6rem; }
-    .grilla-salon-operativa { max-width: 100%; overflow-x: auto; }
-    .modal-pedido { width: min(1180px, calc(100vw - 2rem)); height: min(650px, calc(100dvh - 2rem)); max-height: calc(100dvh - 2rem); }
-    .selector-productos { grid-template-columns: 180px minmax(0, 1fr) minmax(270px, .85fr); }
-    .subcategorias button { overflow-wrap:normal; word-break:normal; }
-    .selector-productos > * { min-width: 0; }
-    .producto-fila { grid-template-columns: minmax(0,1fr) auto; gap: .5rem; }
-    .producto-fila > div:first-child { min-width: 0; overflow-wrap: anywhere; }
-    .producto-fila .control-cantidad { grid-column: 1/-1; justify-self: end; }
-    .modal-pedido-footer { flex-wrap: wrap; }
+    .perico-main {
+        padding: .85rem;
+        min-width: 0;
+    }
+
+    .comandas-disposicion {
+        gap: .85rem;
+    }
+
+    .comandas-lateral {
+        flex: 1 1 340px;
+    }
+
+    .salas-operativas {
+        gap: .65rem;
+    }
+
+    .sala-operativa {
+        padding: .65rem;
+        max-width: 100%;
+    }
+
+    .sala-operativa-titulo {
+        font-size: 1.2rem;
+        margin-bottom: .6rem;
+    }
+
+    .grilla-salon-operativa {
+        max-width: 100%;
+        overflow-x: auto;
+    }
+
+    .modal-pedido {
+        width: min(1180px, calc(100vw - 2rem));
+        height: min(650px, calc(100dvh - 2rem));
+        max-height: calc(100dvh - 2rem);
+    }
+
+    .selector-productos {
+        grid-template-columns: 180px minmax(0, 1fr) minmax(270px, .85fr);
+    }
+
+    .subcategorias button {
+        overflow-wrap: normal;
+        word-break: normal;
+    }
+
+    .selector-productos > * {
+        min-width: 0;
+    }
+
+    .producto-fila {
+        grid-template-columns: minmax(0,1fr) auto;
+        gap: .5rem;
+    }
+
+        .producto-fila > div:first-child {
+            min-width: 0;
+            overflow-wrap: anywhere;
+        }
+
+        .producto-fila .control-cantidad {
+            grid-column: 1/-1;
+            justify-self: end;
+        }
+
+    .modal-pedido-footer {
+        flex-wrap: wrap;
+    }
+
     @@media(max-width:780px) {
-        .comandas-lateral { flex: none; }
-        .modal-pedido { width:100%; height:calc(100dvh - 1rem); max-height:calc(100dvh - 1rem); }
+        .comandas-lateral {
+            flex: none;
+        }
+
+        .modal-pedido {
+            width: 100%;
+            height: calc(100dvh - 1rem);
+            max-height: calc(100dvh - 1rem);
+        }
     }
 
 
     /* Nombre, precio y cantidad comparten la misma fila. */
-    .productos-buscador { position:sticky; top:0; z-index:3; padding:.5rem; background:white; }
-    .productos-buscador input { min-width:0; min-height:36px; font-size:.9rem; }
-    .productos-titulo { position:static; padding:.55rem .7rem; }
-    .producto-fila { grid-template-columns:minmax(0,1fr) auto auto; padding:.5rem .65rem; gap:.45rem; align-items:center; }
-    .producto-fila > div:first-child { min-width:0; font-size:.9rem; line-height:1.25; }
-    .producto-fila .control-cantidad { grid-column:auto; justify-self:end; gap:.3rem; }
-    .producto-fila .control-cantidad button { width:28px; height:28px; flex:0 0 28px; font-size:.9rem; }
-    .producto-fila .control-cantidad span { min-width:18px; font-size:.85rem; }
-    .producto-precio { font-size:.85rem; }
-    @@media(max-width:780px) {
-        .producto-fila .control-cantidad button { width:36px; height:36px; flex-basis:36px; }
+    .productos-buscador {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        padding: .5rem;
+        background: white;
     }
 
-    .mesa-libre-fondo { position:fixed; inset:0; background:#0007; z-index:1040; }
-    .panel-mesa.panel-mesa-libre { top:50%; left:50%; right:auto; bottom:auto; transform:translate(-50%,-50%); width:min(380px,calc(100vw - 2rem)); height:auto; max-height:calc(100dvh - 2rem); border:0; border-radius:10px; padding:1.25rem; z-index:1050; box-shadow:0 12px 32px #0004; }
-    .panel-mesa-libre .panel-header { margin-bottom:1rem; }
+        .productos-buscador input {
+            min-width: 0;
+            min-height: 36px;
+            font-size: .9rem;
+        }
+
+    .productos-titulo {
+        position: static;
+        padding: .55rem .7rem;
+    }
+
+    .producto-fila {
+        grid-template-columns: minmax(0,1fr) auto auto;
+        padding: .5rem .65rem;
+        gap: .45rem;
+        align-items: center;
+    }
+
+        .producto-fila > div:first-child {
+            min-width: 0;
+            font-size: .9rem;
+            line-height: 1.25;
+        }
+
+        .producto-fila .control-cantidad {
+            grid-column: auto;
+            justify-self: end;
+            gap: .3rem;
+        }
+
+            .producto-fila .control-cantidad button {
+                width: 28px;
+                height: 28px;
+                flex: 0 0 28px;
+                font-size: .9rem;
+            }
+
+            .producto-fila .control-cantidad span {
+                min-width: 18px;
+                font-size: .85rem;
+            }
+
+    .producto-precio {
+        font-size: .85rem;
+    }
+
+    @@media(max-width:780px) {
+        .producto-fila .control-cantidad button {
+            width: 36px;
+            height: 36px;
+            flex-basis: 36px;
+        }
+    }
+
+    .mesa-libre-fondo {
+        position: fixed;
+        inset: 0;
+        background: #0007;
+        z-index: 1040;
+    }
+
+    .panel-mesa.panel-mesa-libre {
+        top: 50%;
+        left: 50%;
+        right: auto;
+        bottom: auto;
+        transform: translate(-50%,-50%);
+        width: min(380px,calc(100vw - 2rem));
+        height: auto;
+        max-height: calc(100dvh - 2rem);
+        border: 0;
+        border-radius: 10px;
+        padding: 1.25rem;
+        z-index: 1050;
+        box-shadow: 0 12px 32px #0004;
+    }
+
+    .panel-mesa-libre .panel-header {
+        margin-bottom: 1rem;
+    }
 
     /* En celular solo el cuerpo del pedido se desplaza. */
     @@media(max-width:780px) {
-        .modal-pedido-fondo:has(.mesa-pedido-modal) { padding:.5rem; }
-        .mesa-pedido-modal { width:100%; height:calc(100dvh - 1rem); max-height:calc(100dvh - 1rem); min-height:0; }
-        .mesa-pedido-modal .modal-pedido-header,
-        .mesa-pedido-modal .modal-pedido-footer { flex:0 0 auto; }
-        .mesa-pedido-modal .selector-productos {
-            display:flex; flex-direction:column; flex:1 1 auto;
-            min-height:0; overflow-y:auto; overflow-x:hidden;
+        .modal-pedido-fondo:has(.mesa-pedido-modal) {
+            padding: .5rem;
         }
-        .mesa-pedido-modal .selector-productos > * { flex:0 0 auto; min-width:0; }
-        .mesa-pedido-modal .subcategorias {
-            order:1; min-height:0; height:auto; overflow:visible;
-            display:grid; grid-template-columns:repeat(2,minmax(0,1fr));
+
+        .mesa-pedido-modal {
+            width: 100%;
+            height: calc(100dvh - 1rem);
+            max-height: calc(100dvh - 1rem);
+            min-height: 0;
         }
-        .mesa-pedido-modal .productos-modal {
-            order:2; min-height:0; height:auto; max-height:none; overflow:visible; margin:.6rem;
-        }
-        .mesa-pedido-modal .productos-buscador { position:static; padding:.5rem; }
-        .mesa-pedido-modal .productos-titulo { position:static; }
-        .mesa-pedido-modal .selector-resumen {
-            order:3; display:flex; flex-direction:column;
-            min-height:0; height:auto; overflow:visible; padding:.75rem;
-        }
-        .mesa-pedido-modal .resumen-carrito {
-            flex:0 0 auto; min-height:0; height:auto; max-height:none;
-            overflow:visible; position:static;
-        }
-        .mesa-pedido-modal .resumen-carrito > strong { position:static; }
-        .mesa-pedido-modal .carrito-item { flex:0 0 auto; }
-        .mesa-pedido-modal .carrito-item-linea { flex-wrap:wrap; }
-        .mesa-pedido-modal .carrito-item-linea > span { min-width:0; overflow-wrap:anywhere; }
-        .mesa-pedido-modal .modal-pedido-footer { position:static; padding:.6rem .75rem; }
-        .mesa-pedido-modal .modal-pedido-footer .btn { min-width:0; }
-        .mesa-pedido-modal .producto-fila { grid-template-columns:minmax(0,1fr) auto auto; }
-        .mesa-pedido-modal .producto-fila .control-cantidad { grid-column:auto; }
+
+            .mesa-pedido-modal .modal-pedido-header,
+            .mesa-pedido-modal .modal-pedido-footer {
+                flex: 0 0 auto;
+            }
+
+            .mesa-pedido-modal .selector-productos {
+                display: flex;
+                flex-direction: column;
+                flex: 1 1 auto;
+                min-height: 0;
+                overflow-y: auto;
+                overflow-x: hidden;
+            }
+
+                .mesa-pedido-modal .selector-productos > * {
+                    flex: 0 0 auto;
+                    min-width: 0;
+                }
+
+            .mesa-pedido-modal .subcategorias {
+                order: 1;
+                min-height: 0;
+                height: auto;
+                overflow: visible;
+                display: grid;
+                grid-template-columns: repeat(2,minmax(0,1fr));
+            }
+
+            .mesa-pedido-modal .productos-modal {
+                order: 2;
+                min-height: 0;
+                height: auto;
+                max-height: none;
+                overflow: visible;
+                margin: .6rem;
+            }
+
+            .mesa-pedido-modal .productos-buscador {
+                position: static;
+                padding: .5rem;
+            }
+
+            .mesa-pedido-modal .productos-titulo {
+                position: static;
+            }
+
+            .mesa-pedido-modal .selector-resumen {
+                order: 3;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+                height: auto;
+                overflow: visible;
+                padding: .75rem;
+            }
+
+            .mesa-pedido-modal .resumen-carrito {
+                flex: 0 0 auto;
+                min-height: 0;
+                height: auto;
+                max-height: none;
+                overflow: visible;
+                position: static;
+            }
+
+                .mesa-pedido-modal .resumen-carrito > strong {
+                    position: static;
+                }
+
+            .mesa-pedido-modal .carrito-item {
+                flex: 0 0 auto;
+            }
+
+            .mesa-pedido-modal .carrito-item-linea {
+                flex-wrap: wrap;
+            }
+
+                .mesa-pedido-modal .carrito-item-linea > span {
+                    min-width: 0;
+                    overflow-wrap: anywhere;
+                }
+
+            .mesa-pedido-modal .modal-pedido-footer {
+                position: static;
+                padding: .6rem .75rem;
+            }
+
+                .mesa-pedido-modal .modal-pedido-footer .btn {
+                    min-width: 0;
+                }
+
+            .mesa-pedido-modal .producto-fila {
+                grid-template-columns: minmax(0,1fr) auto auto;
+            }
+
+                .mesa-pedido-modal .producto-fila .control-cantidad {
+                    grid-column: auto;
+                }
     }
+
     @@media(max-width:360px) {
-        .mesa-pedido-modal .producto-fila { grid-template-columns:minmax(0,1fr) auto; }
-        .mesa-pedido-modal .producto-fila .control-cantidad { grid-column:1/-1; justify-self:end; }
+        .mesa-pedido-modal .producto-fila {
+            grid-template-columns: minmax(0,1fr) auto;
+        }
+
+            .mesa-pedido-modal .producto-fila .control-cantidad {
+                grid-column: 1/-1;
+                justify-self: end;
+            }
     }
 
     /* Ventana de detalle centrada para mesas libres y ocupadas. */
-    .mesa-libre-fondo { position:fixed; inset:0; background:rgba(8,12,18,.7); backdrop-filter:blur(3px); z-index:1040; }
-    .panel-mesa.panel-mesa-centrado {
-        position:fixed; top:50%; left:50%; right:auto; bottom:auto;
-        transform:translate(-50%,-50%); width:min(650px,calc(100vw - 2rem));
-        height:auto; max-height:calc(100dvh - 2rem); padding:0;
-        overflow-y:auto; overscroll-behavior:contain;
-        border:1px solid #ffffff35; border-radius:18px; background:#fff;
-        box-shadow:0 24px 80px #0006; z-index:1050;
-    }
-    .panel-mesa-centrado .panel-header {
-        position:sticky; top:0; z-index:2; padding:1.15rem 1.4rem;
-        display:flex; align-items:flex-start; justify-content:space-between; gap:1rem;
-        background:linear-gradient(115deg,#171a20,#303641);
-        border-bottom:3px solid #e8a239; color:#fff;
-    }
-    .panel-mesa-identidad { display:flex; flex-direction:column; gap:.15rem; min-width:0; }
-    .panel-mesa-etiqueta { font-size:.69rem; font-weight:800; letter-spacing:.12em; color:#f1b75e; }
-    .panel-mesa-centrado .panel-header h5 { margin:.1rem 0; font-size:1.55rem; font-weight:800; color:#fff; }
-    .panel-mesa-subtitulo { font-size:.83rem; color:#d4d7dd; }
-    .panel-mesa-cerrar { color:#fff; border:1px solid #ffffff55; border-radius:9px; width:36px; height:36px; display:grid; place-items:center; flex-shrink:0; line-height:1; }
-    .panel-mesa-cerrar:hover { color:#fff; background:#ffffff20; }
-    .panel-mesa-centrado .panel-body { padding:1.3rem 1.4rem 1.5rem; }
-    .panel-mesa-centrado > .alert, .panel-mesa-centrado > p { margin:1rem 1.4rem; }
-    .panel-mesa-seccion { font-size:1.05rem; font-weight:800; color:#262c35; margin-bottom:.85rem; }
-    .panel-mesa-centrado .grupo-sector { border:1px solid #e3e5e9; border-radius:13px; padding:.85rem 1rem; margin-bottom:.9rem; background:#f9fafb; }
-    .panel-mesa-centrado .grupo-sector > strong { display:block; margin-bottom:.5rem; font-weight:800; }
-    .panel-mesa-centrado .pedido-card { background:#fff; border-color:#dfe2e6; border-radius:10px; padding:.75rem .9rem; }
-    .panel-mesa-centrado .pedido-card ul { margin:.45rem 0 .25rem; }
-    .panel-mesa-centrado .panel-body > .btn { margin-top:.4rem; border-radius:9px; padding:.65rem .9rem; font-weight:700; }
-    .panel-mesa-centrado .panel-body hr { border-color:#e1e3e6; opacity:1; margin:1rem 0; }
-    .panel-mesa-disponible { padding:1rem; background:#e9f6ef; border:1px solid #c6e7d5; border-radius:12px; color:#24633d; font-weight:700; }
-    .panel-mesa-acciones { margin-top:1.1rem; display:flex; justify-content:flex-end; gap:.7rem; }
-    .panel-mesa-acciones .btn { min-width:125px; border-radius:9px; font-weight:700; padding:.6rem 1rem; }
-    @@media(max-width:780px) {
-        .panel-mesa.panel-mesa-centrado { width:calc(100vw - 1rem); max-height:calc(100dvh - 1rem); border-radius:14px; }
-        .panel-mesa-centrado .panel-header { padding:.9rem 1rem; }
-        .panel-mesa-centrado .panel-body { padding:1rem; }
-        .panel-mesa-acciones { flex-wrap:wrap; }
-        .panel-mesa-acciones .btn { flex:1; }
+    .mesa-libre-fondo {
+        position: fixed;
+        inset: 0;
+        background: rgba(8,12,18,.7);
+        backdrop-filter: blur(3px);
+        z-index: 1040;
     }
 
-    .panel-pedido-encabezado { display:flex; justify-content:space-between; gap:.4rem; align-items:center; flex-wrap:wrap; }
-    .panel-pedido-acciones { display:flex; gap:.35rem; align-items:center; }
-    .panel-btn-entregar { width:auto; min-width:72px; padding:.2rem .55rem; }
-    .panel-btn-entregar:disabled { opacity:.5; cursor:not-allowed; }
+    .panel-mesa.panel-mesa-centrado {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        right: auto;
+        bottom: auto;
+        transform: translate(-50%,-50%);
+        width: min(650px,calc(100vw - 2rem));
+        height: auto;
+        max-height: calc(100dvh - 2rem);
+        padding: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        border: 1px solid #ffffff35;
+        border-radius: 18px;
+        background: #fff;
+        box-shadow: 0 24px 80px #0006;
+        z-index: 1050;
+    }
+
+    .panel-mesa-centrado .panel-header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        padding: 1.15rem 1.4rem;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 1rem;
+        background: linear-gradient(115deg,#171a20,#303641);
+        border-bottom: 3px solid #e8a239;
+        color: #fff;
+    }
+
+    .panel-mesa-identidad {
+        display: flex;
+        flex-direction: column;
+        gap: .15rem;
+        min-width: 0;
+    }
+
+    .panel-mesa-etiqueta {
+        font-size: .69rem;
+        font-weight: 800;
+        letter-spacing: .12em;
+        color: #f1b75e;
+    }
+
+    .panel-mesa-centrado .panel-header h5 {
+        margin: .1rem 0;
+        font-size: 1.55rem;
+        font-weight: 800;
+        color: #fff;
+    }
+
+    .panel-mesa-subtitulo {
+        font-size: .83rem;
+        color: #d4d7dd;
+    }
+
+    .panel-mesa-cerrar {
+        color: #fff;
+        border: 1px solid #ffffff55;
+        border-radius: 9px;
+        width: 36px;
+        height: 36px;
+        display: grid;
+        place-items: center;
+        flex-shrink: 0;
+        line-height: 1;
+    }
+
+        .panel-mesa-cerrar:hover {
+            color: #fff;
+            background: #ffffff20;
+        }
+
+    .panel-mesa-centrado .panel-body {
+        padding: 1.3rem 1.4rem 1.5rem;
+    }
+
+    .panel-mesa-centrado > .alert, .panel-mesa-centrado > p {
+        margin: 1rem 1.4rem;
+    }
+
+    .panel-mesa-seccion {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: #262c35;
+        margin-bottom: .85rem;
+    }
+
+    .panel-mesa-centrado .grupo-sector {
+        border: 1px solid #e3e5e9;
+        border-radius: 13px;
+        padding: .85rem 1rem;
+        margin-bottom: .9rem;
+        background: #f9fafb;
+    }
+
+        .panel-mesa-centrado .grupo-sector > strong {
+            display: block;
+            margin-bottom: .5rem;
+            font-weight: 800;
+        }
+
+    .panel-mesa-centrado .pedido-card {
+        background: #fff;
+        border-color: #dfe2e6;
+        border-radius: 10px;
+        padding: .75rem .9rem;
+    }
+
+        .panel-mesa-centrado .pedido-card ul {
+            margin: .45rem 0 .25rem;
+        }
+
+    .panel-mesa-centrado .panel-body > .btn {
+        margin-top: .4rem;
+        border-radius: 9px;
+        padding: .65rem .9rem;
+        font-weight: 700;
+    }
+
+    .panel-mesa-centrado .panel-body hr {
+        border-color: #e1e3e6;
+        opacity: 1;
+        margin: 1rem 0;
+    }
+
+    .panel-mesa-disponible {
+        padding: 1rem;
+        background: #e9f6ef;
+        border: 1px solid #c6e7d5;
+        border-radius: 12px;
+        color: #24633d;
+        font-weight: 700;
+    }
+
+    .panel-mesa-acciones {
+        margin-top: 1.1rem;
+        display: flex;
+        justify-content: flex-end;
+        gap: .7rem;
+    }
+
+        .panel-mesa-acciones .btn {
+            min-width: 125px;
+            border-radius: 9px;
+            font-weight: 700;
+            padding: .6rem 1rem;
+        }
+
+    @@media(max-width:780px) {
+        .panel-mesa.panel-mesa-centrado {
+            width: calc(100vw - 1rem);
+            max-height: calc(100dvh - 1rem);
+            border-radius: 14px;
+        }
+
+        .panel-mesa-centrado .panel-header {
+            padding: .9rem 1rem;
+        }
+
+        .panel-mesa-centrado .panel-body {
+            padding: 1rem;
+        }
+
+        .panel-mesa-acciones {
+            flex-wrap: wrap;
+        }
+
+            .panel-mesa-acciones .btn {
+                flex: 1;
+            }
+    }
+
+    .panel-pedido-encabezado {
+        display: flex;
+        justify-content: space-between;
+        gap: .4rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .panel-pedido-acciones {
+        display: flex;
+        gap: .35rem;
+        align-items: center;
+    }
+
+    .panel-btn-entregar {
+        width: auto;
+        min-width: 72px;
+        padding: .2rem .55rem;
+    }
+
+        .panel-btn-entregar:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
     /* Resumen compacto: sectores paralelos en escritorio y acciones visibles. */
-    .panel-mesa.panel-mesa-centrado { width:min(720px,calc(100vw - 2rem)); }
-    .panel-mesa-centrado .panel-header { padding:.8rem 1.1rem; }
-    .panel-mesa-centrado .panel-header h5 { font-size:1.28rem; }
-    .panel-mesa-centrado .panel-body { padding:.85rem 1.05rem 1rem; }
-    .panel-mesa-seccion { margin-bottom:.55rem; }
-    .panel-mesa-sectores { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.7rem; align-items:start; }
-    .panel-mesa-centrado .grupo-sector { min-width:0; margin:0; padding:.65rem .75rem; border-radius:10px; }
-    .panel-mesa-centrado .grupo-sector > strong { margin-bottom:.35rem; }
-    .panel-mesa-centrado .pedido-card { padding:.55rem .65rem; }
-    .panel-mesa-centrado .pedido-card ul { padding-left:1.2rem; margin:.3rem 0; overflow-wrap:anywhere; }
-    .panel-btn-editar { width:auto; min-width:72px; margin:.25rem 0; padding:.2rem .65rem; }
-    .panel-mesa-botones { display:flex; gap:.65rem; flex-wrap:wrap; margin-top:.85rem; padding-top:.75rem; border-top:1px solid #e4e6e9; align-items:start; }
-    .panel-mesa-botones > .btn { flex:1 1 180px; width:auto; min-width:0; padding:.52rem .7rem; border-radius:9px; font-weight:700; }
-    .panel-mesa-botones > small { flex-basis:100%; margin-top:0!important; }
+    .panel-mesa.panel-mesa-centrado {
+        width: min(720px,calc(100vw - 2rem));
+    }
+
+    .panel-mesa-centrado .panel-header {
+        padding: .8rem 1.1rem;
+    }
+
+        .panel-mesa-centrado .panel-header h5 {
+            font-size: 1.28rem;
+        }
+
+    .panel-mesa-centrado .panel-body {
+        padding: .85rem 1.05rem 1rem;
+    }
+
+    .panel-mesa-seccion {
+        margin-bottom: .55rem;
+    }
+
+    .panel-mesa-sectores {
+        display: grid;
+        grid-template-columns: repeat(2,minmax(0,1fr));
+        gap: .7rem;
+        align-items: start;
+    }
+
+    .panel-mesa-centrado .grupo-sector {
+        min-width: 0;
+        margin: 0;
+        padding: .65rem .75rem;
+        border-radius: 10px;
+    }
+
+        .panel-mesa-centrado .grupo-sector > strong {
+            margin-bottom: .35rem;
+        }
+
+    .panel-mesa-centrado .pedido-card {
+        padding: .55rem .65rem;
+    }
+
+        .panel-mesa-centrado .pedido-card ul {
+            padding-left: 1.2rem;
+            margin: .3rem 0;
+            overflow-wrap: anywhere;
+        }
+
+    .panel-btn-editar {
+        width: auto;
+        min-width: 72px;
+        margin: .25rem 0;
+        padding: .2rem .65rem;
+    }
+
+    .panel-mesa-botones {
+        display: flex;
+        gap: .65rem;
+        flex-wrap: wrap;
+        margin-top: .85rem;
+        padding-top: .75rem;
+        border-top: 1px solid #e4e6e9;
+        align-items: start;
+    }
+
+        .panel-mesa-botones > .btn {
+            flex: 1 1 180px;
+            width: auto;
+            min-width: 0;
+            padding: .52rem .7rem;
+            border-radius: 9px;
+            font-weight: 700;
+        }
+
+        .panel-mesa-botones > small {
+            flex-basis: 100%;
+            margin-top: 0 !important;
+        }
+
     @@media(max-width:600px) {
-        .panel-mesa-sectores { grid-template-columns:minmax(0,1fr); gap:.55rem; }
-        .panel-mesa.panel-mesa-centrado { width:calc(100vw - 1rem); }
-        .panel-mesa-botones > .btn { flex:1 1 100%; }
+        .panel-mesa-sectores {
+            grid-template-columns: minmax(0,1fr);
+            gap: .55rem;
+        }
+
+        .panel-mesa.panel-mesa-centrado {
+            width: calc(100vw - 1rem);
+        }
+
+        .panel-mesa-botones > .btn {
+            flex: 1 1 100%;
+        }
     }
     /* Escritorio: plano real más compacto. Se conserva cada fila/columna
-       configurada; solo se reduce el espacio visual entre las mesas. */
+           configurada; solo se reduce el espacio visual entre las mesas. */
     @@media (min-width: 781px) {
-        .comandas-disposicion { align-items:flex-start; gap:.75rem; }
-        .comandas-mapa { flex: 1 1 650px; min-width:0; width:auto; max-width:100%; overflow-x:auto; }
-        .comandas-lateral { flex: 1 1 320px; min-width:280px; }
-        .salas-operativas { display:flex; flex-wrap:nowrap; align-items:flex-start; width:max-content; gap:.55rem; padding-bottom:.3rem; }
-        .sala-operativa { flex:0 0 auto; width:max-content; max-width:none; overflow:visible; padding:.5rem .65rem .75rem; border-width:2px; }
-        .sala-operativa-titulo { font-size:1.08rem; margin-bottom:.25rem; }
-        .grilla-salon-operativa { width:max-content; max-width:none; overflow:visible; padding:.3rem .1rem .55rem; gap:.1rem; }
-        .fila-grilla-operativa { gap:.1rem; }
-        .celda-operativa { width:clamp(99px,7.8vw,119px); height:96px; }
-        .mesa { width:80px; height:58px; }
-        .mesa.tamanio-chica { width:64px; height:48px; }
-        .mesa.tamanio-grande { width:94px; height:68px; }
-        .mesa::before { left:-16px; width:13px; }
-        .mesa::after { right:-16px; width:13px; }
-        .mesa .numero-mesa::before { top:-16px; }
-        .mesa .numero-mesa::after { bottom:-16px; }
+        .comandas-disposicion {
+            align-items: flex-start;
+            gap: .75rem;
+        }
+
+        .comandas-mapa {
+            flex: 1 1 650px;
+            min-width: 0;
+            width: auto;
+            max-width: 100%;
+            overflow-x: auto;
+        }
+
+        .comandas-lateral {
+            flex: 1 1 320px;
+            min-width: 280px;
+        }
+
+        .salas-operativas {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: flex-start;
+            width: max-content;
+            gap: .55rem;
+            padding-bottom: .3rem;
+        }
+
+        .sala-operativa {
+            flex: 0 0 auto;
+            width: max-content;
+            max-width: none;
+            overflow: visible;
+            padding: .5rem .65rem .75rem;
+            border-width: 2px;
+        }
+
+        .sala-operativa-titulo {
+            font-size: 1.08rem;
+            margin-bottom: .25rem;
+        }
+
+        .grilla-salon-operativa {
+            width: max-content;
+            max-width: none;
+            overflow: visible;
+            padding: .3rem .1rem .55rem;
+            gap: .1rem;
+        }
+
+        .fila-grilla-operativa {
+            gap: .1rem;
+        }
+
+        .celda-operativa {
+            width: clamp(99px,7.8vw,119px);
+            height: 96px;
+        }
+
+        .mesa {
+            width: 80px;
+            height: 58px;
+        }
+
+            .mesa.tamanio-chica {
+                width: 64px;
+                height: 48px;
+            }
+
+            .mesa.tamanio-grande {
+                width: 94px;
+                height: 68px;
+            }
+
+            .mesa::before {
+                left: -16px;
+                width: 13px;
+            }
+
+            .mesa::after {
+                right: -16px;
+                width: 13px;
+            }
+
+            .mesa .numero-mesa::before {
+                top: -16px;
+            }
+
+            .mesa .numero-mesa::after {
+                bottom: -16px;
+            }
     }
+
     @@media (min-width: 781px) and (max-width: 1120px) {
-        .celda-operativa { width:96px; height:88px; }
-        .salas-operativas { gap:.4rem; }
-        .sala-operativa { padding:.45rem; }
-        .comandas-lateral { flex-basis:290px; }
-        .mesa { width:74px; height:54px; }
-        .mesa.tamanio-grande { width:82px; height:62px; }
+        .celda-operativa {
+            width: 96px;
+            height: 88px;
+        }
+
+        .salas-operativas {
+            gap: .4rem;
+        }
+
+        .sala-operativa {
+            padding: .45rem;
+        }
+
+        .comandas-lateral {
+            flex-basis: 290px;
+        }
+
+        .mesa {
+            width: 74px;
+            height: 54px;
+        }
+
+            .mesa.tamanio-grande {
+                width: 82px;
+                height: 62px;
+            }
     }
     /* Pestañas exclusivas de celular: respetan las posiciones reales guardadas. */
-    .pestanas-salas-movil { display: none; }
-    @@media (max-width: 780px) {
-        .pestanas-salas-movil { display:flex; gap:.3rem; padding:0 0 .4rem; width:100%; overflow-x:auto; }
-        .pestana-sala-movil { flex:0 0 auto; min-width:98px; max-width:150px; min-height:34px; border:1px solid #d3d7dc; border-radius:8px; padding:.3rem .75rem; background:white; font-weight:700; color:#333; font-size:.88rem; }
-        .pestana-sala-movil.pestana-sala-activa { color:#fff; background:#222; border-color:#222; }
-        .salas-operativas { display:block; width:100%; }
-        .sala-operativa { display:none; width:100%; max-width:100%; box-sizing:border-box; overflow:hidden; }
-        .sala-operativa.sala-operativa-activa { display:block; }
-        .sala-operativa-titulo { font-size:1.08rem; margin-bottom:.35rem; }
-        .grilla-salon-operativa { width:100%; max-width:100%; padding:.4rem 0 .75rem; overflow-x:auto; overscroll-behavior-x:contain; }
-        .fila-grilla-operativa { gap:.12rem; }
-        .celda-operativa { width:108px; height:96px; }
-        .mesa { width:76px; height:58px; }
-        .mesa.tamanio-chica { width:62px; height:48px; }
-        .mesa.tamanio-grande { width:84px; height:64px; }
-        .mesa::before { left:-15px; width:12px; }
-        .mesa::after { right:-15px; width:12px; }
-        .mesa .numero-mesa::before { top:-16px; }
-        .mesa .numero-mesa::after { bottom:-16px; }
+    .pestanas-salas-movil {
+        display: none;
     }
+
+    @@media (max-width: 780px) {
+        .pestanas-salas-movil {
+            display: flex;
+            gap: .3rem;
+            padding: 0 0 .4rem;
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        .pestana-sala-movil {
+            flex: 0 0 auto;
+            min-width: 98px;
+            max-width: 150px;
+            min-height: 34px;
+            border: 1px solid #d3d7dc;
+            border-radius: 8px;
+            padding: .3rem .75rem;
+            background: white;
+            font-weight: 700;
+            color: #333;
+            font-size: .88rem;
+        }
+
+            .pestana-sala-movil.pestana-sala-activa {
+                color: #fff;
+                background: #222;
+                border-color: #222;
+            }
+
+        .salas-operativas {
+            display: block;
+            width: 100%;
+        }
+
+        .sala-operativa {
+            display: none;
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+            .sala-operativa.sala-operativa-activa {
+                display: block;
+            }
+
+        .sala-operativa-titulo {
+            font-size: 1.08rem;
+            margin-bottom: .35rem;
+        }
+
+        .grilla-salon-operativa {
+            width: 100%;
+            max-width: 100%;
+            padding: .4rem 0 .75rem;
+            overflow-x: auto;
+            overscroll-behavior-x: contain;
+        }
+
+        .fila-grilla-operativa {
+            gap: .12rem;
+        }
+
+        .celda-operativa {
+            width: 108px;
+            height: 96px;
+        }
+
+        .mesa {
+            width: 76px;
+            height: 58px;
+        }
+
+            .mesa.tamanio-chica {
+                width: 62px;
+                height: 48px;
+            }
+
+            .mesa.tamanio-grande {
+                width: 84px;
+                height: 64px;
+            }
+
+            .mesa::before {
+                left: -15px;
+                width: 12px;
+            }
+
+            .mesa::after {
+                right: -15px;
+                width: 12px;
+            }
+
+            .mesa .numero-mesa::before {
+                top: -16px;
+            }
+
+            .mesa .numero-mesa::after {
+                bottom: -16px;
+            }
+    }
+
     @@media (max-width: 380px) {
-        .celda-operativa { width:99px; height:90px; }
-        .mesa { width:70px; height:54px; }
-        .mesa.tamanio-chica { width:60px; height:46px; }
-        .mesa.tamanio-grande { width:78px; height:60px; }
+        .celda-operativa {
+            width: 99px;
+            height: 90px;
+        }
+
+        .mesa {
+            width: 70px;
+            height: 54px;
+        }
+
+            .mesa.tamanio-chica {
+                width: 60px;
+                height: 46px;
+            }
+
+            .mesa.tamanio-grande {
+                width: 78px;
+                height: 60px;
+            }
     }
 </style>
 
@@ -1647,7 +2356,7 @@
             await CargarSalas();
             await CargarProductos();
             await CargarUsuarioActual();
-    
+
 
         }
         catch (System.Net.Http.HttpRequestException) { sinConexion = true; }
@@ -2002,7 +2711,9 @@
         detallesAntesDeEditar = pendientes.SelectMany(p => p.DetallesPedido).ToList();
         carrito = detallesAntesDeEditar.Select(d => new ItemPedidoDTO
         {
-            IdProducto = d.IdProducto, Cantidad = d.Cantidad, Observacion = d.Observacion
+            IdProducto = d.IdProducto,
+            Cantidad = d.Cantidad,
+            Observacion = d.Observacion
         }).ToList();
     }
 

@@ -833,6 +833,35 @@ namespace PericoOnFire_2026.Server.Controllers
                 pedidos.Where(p => p.Comanda != null)
                     .Select(p => (p.IdComanda, p.Comanda!.FechaApertura)));
 
+            // Si algún producto del pedido es una promo, se busca qué trae adentro
+            // (propios y los del otro sector, que también se muestran como referencia).
+            var idsProductos = pedidos
+                .SelectMany(p => p.DetallesPedido)
+                .Select(d => d.IdProducto)
+                .Concat(pedidos
+                    .Where(p => p.Comanda != null)
+                    .SelectMany(p => p.Comanda!.Pedidos)
+                    .SelectMany(h => h.DetallesPedido)
+                    .Select(d => d.IdProducto))
+                .Distinct()
+                .ToList();
+
+            var itemsPromo = await context.PromocionItems
+                .Include(i => i.ProductoComponente)
+                .Where(i => idsProductos.Contains(i.IdProductoPromo))
+                .ToListAsync();
+
+            var componentesPorPromo = itemsPromo
+                .GroupBy(i => i.IdProductoPromo)
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.Select(i => new ComponentePromoDTO
+                    {
+                        IdProducto = i.IdProductoComponente,
+                        NombreProducto = i.ProductoComponente.Nombre,
+                        Cantidad = i.Cantidad
+                    }).ToList());
+
             return pedidos.Select(p => new PedidoDTO
             {
                 Id = p.Id,
@@ -862,7 +891,8 @@ namespace PericoOnFire_2026.Server.Controllers
                     Cantidad = d.Cantidad,
                     PrecioUnitario = d.PrecioUnitario,
                     Observacion = d.Observacion,
-                    NombreProducto = d.Producto.Nombre
+                    NombreProducto = d.Producto.Nombre,
+                    Componentes = componentesPorPromo.GetValueOrDefault(d.IdProducto) ?? new List<ComponentePromoDTO>()
                 }).ToList(),
                 DetallesOtroSector = p.Comanda != null
                     ? p.Comanda.Pedidos
@@ -877,7 +907,8 @@ namespace PericoOnFire_2026.Server.Controllers
                             Cantidad = d.Cantidad,
                             PrecioUnitario = d.PrecioUnitario,
                             Observacion = d.Observacion,
-                            NombreProducto = d.Producto.Nombre
+                            NombreProducto = d.Producto.Nombre,
+                            Componentes = componentesPorPromo.GetValueOrDefault(d.IdProducto) ?? new List<ComponentePromoDTO>()
                         }).ToList()
                     : new List<DetallePedidoDTO>()
             }).ToList();
