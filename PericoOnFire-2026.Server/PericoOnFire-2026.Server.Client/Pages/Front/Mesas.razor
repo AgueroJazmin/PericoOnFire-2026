@@ -444,6 +444,11 @@
                         <article class="producto-fila">
                             <div>
                                 <strong>@producto.Nombre</strong>
+                                @if (producto.Componentes.Any())
+                                {
+                                    <span class="badge-promo">PROMO</span>
+                                    <small class="promo-trae">Trae: @string.Join(" + ", producto.Componentes.Select(c => $"{c.Cantidad} × {c.NombreProducto}"))</small>
+                                }
                                 <small>@(string.IsNullOrWhiteSpace(busquedaProducto) ? producto.SectorDestino.ToString() : producto.NombreSubcategoria)</small>
                             </div>
                             <span class="producto-precio">$@producto.Precio.ToString("N2")</span>
@@ -477,6 +482,22 @@
 }
 
 <style>
+    .badge-promo {
+        display: inline-block;
+        margin-left: .35rem;
+        padding: .05rem .45rem;
+        border-radius: 6px;
+        background: #ffc107;
+        color: #3b2f00;
+        font-size: .75rem;
+        font-weight: 800;
+    }
+
+    .promo-trae {
+        display: block;
+        color: #6c757d;
+    }
+
     .perico-main {
         width: 100%;
         min-height: calc(100vh - 64px);
@@ -533,8 +554,8 @@
     }
 
     /* La celda es bien más grande que la mesa a propósito: las sillas (los
-               cuadraditos de las puntas) sobresalen del cuerpo de la mesa, y si la celda
-               queda muy justa, la celda de al lado o el borde del salón se las come. */
+                   cuadraditos de las puntas) sobresalen del cuerpo de la mesa, y si la celda
+                   queda muy justa, la celda de al lado o el borde del salón se las come. */
     .celda-operativa {
         width: 148px;
         height: 116px;
@@ -2054,7 +2075,7 @@
         }
     }
     /* Escritorio: plano real más compacto. Se conserva cada fila/columna
-           configurada; solo se reduce el espacio visual entre las mesas. */
+               configurada; solo se reduce el espacio visual entre las mesas. */
     @@media (min-width: 781px) {
         .comandas-disposicion {
             align-items: flex-start;
@@ -2419,6 +2440,7 @@
     private static int OrdenCategoria(string categoria)
     {
         var nombre = categoria.ToLowerInvariant();
+        if (nombre.Contains("promo")) return 5;
         if (nombre.Contains("comida")) return 1;
         if (nombre.Contains("bebida")) return 2;
         if (nombre.Contains("postre")) return 3;
