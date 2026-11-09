@@ -10,6 +10,9 @@ namespace PericoOnFire_2026.BD.Datos.Entity
     {
         public int IdUsuario { get; set; }
         public int? IdTurnoCaja { get; set; }
+
+        // Si el movimiento es una devolución a un cliente, la comanda a la que corresponde 
+        public int? IdComanda { get; set; }
         public EnumTipoMovCaja TipoMovimiento { get; set; }
 
         [Range(0.01, double.MaxValue, ErrorMessage = "El monto debe ser mayor a cero")]

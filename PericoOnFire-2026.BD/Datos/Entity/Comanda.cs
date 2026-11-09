@@ -31,6 +31,14 @@ namespace PericoOnFire_2026.BD.Datos.Entity
         public decimal Descuento { get; set; } = 0;
         public decimal? DescuentoPorcentaje { get; set; }
 
+        // Se completa al cancelar un pedido de Take Away o/y Delivery.
+        public string? MotivoCancelacion { get; set; }
+        public DateTime? FechaCancelacion { get; set; }
+
+        // Plata ya devuelta al cliente queda como egresos registrados en Caja, y la plata que todavía hay que devolverle.
+        public decimal MontoDevuelto { get; set; } = 0;
+        public decimal DevolucionPendiente { get; set; } = 0;
+
         public int CantidadComensales { get; set; }
 
         [MaxLength(300)]

@@ -5,8 +5,8 @@
 @using PericoOnFire_2026.Servicio.ServicioHttp
 @inject IHttpServicio http
 
-@* Ventas cobradas: las del día por defecto, o las de un rango de fechas. Todo sale de los Pago
-   registrados (ver CajaController), así que sirve tanto para el control diario como para la estadística. *@
+@* Ventas cobradas son las del día por defecto, o las de un rango de fechas. Todo sale de los Pago
+   registrados, así que sirve tanto para el control diario como para la estadística. *@
 
 <div class="cv-contenedor">
 
@@ -148,6 +148,10 @@
                     @if (venta.Descuento > 0)
                     {
                         <span class="cv-chip">Descuento @Dinero(venta.Descuento)@(venta.DescuentoPorcentaje.HasValue ? $" ({venta.DescuentoPorcentaje:0.##}%)" : "")</span>
+                    }
+                    @if (venta.Devuelto > 0)
+                    {
+                        <span class="cv-chip">Devuelto @Dinero(venta.Devuelto)</span>
                     }
                 </div>
                 <div class="cv-venta-info">@FechaHora(venta.FechaPago) · Cobró @(venta.NombreCajero ?? "—")</div>

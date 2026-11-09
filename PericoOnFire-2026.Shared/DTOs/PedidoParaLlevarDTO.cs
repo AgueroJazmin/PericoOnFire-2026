@@ -21,16 +21,24 @@ namespace PericoOnFire_2026.Shared.DTOs
         public List<PedidoSectorEstadoDTO> Pedidos { get; set; } = new();
         public int? IdDelivery { get; set; }
         public string? NombreDelivery { get; set; }
+
         // Información real de la venta. Un pedido no pagado no tiene medio ni vuelto confirmado.
         public decimal TotalPedido { get; set; }
+
+        // Descuento aplicado al cobrar, lo que el cliente ya pagó, quedando devoluciones registradas
+        // y lo que todavía hay que devolverle. Se usan al editar o cancelar el pedido.
+        public decimal Descuento { get; set; }
+        public decimal? DescuentoPorcentaje { get; set; }
+        public decimal YaPagado { get; set; }
+        public decimal DevolucionPendiente { get; set; }
         public bool EstaPagado { get; set; }
         public string MediosPago { get; set; } = "";
         public decimal? EfectivoRecibido { get; set; }
         public decimal? VueltoRegistrado { get; set; }
+
         // Dinero que el cliente dijo que entregará; no equivale a un pago confirmado.
         public decimal? EfectivoPrevistoDelivery { get; set; }
         public DateTime? FechaEntrega { get; set; }
-
 
         // Todo lo que no está cancelado tiene que estar ListoParaRetirar para
         // poder repartirlo o cerrarlo ya sea si esta lista está vacía, no hay nada

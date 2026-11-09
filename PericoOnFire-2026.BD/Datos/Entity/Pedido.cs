@@ -25,6 +25,10 @@ namespace PericoOnFire_2026.BD.Datos.Entity
             [MaxLength(300)]
             public string? MotivoCancelacion { get; set; }
             public DateTime? FechaCancelado { get; set; }
+
+        // true cuando se agregó después de la carga original de la comanda, se muestra como Nuevo en la cocina,
+        // y no se cobra hasta que se cierre la comanda.
+        public bool EsAdicional { get; set; } = false;
             public List<DetallePedido> DetallesPedido { get; set; } = new();
         }
     

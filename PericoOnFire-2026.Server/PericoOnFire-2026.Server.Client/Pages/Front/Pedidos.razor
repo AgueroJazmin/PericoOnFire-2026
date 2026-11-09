@@ -88,11 +88,12 @@
                             }
 
                             <ul class="lista-items">
-                                @foreach (var item in cuenta.Items)
+                                @foreach (var item in cuenta.Items.OrderBy(i => i.EsNuevo))
                                 {
                                     <li>
                                         @item.Cantidad x @item.NombreProducto
                                         <span class="item-precio">($@item.PrecioUnitario.ToString("N2") c/u = $@item.Subtotal.ToString("N2"))</span>
+                                        @if (item.EsNuevo) { <span class="badge-nuevo">NUEVO</span> }
                                     </li>
                                 }
                             </ul>
@@ -283,6 +284,54 @@
                                                 }
                             }
 
+                            @if (cuenta.DevolucionPendiente > 0)
+                            {
+                                <div class="alert alert-warning py-1 px-2 mt-1 mb-0">
+                                    Hay que devolver <strong>$@cuenta.DevolucionPendiente.ToString("N2")</strong> al cliente (se registra en Caja).
+                                </div>
+                            }
+                            @if (cuenta.EstadoComanda == EnumEstadoComanda.PendienteCobro && cuenta.YaPagado > 0)
+                            {
+                                <div class="alert alert-info py-1 px-2 mt-1 mb-0">
+                                    Se modificó el pedido: falta cobrar la diferencia en Caja.
+                                </div>
+                            }
+
+                            @if (PuedeEditarPedido(cuenta))
+                            {
+                                <button class="btn btn-sm btn-outline-primary w-100 mt-1" @onclick="() => AbrirEdicionComanda(cuenta)">
+                                    Editar productos
+                                </button>
+                            }
+
+                            @if (PuedeCancelarPedido(cuenta))
+                            {
+                                @if (cancelandoPedidoId == cuenta.IdComanda)
+                                {
+                                    <div class="mt-1">
+                                        <label class="dato-cliente">
+                                            Motivo de la cancelación
+                                            <textarea class="form-control form-control-sm" rows="2" maxlength="300"
+                                                      @bind="motivoCancelacionPedido" @bind:event="oninput"></textarea>
+                                        </label>
+                                        <div class="d-flex gap-1 mt-1">
+                                            <button class="btn btn-sm btn-danger flex-fill"
+                                                    disabled="@(string.IsNullOrWhiteSpace(motivoCancelacionPedido))"
+                                                    @onclick="() => ConfirmarCancelarPedido(cuenta)">
+                                                Confirmar cancelación
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary flex-fill" @onclick="CerrarCancelarPedido">Volver</button>
+                                        </div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-sm btn-outline-danger w-100 mt-1" @onclick="() => AbrirCancelarPedido(cuenta)">
+                                        Cancelar pedido
+                                    </button>
+                                }
+                            }
+
 
 
 
@@ -357,9 +406,9 @@
                 <div class="pedido-modal-fondo">
                     <div class="pedido-modal-ventana" role="dialog" aria-modal="true" aria-label="Cargar nuevo pedido">
                         <div class="pedido-modal-barra">
-                            <strong>Cargar nuevo pedido</strong>
+                            <strong>@(EditandoPedido ? $"Editar pedido {cuentaEditando!.NumeroComanda}" : "Cargar nuevo pedido")</strong>
                             <button id="perico-nuevo-pedido-cerrar" type="button" class="pedido-modal-cerrar" aria-label="Cerrar ventana de nuevo pedido" aria-keyshortcuts="Escape"
-                                    disabled="@enviandoPedido" @onclick="() => mostrarFormularioNuevoPedido = false">×</button>
+                                    disabled="@enviandoPedido" @onclick="CerrarFormularioPedido">×</button>
                         </div>
                         <div class="panel-nuevo-pedido">
                 <section class="modal-pedido" aria-label="Formulario de nuevo pedido">
@@ -367,8 +416,8 @@
                         <div class="modal-encabezado-contenido">
 
                             <div class="modal-identificacion">
-                                <h4>Nuevo pedido</h4>
-                                <span>@tipoNuevoPedido</span>
+                                <h4>@(EditandoPedido ? "Editar pedido" : "Nuevo pedido")</h4>
+                                <span>@(EditandoPedido ? cuentaEditando!.TipoServicio : tipoNuevoPedido)</span>
                             </div>
 
 
@@ -382,6 +431,8 @@
                         <div class="alert @(MensajeFormEsExito ? "alert-success" : "alert-danger") py-2">@MensajeForm</div>
                     }
 
+                    @if (!EditandoPedido)
+                    {
                     <fieldset class="datos-cliente datos-cliente-superior" disabled="@enviandoPedido" aria-label="Datos del cliente">
                         <div class="cliente-linea">
                             <strong>Cliente</strong>
@@ -441,6 +492,7 @@
                             }
                         </div>
                     </fieldset>
+                    }
 
                             <nav class="categorias categorias-superiores" aria-label="Categorías">
                                 @foreach (var categoria in CategoriasDisponibles)
@@ -558,6 +610,8 @@
                         </div>
                     </fieldset>
 
+                    @if (!EditandoPedido)
+                    {
                     <div class="pago-inmediato">
                         @if (tipoNuevoPedido == EnumTipoServicio.Delivery && !cobrarAhora)
                         {
@@ -635,6 +689,74 @@
                             <small>El pedido se envía sin cobrar. Podés registrarlo en Caja después.</small>
                         }
                     </div>
+                    }
+                    else
+                    {
+                    <div class="pago-inmediato">
+                            <div>Total anterior: <strong>$@TotalAntesEdicion.ToString("N2")</strong></div>
+
+                            @if (EdicionConDescuento)
+                            {
+                                <label class="pago-inmediato-opcion">
+                                    Descuento
+                                    <select class="form-select form-select-sm" @bind="tipoDescuentoEdicion" disabled="@enviandoPedido">
+                                        <option value="@EnumTipoDescuento.Ninguno">Sin descuento</option>
+                                        <option value="@EnumTipoDescuento.Porcentaje">Porcentaje (%)</option>
+                                        <option value="@EnumTipoDescuento.MontoFijo">Monto fijo ($)</option>
+                                    </select>
+                                </label>
+                                @if (tipoDescuentoEdicion != EnumTipoDescuento.Ninguno)
+                                {
+                                    <input type="number" min="0" step="0.01" class="form-control form-control-sm"
+                                           @bind="valorDescuentoEdicion" @bind:event="oninput" disabled="@enviandoPedido" />
+                                }
+                                @if (ErrorDescuentoEdicion != null)
+                                {
+                                    <small class="text-danger">@ErrorDescuentoEdicion</small>
+                                }
+                                else if (DescuentoEdicion > 0)
+                                {
+                                    <small>Descuento aplicado: $@DescuentoEdicion.ToString("N2")</small>
+                                }
+                            }
+
+                            @if (EdicionPideEfectivoPrevisto)
+                            {
+                                <label class="pago-inmediato-opcion">
+                                    Efectivo que entregará el cliente
+                                    <input class="form-control form-control-sm" inputmode="decimal"
+                                           @bind="efectivoPrevistoEdicionTexto" @bind:event="oninput" disabled="@enviandoPedido" />
+                                </label>
+                                @if (!EfectivoPrevistoEdicionValido)
+                                {
+                                    <small class="text-danger">Tiene que cubrir el nuevo total ($@TotalEdicion.ToString("N2")).</small>
+                                }
+                            }
+
+                            <div>Nuevo total: <strong>$@TotalEdicion.ToString("N2")</strong></div>
+
+                            @if (cuentaEditando!.YaPagado > 0)
+                            {
+                                @if (DiferenciaEdicion > 0)
+                                {
+                                    <small>El cliente ya pagó $@cuentaEditando.YaPagado.ToString("N2"). Falta cobrar <strong>$@DiferenciaEdicion.ToString("N2")</strong> en Caja.</small>
+                                }
+                                else if (DiferenciaEdicion < 0)
+                                {
+                                    <small class="text-danger">El cliente ya pagó $@cuentaEditando.YaPagado.ToString("N2"). Hay que devolverle <strong>$@((-DiferenciaEdicion).ToString("N2"))</strong>: se registra en Caja como egreso.</small>
+                                }
+                                else
+                                {
+                                    <small>El total no cambia: no hay nada para cobrar ni devolver.</small>
+                                }
+                            }
+                            else
+                            {
+                                <small>El pedido todavía no está cobrado: el nuevo total se cobra en Caja.</small>
+                            }
+                            <small>Lo que agregues sale marcado como NUEVO en Cocina y Barra.</small>
+                        </div>
+                    }
                     <footer class="modal-pedido-footer">
                         @if (!PedidoListoParaEnviar && !enviandoPedido)
                         {
@@ -642,12 +764,22 @@
                         }
                         <div>
                             <span>Total</span>
-                            <strong>$@TotalCarrito.ToString("N2")</strong>
+                            <strong>$@TotalMostrado.ToString("N2")</strong>
                         </div>
-                        <button class="btn btn-outline-secondary" @onclick="ReiniciarFormularioPedido" disabled="@enviandoPedido">Vaciar</button>
-                        <button class="btn btn-success" @onclick="EnviarPedido" disabled="@(!PedidoListoParaEnviar || enviandoPedido)">
-                            @(enviandoPedido ? "Guardando..." : cobrarAhora ? "Cobrar y enviar a cocina/barra" : "Enviar a cocina/barra")
-                        </button>
+                        @if (EditandoPedido)
+                        {
+                            <button class="btn btn-outline-secondary" @onclick="CerrarFormularioPedido" disabled="@enviandoPedido">Cancelar</button>
+                            <button class="btn btn-success" @onclick="GuardarEdicionComanda" disabled="@(!EdicionListaParaGuardar || enviandoPedido)">
+                                @(enviandoPedido ? "Guardando..." : "Guardar cambios")
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-outline-secondary" @onclick="ReiniciarFormularioPedido" disabled="@enviandoPedido">Vaciar</button>
+                            <button class="btn btn-success" @onclick="EnviarPedido" disabled="@(!PedidoListoParaEnviar || enviandoPedido)">
+                                @(enviandoPedido ? "Guardando..." : cobrarAhora ? "Cobrar y enviar a cocina/barra" : "Enviar a cocina/barra")
+                            </button>
+                        }
                     </footer>
                 </section>
                         </div>
@@ -684,11 +816,12 @@
                                 <div class="cuenta-card-info">☎ @cuenta.Telefono</div>
                             }
                             <ul class="lista-items">
-                                @foreach (var item in cuenta.Items)
+                                @foreach (var item in cuenta.Items.OrderBy(i => i.EsNuevo))
                                 {
                                     <li>
                                         @item.Cantidad x @item.NombreProducto
                                         <span class="item-precio">($@item.PrecioUnitario.ToString("N2") c/u = $@item.Subtotal.ToString("N2"))</span>
+                                        @if (item.EsNuevo) { <span class="badge-nuevo">NUEVO</span> }
                                     </li>
                                 }
                             </ul>
@@ -755,11 +888,12 @@
                                 <div class="cuenta-card-info">☎ @cuenta.Telefono</div>
                             }
                             <ul class="lista-items">
-                                @foreach (var item in cuenta.Items)
+                                @foreach (var item in cuenta.Items.OrderBy(i => i.EsNuevo))
                                 {
                                     <li>
                                         @item.Cantidad x @item.NombreProducto
                                         <span class="item-precio">($@item.PrecioUnitario.ToString("N2") c/u = $@item.Subtotal.ToString("N2"))</span>
+                                        @if (item.EsNuevo) { <span class="badge-nuevo">NUEVO</span> }
                                     </li>
                                 }
                             </ul>
@@ -844,6 +978,18 @@
 
 
 <style>
+    .badge-nuevo {
+        display: inline-block;
+        margin-left: .35rem;
+        padding: .1rem .5rem;
+        border-radius: 6px;
+        background: #e53935;
+        color: #fff;
+        font-size: .8rem;
+        font-weight: 800;
+        letter-spacing: .3px;
+    }
+
 
     .pedidos-pagina {
         padding: 1rem;
@@ -2080,7 +2226,7 @@
     private string textoObservacion = "";
     private bool enviandoPedido;
     private string? MensajeForm;
-    private bool MensajeFormEsExito => MensajeForm != null && MensajeForm.StartsWith("Pedido ") && (MensajeForm.EndsWith(" enviado.") || MensajeForm.EndsWith(" enviado y cobrado."));
+    private bool MensajeFormEsExito => MensajeForm != null && (MensajeForm.StartsWith("Listo: ") || (MensajeForm.StartsWith("Pedido ") && (MensajeForm.EndsWith(" enviado.") || MensajeForm.EndsWith(" enviado y cobrado."))));
 
     // Cuánto antes del horario deseado se lo marca en rojo para avisar que se acerca.
     private const int MinutosAvisoHoraDeseada = 15;
@@ -2089,7 +2235,7 @@
     private int? editandoHorarioId;
     private string horaEditando = "";
 
-    // ---- Seguimiento (Administracion/Barra) ----
+    // Seguimiento (Administracion/Barra)
     private List<PedidoParaLlevarDTO> takeAways = new();
     private EnumTipoServicio pestanaPedidos = EnumTipoServicio.TakeAway;
     private bool mostrarRendiciones;
@@ -2162,6 +2308,13 @@
     {
         get
         {
+            if (EditandoPedido)
+            {
+                if (!carrito.Any()) return "El pedido tiene que conservar al menos un producto.";
+                if (ErrorDescuentoEdicion != null) return ErrorDescuentoEdicion;
+                return "El efectivo que entregará el cliente tiene que cubrir el nuevo total.";
+            }
+
             var faltantes = new List<string>();
             if (string.IsNullOrWhiteSpace(nombreCliente) && tipoNuevoPedido != EnumTipoServicio.Delivery) faltantes.Add("nombre del cliente");
             if (tipoNuevoPedido == EnumTipoServicio.Delivery && string.IsNullOrWhiteSpace(direccionCliente)) faltantes.Add("dirección / referencia de WhatsApp");
@@ -2170,9 +2323,11 @@
         }
     }
     private bool PedidoListoParaEnviar =>
-        (tipoNuevoPedido == EnumTipoServicio.Delivery || !string.IsNullOrWhiteSpace(nombreCliente)) &&
-        carrito.Any() &&
-        (tipoNuevoPedido != EnumTipoServicio.Delivery || !string.IsNullOrWhiteSpace(direccionCliente));
+        EditandoPedido
+            ? EdicionListaParaGuardar
+            : (tipoNuevoPedido == EnumTipoServicio.Delivery || !string.IsNullOrWhiteSpace(nombreCliente)) &&
+              carrito.Any() &&
+              (tipoNuevoPedido != EnumTipoServicio.Delivery || !string.IsNullOrWhiteSpace(direccionCliente));
 
     protected override async Task OnInitializedAsync()
     {
@@ -2704,6 +2859,187 @@ private async Task ConfirmarCambioTipo(PedidoParaLlevarDTO cuenta)
 
     MensajeForm = null;
     CerrarCambioTipo();
+    await CargarSeguimiento();
+}
+
+//Cancelar pedido con motivo
+private int? cancelandoPedidoId;
+private string motivoCancelacionPedido = "";
+
+private bool PuedeEditarPedido(PedidoParaLlevarDTO cuenta) => PuedeCambiarTipo(cuenta) && cuenta.Pedidos.Any();
+private bool PuedeCancelarPedido(PedidoParaLlevarDTO cuenta) => PuedeCambiarTipo(cuenta) && cuenta.Pedidos.Any();
+
+private void AbrirCancelarPedido(PedidoParaLlevarDTO cuenta)
+{
+    cancelandoPedidoId = cuenta.IdComanda;
+    motivoCancelacionPedido = "";
+}
+
+private void CerrarCancelarPedido()
+{
+    cancelandoPedidoId = null;
+    motivoCancelacionPedido = "";
+}
+
+private async Task ConfirmarCancelarPedido(PedidoParaLlevarDTO cuenta)
+{
+    var respuesta = await http.Put<CancelarPedidoDTO, decimal>(
+        $"api/Comanda/{cuenta.IdComanda}/CancelarPedido",
+        new CancelarPedidoDTO { Motivo = motivoCancelacionPedido });
+
+    if (respuesta.Error)
+    {
+        MensajeForm = respuesta.ObtenerError();
+        return;
+    }
+
+    var aDevolver = respuesta.Respuesta;
+    MensajeForm = aDevolver > 0
+        ? $"Listo: pedido {cuenta.NumeroComanda} cancelado. Hay ${aDevolver:N2} para devolver al cliente, se registra en Caja."
+        : $"Listo: pedido {cuenta.NumeroComanda} cancelado.";
+    CerrarCancelarPedido();
+    await CargarSeguimiento();
+}
+
+//Editar productos de un pedido de Take Away / Delivery 
+private PedidoParaLlevarDTO? cuentaEditando;
+private bool EditandoPedido => cuentaEditando != null;
+private EnumTipoDescuento tipoDescuentoEdicion = EnumTipoDescuento.Ninguno;
+private decimal valorDescuentoEdicion;
+private string efectivoPrevistoEdicionTexto = "";
+
+// Los productos que ya estaban conservan su precio original; los nuevos se cobran al precio vigente.
+private decimal PrecioEnEdicion(int idProducto) =>
+    cuentaEditando?.Items.FirstOrDefault(i => i.IdProducto == idProducto)?.PrecioUnitario
+    ?? productos.FirstOrDefault(p => p.Id == idProducto)?.Precio
+    ?? 0m;
+
+private decimal SubtotalEdicion => carrito.Sum(i => PrecioEnEdicion(i.IdProducto) * i.Cantidad);
+private bool EdicionConDescuento => cuentaEditando != null && cuentaEditando.Descuento > 0;
+
+private decimal DescuentoEdicion => !EdicionConDescuento ? 0
+    : CalculoDescuento.Calcular(SubtotalEdicion, tipoDescuentoEdicion, valorDescuentoEdicion, out _);
+
+private string? ErrorDescuentoEdicion
+{
+    get
+    {
+        if (!EdicionConDescuento) return null;
+        CalculoDescuento.Calcular(SubtotalEdicion, tipoDescuentoEdicion, valorDescuentoEdicion, out var error);
+        return error;
+    }
+}
+
+private decimal TotalEdicion => SubtotalEdicion - DescuentoEdicion;
+private decimal TotalAntesEdicion => cuentaEditando == null ? 0 : cuentaEditando.TotalPedido - cuentaEditando.Descuento;
+
+// Si ya había un cobro es positivo = falta cobrar, pero si es negativo = hay que devolver.
+private decimal DiferenciaEdicion =>
+    cuentaEditando == null || cuentaEditando.YaPagado <= 0 ? 0 : TotalEdicion - cuentaEditando.YaPagado;
+
+private bool EdicionPideEfectivoPrevisto =>
+    cuentaEditando != null &&
+    cuentaEditando.TipoServicio == EnumTipoServicio.Delivery &&
+    cuentaEditando.YaPagado <= 0 &&
+    cuentaEditando.EfectivoPrevistoDelivery.HasValue;
+
+private bool EfectivoPrevistoEdicionValido =>
+    !EdicionPideEfectivoPrevisto ||
+    (TryLeerImporte(efectivoPrevistoEdicionTexto, out var efectivo) && efectivo >= TotalEdicion);
+
+private bool EdicionListaParaGuardar =>
+    carrito.Any() && ErrorDescuentoEdicion == null && EfectivoPrevistoEdicionValido;
+
+private decimal TotalMostrado => EditandoPedido ? TotalEdicion : TotalCarrito;
+
+private void AbrirEdicionComanda(PedidoParaLlevarDTO cuenta)
+{
+    cuentaEditando = cuenta;
+    carrito = cuenta.Items
+        .GroupBy(i => (i.IdProducto, Obs: (i.Observacion ?? "").Trim()))
+        .Select(g => new ItemPedidoDTO
+        {
+            IdProducto = g.Key.IdProducto,
+            Cantidad = g.Sum(i => i.Cantidad),
+            Observacion = string.IsNullOrWhiteSpace(g.Key.Obs) ? null : g.Key.Obs
+        })
+        .ToList();
+
+    if (cuenta.Descuento > 0)
+    {
+        tipoDescuentoEdicion = cuenta.DescuentoPorcentaje.HasValue ? EnumTipoDescuento.Porcentaje : EnumTipoDescuento.MontoFijo;
+        valorDescuentoEdicion = cuenta.DescuentoPorcentaje ?? cuenta.Descuento;
+    }
+    else
+    {
+        tipoDescuentoEdicion = EnumTipoDescuento.Ninguno;
+        valorDescuentoEdicion = 0;
+    }
+
+    efectivoPrevistoEdicionTexto = cuenta.EfectivoPrevistoDelivery.HasValue
+        ? cuenta.EfectivoPrevistoDelivery.Value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)
+        : "";
+
+    busquedaProducto = "";
+    MensajeForm = null;
+    mostrarFormularioNuevoPedido = true;
+}
+
+private void SalirDeEdicionComanda()
+{
+    cuentaEditando = null;
+    carrito = new List<ItemPedidoDTO>();
+    tipoDescuentoEdicion = EnumTipoDescuento.Ninguno;
+    valorDescuentoEdicion = 0;
+    efectivoPrevistoEdicionTexto = "";
+    mostrarFormularioNuevoPedido = false;
+}
+
+private void CerrarFormularioPedido()
+{
+    if (enviandoPedido) return;
+    if (EditandoPedido) SalirDeEdicionComanda();
+    else mostrarFormularioNuevoPedido = false;
+}
+
+private async Task GuardarEdicionComanda()
+{
+    if (cuentaEditando == null || enviandoPedido || !EdicionListaParaGuardar) return;
+
+    var cuenta = cuentaEditando;
+    enviandoPedido = true;
+
+    var dto = new EditarComandaItemsDTO
+    {
+        Items = carrito
+            .Select(i => new ItemPedidoDTO { IdProducto = i.IdProducto, Cantidad = i.Cantidad, Observacion = i.Observacion })
+            .ToList(),
+        TipoDescuento = EdicionConDescuento ? tipoDescuentoEdicion : EnumTipoDescuento.Ninguno,
+        ValorDescuento = EdicionConDescuento ? valorDescuentoEdicion : 0,
+        EfectivoPrevistoDelivery = EdicionPideEfectivoPrevisto && TryLeerImporte(efectivoPrevistoEdicionTexto, out var efectivo)
+            ? efectivo
+            : (decimal?)null
+    };
+
+    var respuesta = await http.Put<EditarComandaItemsDTO, ResultadoEdicionComandaDTO>(
+        $"api/Pedido/Comanda/{cuenta.IdComanda}/EditarItems", dto);
+    enviandoPedido = false;
+
+    if (respuesta.Error || respuesta.Respuesta == null)
+    {
+        MensajeForm = respuesta.ObtenerError();
+        return;
+    }
+
+    var resultado = respuesta.Respuesta;
+    var aviso = resultado.DevolucionPendiente > 0
+        ? $" Hay ${resultado.DevolucionPendiente:N2} para devolver al cliente: se registra en Caja."
+        : resultado.SaldoACobrar > 0
+            ? $" Falta cobrar ${resultado.SaldoACobrar:N2} en Caja."
+            : "";
+
+    SalirDeEdicionComanda();
+    MensajeForm = $"Listo: pedido {cuenta.NumeroComanda} actualizado.{aviso}";
     await CargarSeguimiento();
 }
 
