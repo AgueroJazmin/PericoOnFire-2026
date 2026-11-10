@@ -10,7 +10,7 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject NavigationManager Navigation
 @rendermode InteractiveWebAssembly
-@attribute [Authorize(Roles = "Administracion,Barra,Delivery")]
+@attribute [Authorize(Roles = "Administracion,Barra,Delivery,Pedidos")]
 
 @if (sinConexion)
 {
@@ -19,7 +19,7 @@
 
 <div class="pedidos-pagina">
 
-    <AuthorizeView Roles="Administracion,Barra">
+    <AuthorizeView Roles="Administracion,Barra,Pedidos">
         <Authorized>
 
             @if (!string.IsNullOrWhiteSpace(mensajePaseCaja))
@@ -137,8 +137,8 @@
                                             {
                                                 <div class="cuenta-card-info @ClaseHorarioProximo(cuenta)">
                                                     🕒 @(cuenta.HoraDeseada.HasValue
-                                                                                                                                                                        ? $"Para las {cuenta.HoraDeseada.Value.ToLocalTime():HH:mm}"
-                                                                                                                                                                        : "Sin horario indicado")
+                                                                                                                                                                                                                            ? $"Para las {cuenta.HoraDeseada.Value.ToLocalTime():HH:mm}"
+                                                                                                                                                                                                                            : "Sin horario indicado")
                                                     <button class="btn-editar-horario" @onclick="() => EditarHoraDeseada(cuenta)">✎ editar</button>
                                                 </div>
                                             }
@@ -1197,7 +1197,7 @@
     }
 
     /* Todo lo de acá abajo es una copia fiel del modal de Mesas.razor para que
-            el "Agregar productos" se sienta igual en las dos pantallas*/
+                el "Agregar productos" se sienta igual en las dos pantallas*/
 
     .btn-cerrar {
         border: none;
@@ -1638,7 +1638,7 @@
     }
 
     /* tablet y menos: el modal se apila (subcategorías > productos > pedido) y crece con su contenido;
-               solo la lista de productos tiene scroll propio */
+                   solo la lista de productos tiene scroll propio */
     @@media (max-width: 900px) {
         .modal-pedido {
             width: 100%;
@@ -2458,7 +2458,7 @@
     }
 
     /* Diseño de caja compacta: sin scroll general en escritorio.
-           Solo la lista del menú y, si excede, el detalle del carrito desplazan contenido. */
+               Solo la lista del menú y, si excede, el detalle del carrito desplazan contenido. */
     @@media (min-width: 901px) {
         .pedido-modal-fondo {
             padding: .4rem;
@@ -2749,7 +2749,7 @@
         }
     }
     /* Ventana de medio monitor (WhatsApp al lado):
-           contenido compacto, menú siempre visible, carrito desplegable. */
+               contenido compacto, menú siempre visible, carrito desplegable. */
     .carrito-compacto-toggle {
         display: none;
     }
@@ -3315,7 +3315,7 @@
         min-height: 36px;
     }
     /* Categorías debajo del cliente; en ventanas estrechas Delivery usa solo
-           referencia + horario, y Take Away mantiene teléfono y horario en una fila. */
+               referencia + horario, y Take Away mantiene teléfono y horario en una fila. */
     .pedido-modal-ventana .cliente-campos-secundarios {
         display: grid;
         grid-template-columns: repeat(2,minmax(0,1fr));

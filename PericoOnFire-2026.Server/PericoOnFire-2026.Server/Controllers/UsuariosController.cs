@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PericoOnFire_2026.BD.Datos;
 using PericoOnFire_2026.BD.Datos.Entity;
+using PericoOnFire_2026.Repositorio.Seguridad;
 using PericoOnFire_2026.Shared.DTOs;
 using PericoOnFire_2026.Shared.ENUM;
 
@@ -11,23 +12,29 @@ namespace PericoOnFire_2026.Server.Controllers
 {
     [ApiController]
     [Route("api/Usuario")]
-    
+
     public class UsuariosController : ControllerBase
     {
         private readonly UserManager<ApplicationUser> userManager;
         private readonly RoleManager<IdentityRole> roleManager;
         private readonly MiDbContext context;
+        private readonly IServicioSeguridad servicioSeguridad;
 
         public UsuariosController(
             UserManager<ApplicationUser> userManager,
             RoleManager<IdentityRole> roleManager,
-            MiDbContext context)
+            MiDbContext context,
+            IServicioSeguridad servicioSeguridad)
         {
             this.userManager = userManager;
             this.roleManager = roleManager;
             this.context = context;
+            this.servicioSeguridad = servicioSeguridad;
         }
-        [AllowAnonymous]
+
+        // Estos tres endpoints tenían [AllowAnonymous]: cualquiera, sin iniciar sesión, podía listar usuarios,
+        // crear uno nuevo con rol Administracion o cambiarle el rol/email a otro. Ahora solo el administrador.
+        [Authorize(Roles = "Administracion")]
         [HttpGet]
         public async Task<ActionResult<List<UsuarioListadoDTO>>> Get()
         {
@@ -71,7 +78,7 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok(usuario.Id);
         }
 
-        [AllowAnonymous]
+        [Authorize(Roles = "Administracion")]
         [HttpPost]
         public async Task<ActionResult> Post(UsuarioCrearDTO dto)
         {
@@ -91,6 +98,9 @@ namespace PericoOnFire_2026.Server.Controllers
                 return BadRequest(string.Join(" - ", resultado.Errors.Select(e => e.Description)));
 
             await userManager.AddToRoleAsync(usuario, dto.Rol);
+
+            // Copia cifrada de la contraseña para que el admin pueda verla en Roles
+            await servicioSeguridad.GuardarContrasenaVisible(usuario, dto.Password);
 
             // usa dto.Nombre en lugar de dto.Email
             var nombreClaim = !string.IsNullOrWhiteSpace(dto.Nombre) ? dto.Nombre : dto.Email;
@@ -112,7 +122,7 @@ namespace PericoOnFire_2026.Server.Controllers
             return Ok();
         }
 
-        [AllowAnonymous]
+        [Authorize(Roles = "Administracion")]
         [HttpPut("{id}")]
         public async Task<ActionResult> Put(string id, UsuarioEditarDTO dto)
         {

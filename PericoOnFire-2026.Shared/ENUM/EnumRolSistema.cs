@@ -10,6 +10,8 @@ namespace PericoOnFire_2026.Shared.ENUM
         Administracion = 1,
         Cocina = 2,
         Delivery = 3,
-        Mozo = 4
+        Mozo = 4,
+        Pedidos = 5,
+        Caja = 6,
     }
 }

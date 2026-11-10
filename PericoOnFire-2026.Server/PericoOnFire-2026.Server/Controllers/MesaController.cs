@@ -67,7 +67,7 @@ namespace PericoOnFire_2026.Server.Controllers
         {
             var mesas = await context.Mesas.AsNoTracking()
                 .Where(m => m.NumeroMesa == numeroMesa)
-                .Select(m => new { m.Id, m.NumeroMesa, Sala = m.Sala.Nombre, m.Estado, m.EstadoRegistro })
+                .Select(m => new { m.Id, m.NumeroMesa, Sala = m.Sala == null ? null : m.Sala.Nombre, m.Estado, m.EstadoRegistro })
                 .ToListAsync();
             var ids = mesas.Select(m => m.Id).ToList();
             var comandas = await context.Comandas.AsNoTracking()

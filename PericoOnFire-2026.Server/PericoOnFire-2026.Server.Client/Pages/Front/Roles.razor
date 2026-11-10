@@ -1,4 +1,5 @@
 ﻿@page "/roles"
+@using PericoOnFire_2026.Server.Client.Pages.Admin
 @using PericoOnFire_2026.Servicio.ServicioHttp
 @using PericoOnFire_2026.Shared.DTOs
 @using PericoOnFire_2026.Shared.ENUM
@@ -17,7 +18,7 @@
             else
             {
                 <div class="filtros-row">
-                    <input class="form-control buscador" placeholder="Buscar por email..."
+                    <input class="form-control buscador" placeholder="Buscar por nombre o email..."
                            @bind="filtro" @bind:event="oninput" />
                     <select class="form-select filtro-estado" @bind="filtroEstado">
                         <option value="todos">Todos</option>
@@ -30,7 +31,9 @@
                     <table class="table">
                         <thead>
                             <tr>
-                                <th>Email</th>
+                                <th>Nombre</th>
+                                <th>Usuario (email)</th>
+                                <th>Contraseña</th>
                                 <th>Estado</th>
                                 <th>Roles actuales</th>
                                 <th>Asignar rol</th>
@@ -41,7 +44,11 @@
                             @foreach (var usuario in UsuariosFiltrados)
                             {
                                 <tr>
+                                    <td>@(string.IsNullOrWhiteSpace(usuario.Nombre) ? "—" : usuario.Nombre)</td>
                                     <td>@usuario.Email</td>
+                                    <td>
+                                        <ContrasenaUsuario @key="usuario.Id" Usuario="usuario" OnCambiada="ObtenerUsuarios" />
+                                    </td>
                                     <td>
                                         @if (usuario.Activo)
                                         {
@@ -189,7 +196,7 @@
         }
 
         .tabla-card table {
-            min-width: 720px;
+            min-width: 980px;
         }
     }
 </style>
@@ -204,7 +211,9 @@
     string filtroEstado = "todos";
 
     IEnumerable<UsuarioRolDTO> UsuariosFiltrados => (usuarios ?? new())
-        .Where(u => string.IsNullOrEmpty(filtro) || u.Email.Contains(filtro, StringComparison.OrdinalIgnoreCase))
+        .Where(u => string.IsNullOrEmpty(filtro) ||
+                    u.Email.Contains(filtro, StringComparison.OrdinalIgnoreCase) ||
+                    u.Nombre.Contains(filtro, StringComparison.OrdinalIgnoreCase))
         .Where(u => filtroEstado == "todos" ||
                     (filtroEstado == "activos" && u.Activo) ||
                     (filtroEstado == "inactivos" && !u.Activo));

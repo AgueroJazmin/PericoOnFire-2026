@@ -153,7 +153,7 @@ namespace PericoOnFire_2026.Server.Controllers
         // con sus pedidos agrupados por sector para saber si ya está todo listo.
         // Cancelado se ignora en todos lados, igual que en el resto del sistema.
         [HttpGet("ParaLlevar/{tipoServicio}")]
-        [Authorize(Roles = "Administracion,Barra,Delivery")]
+        [Authorize(Roles = "Administracion,Barra,Delivery,Pedidos")]
         public async Task<ActionResult<List<PedidoParaLlevarDTO>>> GetParaLlevar(EnumTipoServicio tipoServicio)
         {
             if (tipoServicio != EnumTipoServicio.TakeAway && tipoServicio != EnumTipoServicio.Delivery)
@@ -249,7 +249,7 @@ namespace PericoOnFire_2026.Server.Controllers
         // Rendición del efectivo de Delivery al volver al bar. El cliente ya recibió
         // su vuelto: en Caja entra solo el neto de la venta, nunca el bruto.
         [HttpPost("Delivery/{idComanda:int}/ConfirmarRendicion")]
-        [Authorize(Roles = "Administracion,Barra")]
+        [Authorize(Roles = "Administracion,Barra,Pedidos")]
         public async Task<ActionResult> ConfirmarRendicionDelivery(int idComanda)
         {
             try
@@ -578,7 +578,7 @@ namespace PericoOnFire_2026.Server.Controllers
         // Cocina y Barra lo vean aparte como Nuevo. Si el pedido ya tenía un cobro, la diferencia queda
         // para cobrar en Caja que queda como "vuelve a PendienteCobro" o para devolver "DevolucionPendiente.
         [HttpPut("Comanda/{idComanda:int}/EditarItems")]
-        [Authorize(Roles = "Administracion,Barra")]
+        [Authorize(Roles = "Administracion,Barra,Pedidos")]
         public async Task<ActionResult<ResultadoEdicionComandaDTO>> EditarItems(int idComanda, EditarComandaItemsDTO dto)
         {
             if (dto.Items == null || dto.Items.Count == 0)
