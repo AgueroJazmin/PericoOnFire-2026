@@ -10,8 +10,6 @@
 @using Microsoft.JSInterop
 @inject IHttpServicio http
 @rendermode InteractiveWebAssembly
-@* Todos los usuarios logueados entran a Configuración: el administrador ve todo; el resto solo
-   Apariencia y Mi contraseña (el resto de las pestañas y los datos solo se cargan si es administrador). *@
 @attribute [Authorize]
 
 <NavigationLock ConfirmExternalNavigation="@HayCambiosPendientes" OnBeforeInternalNavigation="AntesDeNavegar" />
@@ -585,7 +583,7 @@
                     else
                     {
                         <div class="tabla-scroll">
-                            <table class="table tabla-config mt-2">
+                            <table class="table tabla-config tabla-cards mt-2">
                                 <thead>
                                     <tr>
                                         <th>Promo</th>
@@ -600,16 +598,18 @@
                                     @foreach (var pr in Promos)
                                     {
                                         <tr>
-                                            <td>@pr.Nombre</td>
-                                            <td>
-                                                @foreach (var comp in pr.Componentes)
-                                                {
-                                                    <div>@comp.Cantidad × @comp.NombreProducto</div>
-                                                }
+                                            <td data-label="Promo">@pr.Nombre</td>
+                                            <td data-label="Qué trae">
+                                                <div class="celda-valor">
+                                                    @foreach (var comp in pr.Componentes)
+                                                    {
+                                                        <div>@comp.Cantidad × @comp.NombreProducto</div>
+                                                    }
+                                                </div>
                                             </td>
-                                            <td>@($"$ {pr.Precio:N0}")</td>
-                                            <td>@pr.SectorDestino</td>
-                                            <td>
+                                            <td data-label="Precio">@($"$ {pr.Precio:N0}")</td>
+                                            <td data-label="Sector">@pr.SectorDestino</td>
+                                            <td data-label="Activa">
                                                 @if (pr.Activo)
                                                 {
                                                     <span class="badge bg-success">Sí</span>
@@ -678,7 +678,7 @@
                         </div>
                     }
 
-                    <table class="table tabla-config">
+                    <table class="table tabla-config tabla-cards">
                         <thead>
                             <tr>
                                 <th>Usuario</th>
@@ -691,10 +691,10 @@
                             @foreach (var u in usuarios)
                             {
                                 <tr>
-                                    <td>@u.Email</td>
-                                    <td>@u.Rol</td>
-                                    <td>@(u.EmailConfirmed ? "Sí" : "No")</td>
-                                    <td>
+                                    <td data-label="Usuario">@u.Email</td>
+                                    <td data-label="Rol">@u.Rol</td>
+                                    <td data-label="Email confirmado">@(u.EmailConfirmed ? "Sí" : "No")</td>
+                                    <td class="acciones">
                                         <button class="btn btn-sm btn-outline-primary"
                                                 @onclick="() => EditarUsuario(u)">
                                             <i class="bi bi-pencil-square"></i>
@@ -762,7 +762,7 @@
                     }
                     else
                     {
-                        <table class="table tabla-config">
+                        <table class="table tabla-config tabla-cards">
                             <thead>
                                 <tr>
                                     <th>Nombre</th>
@@ -778,12 +778,14 @@
                                 @foreach (var usuario in UsuariosRolFiltrados)
                                 {
                                     <tr>
-                                        <td>@(string.IsNullOrWhiteSpace(usuario.Nombre) ? "—" : usuario.Nombre)</td>
-                                        <td>@usuario.Email</td>
-                                        <td>
-                                            <PericoOnFire_2026.Server.Client.Pages.Admin.ContrasenaUsuario @key="usuario.Id" Usuario="usuario" OnCambiada="CargarUsuariosRol" />
+                                        <td data-label="Nombre">@(string.IsNullOrWhiteSpace(usuario.Nombre) ? "—" : usuario.Nombre)</td>
+                                        <td data-label="Usuario (email)">@usuario.Email</td>
+                                        <td data-label="Contraseña">
+                                            <div class="celda-valor">
+                                                <PericoOnFire_2026.Server.Client.Pages.Admin.ContrasenaUsuario @key="usuario.Id" Usuario="usuario" OnCambiada="CargarUsuariosRol" />
+                                            </div>
                                         </td>
-                                        <td>
+                                        <td data-label="Estado">
                                             @if (usuario.Activo)
                                             {
                                                 <span class="badge bg-success">Activo</span>
@@ -793,26 +795,28 @@
                                                 <span class="badge bg-secondary">Inactivo</span>
                                             }
                                         </td>
-                                        <td>
-                                            @if (usuario.Roles.Count == 0)
-                                            {
-                                                <span class="text-muted">Sin rol</span>
-                                            }
-                                            else
-                                            {
-                                                @foreach (var rol in usuario.Roles)
+                                        <td data-label="Roles actuales">
+                                            <div class="celda-valor">
+                                                @if (usuario.Roles.Count == 0)
                                                 {
-                                                    <span class="badge bg-dark me-1">
-                                                        @rol
-                                                        <button class="btn btn-sm btn-link text-white p-0 ms-1"
-                                                                @onclick="() => RemoverRol(usuario, rol)">
-                                                            x
-                                                        </button>
-                                                    </span>
+                                                    <span class="text-muted">Sin rol</span>
                                                 }
-                                            }
+                                                else
+                                                {
+                                                    @foreach (var rol in usuario.Roles)
+                                                    {
+                                                        <span class="badge bg-dark me-1">
+                                                            @rol
+                                                            <button class="btn btn-sm btn-link text-white p-0 ms-1"
+                                                                    @onclick="() => RemoverRol(usuario, rol)">
+                                                                x
+                                                            </button>
+                                                        </span>
+                                                    }
+                                                }
+                                            </div>
                                         </td>
-                                        <td>
+                                        <td data-label="Asignar rol">
                                             <select class="form-select form-select-sm"
                                                     value="@rolSeleccionado[usuario.Email]"
                                                     @onchange="e => rolSeleccionado[usuario.Email] = e.Value!.ToString()!">
@@ -1873,6 +1877,72 @@
 
             .promo-botones .btn {
                 width: 100%;
+            }
+    }
+    /* Usuarios, Roles y Promos: en el celular cada fila se muestra como una tarjeta */
+    .celda-valor {
+        min-width: 0;
+    }
+
+    @@media (max-width: 768px) {
+        .tabla-cards,
+        .tabla-cards tbody {
+            display: block;
+            width: 100%;
+        }
+
+            .tabla-cards thead {
+                display: none;
+            }
+
+            .tabla-cards tr {
+                display: block;
+                margin-bottom: .75rem;
+                padding: .4rem .8rem;
+                border: 1px solid #dee2e6;
+                border-radius: 10px;
+                background: #fff;
+            }
+
+            .tabla-cards td {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: .75rem;
+                padding: .4rem 0;
+                border: 0 !important;
+                background: transparent !important;
+                box-shadow: none !important;
+                text-align: right;
+                white-space: normal;
+                overflow-wrap: anywhere;
+            }
+
+                .tabla-cards td[data-label]::before {
+                    content: attr(data-label);
+                    flex: 0 0 34%;
+                    max-width: 34%;
+                    font-size: .8rem;
+                    font-weight: 700;
+                    color: #6c757d;
+                    text-align: left;
+                }
+
+                .tabla-cards td.acciones {
+                    min-width: 0;
+                    flex-wrap: wrap;
+                    justify-content: flex-end;
+                    margin-top: .25rem;
+                    padding-top: .6rem;
+                    border-top: 1px solid #eee !important;
+                }
+
+                .tabla-cards td select {
+                    max-width: 62%;
+                }
+
+            .tabla-cards .celda-valor {
+                text-align: right;
             }
     }
 </style>
