@@ -1,4 +1,5 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
 @inject NavigationManager NavManager
 
 <div class="perico-layout">
@@ -28,8 +29,7 @@
                     {
                         <NavLink href="/barra" class="perico-link" @onclick="CerrarMenu">Barra</NavLink>
                     }
-                    @* Pedidos: solo Administracion y el rol Pedidos (el Mozo no lo ve) *@
-                    @if (navContext.User.IsInRole("Administracion") || navContext.User.IsInRole("Pedidos"))
+                    @if (navContext.User.IsInRole("Administracion") || navContext.User.IsInRole("Mozo"))
                     {
                         <NavLink href="/pedidos" class="perico-link" @onclick="CerrarMenu">Pedidos</NavLink>
                     }
@@ -368,10 +368,18 @@
     protected override void OnInitialized()
     {
         ActualizarFechaHora();
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        // OnAfterRender solo se ejecuta cuando la página es interactiva. En las páginas estáticas
+        // (por ejemplo las de Cuenta) no se crea el timer, así no queda uno huérfano en el servidor.
+        if (!firstRender || timer != null) return;
+
         timer = new System.Threading.Timer(_ =>
         {
             ActualizarFechaHora();
-            InvokeAsync(StateHasChanged);
+            _ = InvokeAsync(StateHasChanged);
         }, null, 1000, 1000);
     }
 
