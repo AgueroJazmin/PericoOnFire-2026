@@ -50,7 +50,7 @@
 
     @if (tabActiva == "cuenta")
     {
-        <PericoOnFire_2026.Server.Client.Shared.MiContrasena />
+        <PericoOnFire_2026.Server.Client.Pages.Front.MiContrasena />
     }
 
     @if (esAdmin && tabActiva == "general")
@@ -781,7 +781,7 @@
                                         <td>@(string.IsNullOrWhiteSpace(usuario.Nombre) ? "—" : usuario.Nombre)</td>
                                         <td>@usuario.Email</td>
                                         <td>
-                                            <PericoOnFire_2026.Server.Client.Shared.ContrasenaUsuario @key="usuario.Id" Usuario="usuario" OnCambiada="CargarUsuariosRol" />
+                                            <PericoOnFire_2026.Server.Client.Pages.Admin.ContrasenaUsuario @key="usuario.Id" Usuario="usuario" OnCambiada="CargarUsuariosRol" />
                                         </td>
                                         <td>
                                             @if (usuario.Activo)
