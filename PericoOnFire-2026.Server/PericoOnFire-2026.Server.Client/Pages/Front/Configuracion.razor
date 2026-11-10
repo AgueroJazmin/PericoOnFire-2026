@@ -10,32 +10,50 @@
 @using Microsoft.JSInterop
 @inject IHttpServicio http
 @rendermode InteractiveWebAssembly
-@attribute [Authorize(Roles = "Administracion")]
+@* Todos los usuarios logueados entran a Configuración: el administrador ve todo; el resto solo
+   Apariencia y Mi contraseña (el resto de las pestañas y los datos solo se cargan si es administrador). *@
+@attribute [Authorize]
 
 <NavigationLock ConfirmExternalNavigation="@HayCambiosPendientes" OnBeforeInternalNavigation="AntesDeNavegar" />
 
 <div class="config-layout">
 
     <div class="config-tabs">
-        <button class="tab-btn" @onclick="ActualizarTodo">Actualizar datos</button>
-        <button class="tab-btn @(tabActiva == "general" ? "tab-activa" : "")"
-                @onclick='() => CambiarTab("general")'>
-            Configuración general
-        </button>
+        @if (esAdmin)
+        {
+            <button class="tab-btn" @onclick="ActualizarTodo">Actualizar datos</button>
+            <button class="tab-btn @(tabActiva == "general" ? "tab-activa" : "")"
+                    @onclick='() => CambiarTab("general")'>
+                Configuración general
+            </button>
+        }
 
         <button class="tab-btn @(tabActiva == "apariencia" ? "tab-activa" : "")"
                 @onclick='() => CambiarTab("apariencia")'>
             Apariencia
         </button>
 
-        <button class="tab-btn @(tabActiva == "mesas" ? "tab-activa" : "")"
-                @onclick='() => CambiarTab("mesas")'>
-            Mesas
+        @if (esAdmin)
+        {
+            <button class="tab-btn @(tabActiva == "mesas" ? "tab-activa" : "")"
+                    @onclick='() => CambiarTab("mesas")'>
+                Mesas
+            </button>
+            <button class="tab-btn @(tabActiva == "panel" ? "tab-activa" : "")" @onclick='() => CambiarTab("panel")'>Panel del bar</button>
+        }
+
+        <button class="tab-btn @(tabActiva == "cuenta" ? "tab-activa" : "")"
+                @onclick='() => CambiarTab("cuenta")'>
+            Mi contraseña
         </button>
-        <button class="tab-btn @(tabActiva == "panel" ? "tab-activa" : "")" @onclick='() => CambiarTab("panel")'>Panel del bar</button>
     </div>
 
-    @if (tabActiva == "general")
+    @if (tabActiva == "cuenta")
+    {
+        <PericoOnFire_2026.Server.Client.Pages.Front.MiContrasena />
+    }
+
+    @if (esAdmin && tabActiva == "general")
     {
         <div class="config-body">
 
@@ -567,7 +585,7 @@
                     else
                     {
                         <div class="tabla-scroll">
-                            <table class="table tabla-config tabla-cards mt-2">
+                            <table class="table tabla-config mt-2">
                                 <thead>
                                     <tr>
                                         <th>Promo</th>
@@ -582,18 +600,16 @@
                                     @foreach (var pr in Promos)
                                     {
                                         <tr>
-                                            <td data-label="Promo">@pr.Nombre</td>
-                                            <td data-label="Qué trae">
-                                                <div class="celda-valor">
-                                                    @foreach (var comp in pr.Componentes)
-                                                    {
-                                                        <div>@comp.Cantidad × @comp.NombreProducto</div>
-                                                    }
-                                                </div>
+                                            <td>@pr.Nombre</td>
+                                            <td>
+                                                @foreach (var comp in pr.Componentes)
+                                                {
+                                                    <div>@comp.Cantidad × @comp.NombreProducto</div>
+                                                }
                                             </td>
-                                            <td data-label="Precio">@($"$ {pr.Precio:N0}")</td>
-                                            <td data-label="Sector">@pr.SectorDestino</td>
-                                            <td data-label="Activa">
+                                            <td>@($"$ {pr.Precio:N0}")</td>
+                                            <td>@pr.SectorDestino</td>
+                                            <td>
                                                 @if (pr.Activo)
                                                 {
                                                     <span class="badge bg-success">Sí</span>
@@ -654,6 +670,7 @@
                                     <option value="Cocina">Cocina</option>
                                     <option value="Delivery">Delivery</option>
                                     <option value="Mozo">Mozo</option>
+                                    <option value="Pedidos">Pedidos</option>
                                 </InputSelect>
 
                                 <button class="btn btn-success" type="submit">Guardar</button>
@@ -661,7 +678,7 @@
                         </div>
                     }
 
-                    <table class="table tabla-config tabla-cards">
+                    <table class="table tabla-config">
                         <thead>
                             <tr>
                                 <th>Usuario</th>
@@ -674,10 +691,10 @@
                             @foreach (var u in usuarios)
                             {
                                 <tr>
-                                    <td data-label="Usuario">@u.Email</td>
-                                    <td data-label="Rol">@u.Rol</td>
-                                    <td data-label="Email confirmado">@(u.EmailConfirmed ? "Sí" : "No")</td>
-                                    <td class="acciones">
+                                    <td>@u.Email</td>
+                                    <td>@u.Rol</td>
+                                    <td>@(u.EmailConfirmed ? "Sí" : "No")</td>
+                                    <td>
                                         <button class="btn btn-sm btn-outline-primary"
                                                 @onclick="() => EditarUsuario(u)">
                                             <i class="bi bi-pencil-square"></i>
@@ -705,6 +722,7 @@
                                     <option value="Cocina">Cocina</option>
                                     <option value="Delivery">Delivery</option>
                                     <option value="Mozo">Mozo</option>
+                                    <option value="Pedidos">Pedidos</option>
                                 </InputSelect>
 
                                 <label>
@@ -729,7 +747,7 @@
                     </div>
 
                     <div class="filtros-row mb-3">
-                        <input class="form-control buscador-rol" placeholder="Buscar por email..."
+                        <input class="form-control buscador-rol" placeholder="Buscar por nombre o email..."
                                @bind="filtroRol" @bind:event="oninput" />
                         <select class="form-select filtro-estado-rol" @bind="filtroEstadoRol">
                             <option value="todos">Todos</option>
@@ -744,10 +762,12 @@
                     }
                     else
                     {
-                        <table class="table tabla-config tabla-cards">
+                        <table class="table tabla-config">
                             <thead>
                                 <tr>
-                                    <th>Email</th>
+                                    <th>Nombre</th>
+                                    <th>Usuario (email)</th>
+                                    <th>Contraseña</th>
                                     <th>Estado</th>
                                     <th>Roles actuales</th>
                                     <th>Asignar rol</th>
@@ -758,8 +778,12 @@
                                 @foreach (var usuario in UsuariosRolFiltrados)
                                 {
                                     <tr>
-                                        <td data-label="Email">@usuario.Email</td>
-                                        <td data-label="Estado">
+                                        <td>@(string.IsNullOrWhiteSpace(usuario.Nombre) ? "—" : usuario.Nombre)</td>
+                                        <td>@usuario.Email</td>
+                                        <td>
+                                            <PericoOnFire_2026.Server.Client.Pages.Admin.ContrasenaUsuario @key="usuario.Id" Usuario="usuario" OnCambiada="CargarUsuariosRol" />
+                                        </td>
+                                        <td>
                                             @if (usuario.Activo)
                                             {
                                                 <span class="badge bg-success">Activo</span>
@@ -769,28 +793,26 @@
                                                 <span class="badge bg-secondary">Inactivo</span>
                                             }
                                         </td>
-                                        <td data-label="Roles actuales">
-                                            <div class="celda-valor">
-                                                @if (usuario.Roles.Count == 0)
+                                        <td>
+                                            @if (usuario.Roles.Count == 0)
+                                            {
+                                                <span class="text-muted">Sin rol</span>
+                                            }
+                                            else
+                                            {
+                                                @foreach (var rol in usuario.Roles)
                                                 {
-                                                    <span class="text-muted">Sin rol</span>
+                                                    <span class="badge bg-dark me-1">
+                                                        @rol
+                                                        <button class="btn btn-sm btn-link text-white p-0 ms-1"
+                                                                @onclick="() => RemoverRol(usuario, rol)">
+                                                            x
+                                                        </button>
+                                                    </span>
                                                 }
-                                                else
-                                                {
-                                                    @foreach (var rol in usuario.Roles)
-                                                    {
-                                                        <span class="badge bg-dark me-1">
-                                                            @rol
-                                                            <button class="btn btn-sm btn-link text-white p-0 ms-1"
-                                                                    @onclick="() => RemoverRol(usuario, rol)">
-                                                                x
-                                                            </button>
-                                                        </span>
-                                                    }
-                                                }
-                                            </div>
+                                            }
                                         </td>
-                                        <td data-label="Asignar rol">
+                                        <td>
                                             <select class="form-select form-select-sm"
                                                     value="@rolSeleccionado[usuario.Email]"
                                                     @onchange="e => rolSeleccionado[usuario.Email] = e.Value!.ToString()!">
@@ -1853,73 +1875,6 @@
                 width: 100%;
             }
     }
-
-    /* Usuarios, Roles y Promos: en el celular cada fila se muestra como una tarjeta */
-    .celda-valor {
-        min-width: 0;
-    }
-
-    @@media (max-width: 768px) {
-        .tabla-cards,
-        .tabla-cards tbody {
-            display: block;
-            width: 100%;
-        }
-
-            .tabla-cards thead {
-                display: none;
-            }
-
-            .tabla-cards tr {
-                display: block;
-                margin-bottom: .75rem;
-                padding: .4rem .8rem;
-                border: 1px solid #dee2e6;
-                border-radius: 10px;
-                background: #fff;
-            }
-
-            .tabla-cards td {
-                display: flex;
-                align-items: center;
-                justify-content: space-between;
-                gap: .75rem;
-                padding: .4rem 0;
-                border: 0 !important;
-                background: transparent !important;
-                box-shadow: none !important;
-                text-align: right;
-                white-space: normal;
-                overflow-wrap: anywhere;
-            }
-
-                .tabla-cards td[data-label]::before {
-                    content: attr(data-label);
-                    flex: 0 0 34%;
-                    max-width: 34%;
-                    font-size: .8rem;
-                    font-weight: 700;
-                    color: #6c757d;
-                    text-align: left;
-                }
-
-                .tabla-cards td.acciones {
-                    min-width: 0;
-                    flex-wrap: wrap;
-                    justify-content: flex-end;
-                    margin-top: .25rem;
-                    padding-top: .6rem;
-                    border-top: 1px solid #eee !important;
-                }
-
-                .tabla-cards td select {
-                    max-width: 62%;
-                }
-
-            .tabla-cards .celda-valor {
-                text-align: right;
-            }
-    }
 </style>
 
 @code {
@@ -1979,7 +1934,7 @@
     }
     private PericoOnFire_2026.Server.Client.Shared.Confirmacion? confirmacionGeneral;
     [SupplyParameterFromQuery(Name = "tab")] public string? TabSolicitada { get; set; }
-    protected override void OnParametersSet() { if (TabSolicitada == "panel" && !HayCambiosPendientes) tabActiva = "panel"; }
+    protected override void OnParametersSet() { if (esAdmin && TabSolicitada == "panel" && !HayCambiosPendientes) tabActiva = "panel"; }
 
     private bool panelCambiosPendientes;
     private void PanelCambiosPendientes(bool cambios) { panelCambiosPendientes = cambios; if (!cambios) Mensaje = ""; }
@@ -2053,7 +2008,9 @@
     private string filtroRol = "";
     private string filtroEstadoRol = "todos";
     private IEnumerable<UsuarioRolDTO> UsuariosRolFiltrados => (usuariosRol ?? new())
-        .Where(u => string.IsNullOrEmpty(filtroRol) || u.Email.Contains(filtroRol, StringComparison.OrdinalIgnoreCase))
+        .Where(u => string.IsNullOrEmpty(filtroRol) ||
+                    u.Email.Contains(filtroRol, StringComparison.OrdinalIgnoreCase) ||
+                    u.Nombre.Contains(filtroRol, StringComparison.OrdinalIgnoreCase))
         .Where(u => filtroEstadoRol == "todos" ||
                     (filtroEstadoRol == "activos" && u.Activo) ||
                     (filtroEstadoRol == "inactivos" && !u.Activo));
@@ -2111,11 +2068,24 @@
 
     //Hasta aca
 
+    [CascadingParameter] private Task<AuthenticationState>? EstadoAutenticacion { get; set; }
+    private bool esAdmin;
+
     protected override async Task OnInitializedAsync()
     {
+        if (EstadoAutenticacion != null)
+        {
+            var estado = await EstadoAutenticacion;
+            esAdmin = estado.User.IsInRole("Administracion");
+        }
+
+        // Los demás roles solo usan Apariencia y Mi contraseña: arrancan ahí y no se cargan catálogos ni usuarios.
+        if (!esAdmin) tabActiva = "apariencia";
+
         // Las llamadas autenticadas usan la cookie del navegador.
         // El prerenderizado del servidor solo prepara la vista y la sesión.
         if (!OperatingSystem.IsBrowser()) return;
+        if (!esAdmin) return;
 
         await CargarCategorias();
         await CargarSubcategorias();
@@ -2129,6 +2099,7 @@
 
     private async Task ActualizarTodo()
     {
+        if (!esAdmin) return;
         await CargarCategorias();
         await CargarSubcategorias();
         await CargarProductos();
@@ -2234,7 +2205,6 @@
         }
     }
 
-    // ---------- Promos ----------
     // Una promo es un producto con precio fijo que trae varios productos adentro.
     // Siempre se guarda en la categoría "Promos", así aparece en los menús de salón, Delivery y Take Away.
     private bool mostrandoFormPromo;
