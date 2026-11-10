@@ -1,0 +1,180 @@
+﻿@* Celda para la tabla de Roles (solo Administracion): muestra la contraseña de un usuario
+   (oculta hasta que se aprieta el ojito) y permite asignarle una nueva. *@
+@using PericoOnFire_2026.Servicio.ServicioHttp
+@using PericoOnFire_2026.Shared.DTOs
+@inject IHttpServicio http
+
+<div class="clave-usuario">
+    @if (!editando)
+    {
+        <span class="clave-usuario-valor @(visible && valor != null ? "clave-usuario-visible" : "")">
+            @if (visible && valor != null)
+            {
+                @valor
+            }
+            else if (Usuario.TieneContrasenaVisible)
+            {
+                <text>••••••••</text>
+            }
+            else
+            {
+                <span class="text-muted">No registrada</span>
+            }
+        </span>
+
+        @if (Usuario.TieneContrasenaVisible || (visible && valor != null))
+        {
+            <button type="button" class="btn btn-sm btn-outline-secondary"
+                    title="@(visible ? "Ocultar contraseña" : "Ver contraseña")"
+                    disabled="@cargando" @onclick="AlternarVisible">
+                <i class="bi @(visible ? "bi-eye-slash" : "bi-eye")"></i>
+            </button>
+        }
+        <button type="button" class="btn btn-sm btn-outline-primary" title="Editar contraseña" @onclick="Editar">
+            <i class="bi bi-pencil-square"></i>
+        </button>
+    }
+    else
+    {
+        <input type="text" class="form-control form-control-sm clave-usuario-input" autocomplete="off"
+               placeholder="Nueva contraseña" @bind="nueva" @bind:event="oninput" />
+        <button type="button" class="btn btn-sm btn-success" disabled="@cargando" @onclick="Guardar">Guardar</button>
+        <button type="button" class="btn btn-sm btn-light" disabled="@cargando" @onclick="Cancelar">Cancelar</button>
+    }
+
+    @if (!string.IsNullOrEmpty(error))
+    {
+        <div class="text-danger small clave-usuario-error">@error</div>
+    }
+</div>
+
+<style>
+    .clave-usuario {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .35rem;
+        min-width: 210px;
+    }
+
+    .clave-usuario-valor {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        min-width: 90px;
+        letter-spacing: .5px;
+    }
+
+    .clave-usuario-visible {
+        font-weight: 600;
+        word-break: break-all;
+    }
+
+    .clave-usuario-input {
+        width: 150px;
+    }
+
+    .clave-usuario-error {
+        flex-basis: 100%;
+    }
+</style>
+
+@code {
+    [Parameter, EditorRequired] public UsuarioRolDTO Usuario { get; set; } = default!;
+
+    // Para que la tabla recargue la lista (y el estado "tiene contraseña guardada") después de guardar
+    [Parameter] public EventCallback OnCambiada { get; set; }
+
+    private bool visible;
+    private bool editando;
+    private bool cargando;
+    private string? valor;
+    private string nueva = "";
+    private string error = "";
+
+    private async Task AlternarVisible()
+    {
+        error = "";
+        if (visible) { visible = false; return; }
+
+        // La contraseña solo se pide al servidor cuando el admin la quiere ver
+        if (valor == null)
+        {
+            cargando = true;
+            var resp = await http.Get<ContrasenaVisibleDTO>($"api/seguridad/contrasena?email={Uri.EscapeDataString(Usuario.Email)}");
+            cargando = false;
+
+            if (resp.Error || resp.Respuesta == null)
+            {
+                error = resp.HttpResponseMessage.StatusCode == System.Net.HttpStatusCode.NotFound
+                    ? "No hay contraseña guardada. Asignale una nueva para poder verla."
+                    : resp.ObtenerError();
+                return;
+            }
+            valor = resp.Respuesta.Contrasena;
+        }
+        visible = true;
+    }
+
+    private void Editar()
+    {
+        error = "";
+        nueva = "";
+        editando = true;
+    }
+
+    private void Cancelar()
+    {
+        error = "";
+        nueva = "";
+        editando = false;
+    }
+
+    private async Task Guardar()
+    {
+        error = "";
+        if (string.IsNullOrWhiteSpace(nueva) || nueva.Length < 6)
+        {
+            error = "La contraseña debe tener al menos 6 caracteres.";
+            return;
+        }
+
+        cargando = true;
+        var dto = new EstablecerContrasenaDTO { Email = Usuario.Email, ContrasenaNueva = nueva };
+        var resp = await http.Post<EstablecerContrasenaDTO>("api/seguridad/establecer-contrasena", dto);
+
+        if (resp.Error)
+        {
+            error = await LeerErrores(resp.HttpResponseMessage, resp.ObtenerError());
+            cargando = false;
+            return;
+        }
+
+        valor = nueva;
+        visible = true;
+        editando = false;
+        nueva = "";
+        cargando = false;
+        await OnCambiada.InvokeAsync();
+    }
+
+    private async Task<string> LeerErrores(HttpResponseMessage respuesta, string porDefecto)
+    {
+        try
+        {
+            var crudo = await http.ObtenerMensajeError(respuesta);
+            var obj = System.Text.Json.JsonSerializer.Deserialize<ErroresResponse>(
+                crudo, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (obj?.Errores != null && obj.Errores.Count > 0)
+                return string.Join(" ", obj.Errores);
+            return string.IsNullOrWhiteSpace(crudo) ? porDefecto : crudo;
+        }
+        catch
+        {
+            return porDefecto;
+        }
+    }
+
+    private class ErroresResponse
+    {
+        public List<string> Errores { get; set; } = new();
+    }
+}

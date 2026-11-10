@@ -56,6 +56,13 @@ builder.Services.AddScoped<IProductoRepositorio, ProductoRepositorio>();
 builder.Services.AddScoped<IComandaRepositorio, ComandaRepositorio>();
 builder.Services.AddScoped<IPedidoRepositorio, PedidoRepositorio>();
 builder.Services.AddScoped<IServicioSeguridad, ServicioSeguridad>();
+
+// Clave para cifrar la copia de las contraseñas que ve el administrador en Roles.
+// En Render: variable de entorno Seguridad__ClaveContrasenas (un texto largo y secreto; no la cambies después
+// o las contraseñas ya guardadas dejan de poder verse). Si falta, la función queda apagada fuera de desarrollo.
+var claveContrasenas = builder.Configuration["Seguridad:ClaveContrasenas"]
+    ?? (builder.Environment.IsDevelopment() ? "clave-solo-para-desarrollo-perico" : null);
+builder.Services.AddSingleton<ICifradoContrasenas>(new CifradoContrasenas(claveContrasenas));
 builder.Services.AddScoped(typeof(IRepositorio<>), typeof(Repositorio<>));
 //Para notificar cambios en la base de datos
 builder.Services.AddTransient<PericoOnFire_2026.Shared.SerPolling.PollingService>();
@@ -116,6 +123,7 @@ using (var scope = app.Services.CreateScope())
         };
         await userManager.CreateAsync(adminUser, passwordAdmin);
         await userManager.AddToRoleAsync(adminUser, "Administracion");
+        await scope.ServiceProvider.GetRequiredService<IServicioSeguridad>().GuardarContrasenaVisible(adminUser, passwordAdmin);
         await userManager.AddClaimAsync(adminUser, new System.Security.Claims.Claim("nombre", "Administrador"));
     }
 

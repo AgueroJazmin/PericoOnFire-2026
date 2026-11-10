@@ -23,7 +23,7 @@
             NavigationManager.NavigateTo("comandas");
         else if (user.IsInRole("Cocina"))
             NavigationManager.NavigateTo("cocina");
-        else if (user.IsInRole("Delivery"))
+        else if (user.IsInRole("Delivery") || user.IsInRole("Pedidos"))
             NavigationManager.NavigateTo("pedidos");
     }
 }

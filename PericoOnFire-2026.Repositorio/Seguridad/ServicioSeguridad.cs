@@ -14,13 +14,21 @@ namespace PericoOnFire_2026.Repositorio.Seguridad
         private readonly MiDbContext context;
         private readonly UserManager<ApplicationUser> userManager;
         private readonly RoleManager<IdentityRole> roleManager;
+        private readonly ICifradoContrasenas cifrado;
+
+        // La copia cifrada de la contraseña se guarda en la tabla estándar de Identity AspNetUserTokens
+        // (no requiere migración y, a diferencia de un claim, nunca viaja dentro de la cookie de sesión).
+        private const string ProveedorToken = "PericoOnFire";
+        private const string NombreToken = "ContrasenaVisible";
 
         public ServicioSeguridad(MiDbContext context,
-                                 UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager)
+                                 UserManager<ApplicationUser> userManager, RoleManager<IdentityRole> roleManager,
+                                 ICifradoContrasenas cifrado)
         {
             this.context = context;
             this.userManager = userManager;
             this.roleManager = roleManager;
+            this.cifrado = cifrado;
         }
 
         public async Task<List<UsuarioRolDTO>> ObtenerUsuarios()
@@ -30,6 +38,17 @@ namespace PericoOnFire_2026.Repositorio.Seguridad
                 .AsNoTracking()
                 .ToListAsync();
 
+            // Nombre completo (tabla Usuarios) y quiénes tienen contraseña visible, en una sola consulta cada uno
+            var nombres = (await context.Usuarios.AsNoTracking().ToListAsync())
+                .GroupBy(x => x.IdApplicationUser)
+                .ToDictionary(g => g.Key, g => g.First().Nombre);
+
+            var conContrasenaVisible = new HashSet<string>(
+                await context.UserTokens
+                    .Where(t => t.LoginProvider == ProveedorToken && t.Name == NombreToken)
+                    .Select(t => t.UserId)
+                    .ToListAsync());
+
             var resultado = new List<UsuarioRolDTO>();
 
             foreach (var u in usuarios)
@@ -37,10 +56,18 @@ namespace PericoOnFire_2026.Repositorio.Seguridad
                 // GetRolesAsync consulta la tabla AspNetUserRoles de Identity
                 var roles = await userManager.GetRolesAsync(u);
 
+                if (!nombres.TryGetValue(u.Id, out var nombre))
+                {
+                    var claims = await userManager.GetClaimsAsync(u);
+                    nombre = claims.FirstOrDefault(c => c.Type == "nombre")?.Value ?? "";
+                }
+
                 resultado.Add(new UsuarioRolDTO
                 {
                     Id = u.Id,
                     Email = u.Email!,
+                    Nombre = nombre,
+                    TieneContrasenaVisible = cifrado.Habilitado && conContrasenaVisible.Contains(u.Id),
                     Roles = roles.ToList(),
                     Activo = u.LockoutEnd == null || u.LockoutEnd < DateTimeOffset.UtcNow
                 });
@@ -74,7 +101,9 @@ namespace PericoOnFire_2026.Repositorio.Seguridad
                 await using var tx = await context.Database.BeginTransactionAsync();
                 var nuevoUser = new ApplicationUser
                 {
-                    UserName = dto.Email, Email = dto.Email, EmailConfirmed = true
+                    UserName = dto.Email,
+                    Email = dto.Email,
+                    EmailConfirmed = true
                 };
                 var resultadoCrear = await userManager.CreateAsync(nuevoUser, dto.Contrasena);
                 if (!resultadoCrear.Succeeded)
@@ -85,10 +114,13 @@ namespace PericoOnFire_2026.Repositorio.Seguridad
                 var claim = await userManager.AddClaimAsync(nuevoUser, new System.Security.Claims.Claim("nombre", dto.Nombre));
                 if (!claim.Succeeded)
                     return ResultadoCrearEmpleado.ConErrores(claim.Errors.Select(e => TraducirErrorIdentity(e.Code)));
+                await GuardarContrasenaVisible(nuevoUser, dto.Contrasena);
                 context.Usuarios.Add(new PericoOnFire_2026.BD.Datos.Entity.Usuario
                 {
-                    IdApplicationUser = nuevoUser.Id, Nombre = dto.Nombre.Trim(),
-                    Activo = true, EstadoRegistro = EnumEstadoRegistro.activo
+                    IdApplicationUser = nuevoUser.Id,
+                    Nombre = dto.Nombre.Trim(),
+                    Activo = true,
+                    EstadoRegistro = EnumEstadoRegistro.activo
                 });
                 await context.SaveChangesAsync();
                 await tx.CommitAsync();
@@ -190,6 +222,8 @@ namespace PericoOnFire_2026.Repositorio.Seguridad
                     => "La contraseña debe tener al menos una letra minúscula.",
                 "PasswordRequiresUniqueChars"
                     => "La contraseña debe tener más caracteres distintos.",
+                "PasswordMismatch"
+                    => "La contraseña actual no es correcta.",
                 "DuplicateUserName"
                     => "Ya existe un usuario con ese nombre de usuario.",
                 "DuplicateEmail"
@@ -201,6 +235,78 @@ namespace PericoOnFire_2026.Repositorio.Seguridad
                 _
                     => $"Error de Identity: {codigo}."
             };
+        }
+
+        public class ResultadoContrasena
+        {
+            public bool Exitoso { get; set; }
+            public List<string> Errores { get; set; } = new();
+
+            public static ResultadoContrasena Ok() => new ResultadoContrasena { Exitoso = true };
+            public static ResultadoContrasena ConError(string error) =>
+                new ResultadoContrasena { Exitoso = false, Errores = new List<string> { error } };
+            public static ResultadoContrasena ConErrores(IEnumerable<string> errores) =>
+                new ResultadoContrasena { Exitoso = false, Errores = errores.ToList() };
+        }
+
+        // Guarda (cifrada) la contraseña en texto para que el admin y el propio usuario puedan verla.
+        // Si no hay clave de cifrado configurada, no hace nada.
+        public async Task GuardarContrasenaVisible(ApplicationUser usuario, string contrasena)
+        {
+            if (!cifrado.Habilitado) return;
+            var cifrada = cifrado.Cifrar(contrasena);
+            if (cifrada == null) return;
+            await userManager.SetAuthenticationTokenAsync(usuario, ProveedorToken, NombreToken, cifrada);
+        }
+
+        private async Task<string?> LeerContrasenaVisible(ApplicationUser usuario)
+        {
+            if (!cifrado.Habilitado) return null;
+            var cifrada = await userManager.GetAuthenticationTokenAsync(usuario, ProveedorToken, NombreToken);
+            return string.IsNullOrEmpty(cifrada) ? null : cifrado.Descifrar(cifrada);
+        }
+
+        public async Task<string?> ObtenerContrasenaVisiblePorEmail(string email)
+        {
+            var usuario = await userManager.FindByEmailAsync(email);
+            return usuario == null ? null : await LeerContrasenaVisible(usuario);
+        }
+
+        public async Task<string?> ObtenerContrasenaVisiblePorId(string idUsuario)
+        {
+            var usuario = await userManager.FindByIdAsync(idUsuario);
+            return usuario == null ? null : await LeerContrasenaVisible(usuario);
+        }
+
+        // El administrador define una contraseña nueva para otro usuario (cumple la misma política que al crearlo).
+        public async Task<ResultadoContrasena> EstablecerContrasena(EstablecerContrasenaDTO dto)
+        {
+            var usuario = await userManager.FindByEmailAsync(dto.Email);
+            if (usuario == null)
+                return ResultadoContrasena.ConError($"No se encontró el usuario {dto.Email}.");
+
+            var token = await userManager.GeneratePasswordResetTokenAsync(usuario);
+            var resultado = await userManager.ResetPasswordAsync(usuario, token, dto.ContrasenaNueva);
+            if (!resultado.Succeeded)
+                return ResultadoContrasena.ConErrores(resultado.Errors.Select(e => TraducirErrorIdentity(e.Code)));
+
+            await GuardarContrasenaVisible(usuario, dto.ContrasenaNueva);
+            return ResultadoContrasena.Ok();
+        }
+
+        // Cada usuario cambia su propia contraseña confirmando la actual.
+        public async Task<ResultadoContrasena> CambiarContrasenaPropia(string idUsuario, CambiarMiContrasenaDTO dto)
+        {
+            var usuario = await userManager.FindByIdAsync(idUsuario);
+            if (usuario == null)
+                return ResultadoContrasena.ConError("No se encontró el usuario.");
+
+            var resultado = await userManager.ChangePasswordAsync(usuario, dto.ContrasenaActual, dto.ContrasenaNueva);
+            if (!resultado.Succeeded)
+                return ResultadoContrasena.ConErrores(resultado.Errors.Select(e => TraducirErrorIdentity(e.Code)));
+
+            await GuardarContrasenaVisible(usuario, dto.ContrasenaNueva);
+            return ResultadoContrasena.Ok();
         }
 
         public async Task<ResultadoOperacionSeguridad> DesactivarUsuario(string email)
